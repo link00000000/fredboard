@@ -33,10 +33,12 @@ class DiscordClient():
         self.__session = aiohttp.ClientSession(headers=global_session_headers)
 
     async def close(self):
+        """Cleanup HTTP session."""
         await self.__session.close()
 
     @staticmethod
     def __raise_http_exception_if_error(response, method: str, route: str):
+        """Raise exception if there was an error with HTTP request."""
         if response.status == HttpStatusCode.OK.value:
             return
 
@@ -49,6 +51,7 @@ class DiscordClient():
         raise HTTPError(f"Unexpected response: {method.upper()} {route} - {response.status}")
 
     async def send_message(self, content: str, channel_id: str):
+        """Send a message to a Discord channel."""
         route = '/channels/' + channel_id + '/messages'
         create_message_body = {
             "content": content
