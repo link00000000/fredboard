@@ -26,7 +26,6 @@ def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_
     return play_audio
 
 def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";;"):
-    print("CReating stop binding")
     async def stop_audio():
         try:
             await client.send_message(command_prefix + "stop", channel_id)
@@ -66,6 +65,7 @@ async def main():
         await asyncio.sleep(0.1)
 
     hotkeys.stop_checking_hotkeys()
+    await discord.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -32,6 +32,9 @@ class DiscordClient():
 
         self.__session = aiohttp.ClientSession(headers=global_session_headers)
 
+    async def close(self):
+        await self.__session.close()
+
     @staticmethod
     def __raise_http_exception_if_error(response, method: str, route: str):
         if response.status == HttpStatusCode.OK.value:
