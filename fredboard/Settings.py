@@ -19,6 +19,8 @@ class Config():
     token: str
     channel_id: str
     command_prefix: str
+    stop_keybind: list[str]
+    quit_keybind: list[str]
     keybinds: list[KeyBind] = field(default_factory=list)
 
 class Settings:
@@ -32,14 +34,16 @@ class Settings:
                 token="Your Token Here",
                 channel_id="Your Channel ID Here",
                 command_prefix = ";;",
+                stop_keybind=["control", "shift", "0"],
+                quit_keybind=["control", "shift", "q"],
                 keybinds=[__default_keybind])
 
         if os.path.exists(path):
             try:
                 self.__read_file()
 
-            except (json.JSONDecodeError):
-                logger.info("Unable to decode config file. Generating clean config...")
+            except (json.JSONDecodeError, TypeError):
+                logger.info("Unable to parse config file. Generating clean config...")
 
                 self.config = __default_config
                 self.__write_file()

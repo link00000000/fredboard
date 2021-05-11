@@ -1,30 +1,66 @@
 import asyncio
 import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
-from fredboard import DiscordClient
+from fredboard import DiscordClient, RateLimitError, UnauthorizedError
 from fredboard import Settings
+from fredboard import logger
 
 is_running = True
 
-def shutdown():
+def exit():
     global is_running
     is_running = False
 
+def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_prefix = ";;"):
+    async def play_audio():
+        try:
+            await client.send_message(command_prefix + "play " + audio_url, channel_id)
+
+        except RateLimitError:
+            logger.error("Too many requests made to quickly. Try again later.")
+
+        except UnauthorizedError:
+            logger.error("Invalid login token. Set your login token in config.json")
+            exit()
+
+    return play_audio
+
+def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";;"):
+    print("CReating stop binding")
+    async def stop_audio():
+        try:
+            await client.send_message(command_prefix + "stop", channel_id)
+
+        except RateLimitError:
+            logger.error("Too many requests made to quickly. Try again later.")
+
+        except UnauthorizedError:
+            logger.error("Invalid login token. Set your login token in config.json")
+            exit()
+
+    return stop_audio
+
 async def main():
     settings = Settings("config.json")
-
-    quit_binding = [["control", "shift", "q"], None, shutdown]
-    bindings = [[
-        binding.sequence,
-        lambda: print("Pressed:", binding.audio),
-        lambda: print("Released:", binding.audio)
-    ] for binding in settings.config.keybinds] + [quit_binding]
-
-    hotkeys.register_hotkeys(bindings)
-    hotkeys.start_checking_hotkeys()
-
     discord = DiscordClient(settings.config.token)
-    await discord.send_message("Testing", "112948060086132736")
+
+    user_bindings = [[
+        binding.sequence,
+        None,
+        create_bind(discord, binding.audio, settings.config.channel_id)
+    ] for binding in settings.config.keybinds]
+
+    stop_binding = [
+        settings.config.stop_keybind,
+        None,
+        create_stop_bind(discord, settings.config.channel_id, settings.config.command_prefix)
+    ]
+
+    quit_binding = [settings.config.quit_keybind, None, exit]
+    
+
+    hotkeys.register_hotkeys(user_bindings + [stop_binding] + [quit_binding])
+    hotkeys.start_checking_hotkeys()
 
     while is_running:
         await asyncio.sleep(0.1)

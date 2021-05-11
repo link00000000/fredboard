@@ -10,12 +10,16 @@ class HttpStatusCode(Enum):
     OK = 200
 
     # 4xx
+    UNAUTHORIZED = 401
     TOO_MANY_REQUESTS = 429
 
 class HTTPError(RuntimeError):
     pass
 
-class RateLimit(HTTPError):
+class UnauthorizedError(HTTPError):
+    pass
+
+class RateLimitError(HTTPError):
     pass
 
 class DiscordClient():
@@ -33,8 +37,11 @@ class DiscordClient():
         if response.status == HttpStatusCode.OK.value:
             return
 
+        if response.status == HttpStatusCode.UNAUTHORIZED.value:
+            raise Unauthorized()
+
         if response.status == HttpStatusCode.TOO_MANY_REQUESTS.value:
-            raise RateLimit()
+            raise RateLimitError()
 
         raise HTTPError(f"Unexpected response: {method.upper()} {route} - {response.status}")
 
