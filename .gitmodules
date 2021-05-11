@@ -1,0 +1,3 @@
+[submodule "aioglobal-hotkeys"]
+	path = aioglobal-hotkeys
+	url = git@github.com:link00000000/aioglobal-hotkeys.git
