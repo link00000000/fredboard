@@ -17,6 +17,8 @@ class KeyBind:
 @dataclass
 class Config():
     token: str
+    channel_id: str
+    command_prefix: str
     keybinds: list[KeyBind] = field(default_factory=list)
 
 class Settings:
@@ -26,8 +28,11 @@ class Settings:
         self.path = path
 
         __default_keybind = KeyBind(["control", "shift", "5"], "https://www.youtube.com/your-audio")
-        __default_config = Config(token="Your Token Here", keybinds=[__default_keybind])
-
+        __default_config = Config(
+                token="Your Token Here",
+                channel_id="Your Channel ID Here",
+                command_prefix = ";;",
+                keybinds=[__default_keybind])
 
         if os.path.exists(path):
             try:
