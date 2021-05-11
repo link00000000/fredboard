@@ -1,6 +1,8 @@
 import asyncio
 import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
+from fredboard import Settings
+
 is_running = True
 
 def shutdown():
@@ -8,11 +10,16 @@ def shutdown():
     is_running = False
 
 async def main():
-    hotkeys.register_hotkeys([
-        [["control", "shift", "q"], None, shutdown],
-        [["control", "shift", "5"], lambda: print("Pressed"), lambda: print("Released")]
-    ])
+    settings = Settings("config.json")
 
+    quit_binding = [["control", "shift", "q"], None, shutdown]
+    bindings = [[
+        binding.sequence,
+        lambda: print("Pressed:", binding.audio),
+        lambda: print("Released:", binding.audio)
+    ] for binding in settings.config.keybinds] + [quit_binding]
+
+    hotkeys.register_hotkeys(bindings)
     hotkeys.start_checking_hotkeys()
 
     while is_running:
