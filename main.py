@@ -3,10 +3,9 @@ import os
 
 import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
-from fredboard import DiscordClient, RateLimitError, UnauthorizedError
-from fredboard import Settings, GeneratedConfigError
-from fredboard import logger
-from fredboard import YoutubeAPI
+from fredboard import (DiscordClient, RateLimitError,
+        UnauthorizedError, HTTPError, Settings, GeneratedConfigError,
+        logger, YoutubeAPI)
 
 is_running = True
 
@@ -26,6 +25,13 @@ def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_
             logger.error("Invalid login token. Did you set your login token in config.json?")
             exit()
 
+        except HTTPError as error:
+            if error.status == 400:
+                logger.error("Bad request. Did you set your channel id in config.json?")
+
+            else:
+                raise error
+
     return play_audio
 
 def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";;"):
@@ -39,6 +45,13 @@ def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";
         except UnauthorizedError:
             logger.error("Invalid login token. Did you set your login token in config.json?")
             exit()
+
+        except HTTPError as error:
+            if error.status == 400:
+                logger.error("Bad request. Did you set your channel id in config.json?")
+
+            else:
+                raise error
 
     return stop_audio
 

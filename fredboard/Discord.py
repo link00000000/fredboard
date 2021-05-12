@@ -49,7 +49,7 @@ class DiscordClient():
         if response.status == HttpStatusCode.TOO_MANY_REQUESTS.value:
             raise RateLimitError()
 
-        raise HTTPError(f"Unexpected response: {method.upper()} {route} - {response.status}")
+        raise HTTPError({"status": status, "message": f"Unexpected response: {method.upper()} {route} - {response.status}"})
 
     async def send_message(self, content: str, channel_id: str):
         """Send a message to a Discord channel."""
