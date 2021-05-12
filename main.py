@@ -67,7 +67,7 @@ async def main():
     try:
         logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
     except UnauthorizedError:
-        logger.error("Invalid login token. DId you set your login token in config.json?")
+        logger.error("Invalid login token. Did you set your login token in config.json?")
         return
 
     user_bindings = [[
