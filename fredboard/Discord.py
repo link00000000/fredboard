@@ -43,7 +43,7 @@ class DiscordClient():
             return
 
         if response.status == HttpStatusCode.UNAUTHORIZED.value:
-            raise Unauthorized()
+            raise UnauthorizedError()
 
         if response.status == HttpStatusCode.TOO_MANY_REQUESTS.value:
             raise RateLimitError()
