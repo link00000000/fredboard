@@ -6,6 +6,7 @@ import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 from fredboard import DiscordClient, RateLimitError, UnauthorizedError
 from fredboard import Settings, GeneratedConfigError
 from fredboard import logger
+from fredboard import YoutubeAPI
 
 is_running = True
 
@@ -65,9 +66,20 @@ async def main():
     ]
 
     quit_binding = [settings.config.quit_keybind, None, exit]
-    
-
     hotkeys.register_hotkeys(user_bindings + [stop_binding] + [quit_binding])
+
+    youtube = YoutubeAPI()
+    logger.info("Registered global keybinds:")
+    logger.info("\t" + "+".join(stop_binding[0]) + " - Stop")
+    logger.info("\t" + "+".join(quit_binding[0]) + " - Quit")
+    for bind in settings.config.keybinds:
+        if youtube.is_youtube_video(bind.audio):
+            logger.info("\t" + "+".join(bind.sequence) + ' - YouTube: ' + await youtube.video_title(bind.audio))
+        else:
+            logger.info("\t" + "+".join(bind.sequence) + ' - ' + bind.audio)
+
+    await youtube.close()
+
     hotkeys.start_checking_hotkeys()
 
     while is_running:

@@ -2,6 +2,8 @@ from enum import Enum
 
 import aiohttp
 
+from .Errors import HTTPError, UnauthorizedError, RateLimitError
+
 API_VERSION = 9
 BASE_URL = f"https://discord.com/api/v{API_VERSION}"
 
@@ -20,15 +22,6 @@ class HttpStatusCode(Enum):
     # 4xx
     UNAUTHORIZED = 401
     TOO_MANY_REQUESTS = 429
-
-class HTTPError(RuntimeError):
-    pass
-
-class UnauthorizedError(HTTPError):
-    pass
-
-class RateLimitError(HTTPError):
-    pass
 
 class DiscordClient():
     def __init__(self, token: str):
