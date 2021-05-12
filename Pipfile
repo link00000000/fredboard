@@ -15,4 +15,4 @@ pyinstaller = "*"
 python_version = "3.9"
 
 [scripts]
-build = "pyinstaller --onefile --name fredboard main.py"
+build = "pyinstaller --onefile --name fredboard --icon favicon.ico main.py"
