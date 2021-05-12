@@ -50,7 +50,7 @@ async def main():
         return
 
     discord = DiscordClient(settings.config.token)
-    logger.info("Logged in as {0.username}#{0.discriminator}".format(await discord.id()))
+    logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
 
     user_bindings = [[
         binding.sequence,
