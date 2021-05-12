@@ -32,7 +32,7 @@ class Settings:
     def __init__(self, path: str):
         self.path = path
 
-        __default_keybind = KeyBind(["control", "shift", "5"], "https://www.youtube.com/your-audio")
+        __default_keybind = KeyBind(["control", "shift", "5"], "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         __default_config = Config(
                 token="Your Token Here",
                 channel_id="Your Channel ID Here",
