@@ -1,0 +1,15 @@
+{
+    "configurations": {
+        "Debug project": {
+            "adapter": "debugpy",
+            "configuration": {
+                "name": "Debug project",
+                "type": "python",
+                "request": "launch",
+                "cwd": "${workspaceFolder}",
+                "console": "externalTerminal",
+                "program": "${workspaceFolder}/main.py"
+            }
+        }
+    }
+}
