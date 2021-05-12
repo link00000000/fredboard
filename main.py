@@ -23,7 +23,7 @@ def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_
             logger.error("Too many requests made too quickly. Try again later.")
 
         except UnauthorizedError:
-            logger.error("Invalid login token. Set your login token in config.json")
+            logger.error("Invalid login token. Did you set your login token in config.json?")
             exit()
 
     return play_audio
@@ -37,7 +37,7 @@ def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";
             logger.error("Too many requests made too quickly. Try again later.")
 
         except UnauthorizedError:
-            logger.error("Invalid login token. Set your login token in config.json")
+            logger.error("Invalid login token. Did you set your login token in config.json?")
             exit()
 
     return stop_audio
@@ -51,7 +51,11 @@ async def main():
         return
 
     discord = DiscordClient(settings.config.token)
-    logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
+    try:
+        logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
+    except UnauthorizedError:
+        logger.error("Invalid login token. DId you set your login token in config.json?")
+        return
 
     user_bindings = [[
         binding.sequence,
