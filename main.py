@@ -19,7 +19,7 @@ def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_
             await client.send_message(command_prefix + "play " + audio_url, channel_id)
 
         except RateLimitError:
-            logger.error("Too many requests made to quickly. Try again later.")
+            logger.error("Too many requests made too quickly. Try again later.")
 
         except UnauthorizedError:
             logger.error("Invalid login token. Set your login token in config.json")
@@ -33,7 +33,7 @@ def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";
             await client.send_message(command_prefix + "stop", channel_id)
 
         except RateLimitError:
-            logger.error("Too many requests made to quickly. Try again later.")
+            logger.error("Too many requests made too quickly. Try again later.")
 
         except UnauthorizedError:
             logger.error("Invalid login token. Set your login token in config.json")
@@ -50,6 +50,7 @@ async def main():
         return
 
     discord = DiscordClient(settings.config.token)
+    logger.info("Logged in as {0.username}#{0.discriminator}".format(await discord.id()))
 
     user_bindings = [[
         binding.sequence,

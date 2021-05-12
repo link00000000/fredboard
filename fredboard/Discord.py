@@ -5,6 +5,14 @@ import aiohttp
 API_VERSION = 9
 BASE_URL = f"https://discord.com/api/v{API_VERSION}"
 
+class _User:
+    username: str
+    discriminator: str
+
+    def __init__(self, api_response: dict):
+        self.username = api_response['username']
+        self.discriminator = api_response['discriminator']
+
 class HttpStatusCode(Enum):
     # 2xx
     OK = 200
@@ -60,3 +68,11 @@ class DiscordClient():
         async with self.__session.post(BASE_URL + route, json=create_message_body) as response:
             self.__raise_http_exception_if_error(response, 'POST', route)
 
+    async def id(self) -> _User:
+        """Get information about currently logged in user"""
+        route = '/users/@me'
+
+        async with self.__session.get(BASE_URL + route) as response:
+            self.__raise_http_exception_if_error(response, 'GET', route)
+
+            return _User(await response.json())
