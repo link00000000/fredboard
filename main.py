@@ -85,6 +85,8 @@ async def main():
     while is_running:
         await asyncio.sleep(0.1)
 
+    logger.info("Quitting...")
+
     hotkeys.stop_checking_hotkeys()
     await discord.close()
     
