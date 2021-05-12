@@ -4,7 +4,7 @@ import os
 import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
 from fredboard import DiscordClient, RateLimitError, UnauthorizedError
-from fredboard import Settings
+from fredboard import Settings, GeneratedConfigError
 from fredboard import logger
 
 is_running = True
@@ -42,7 +42,13 @@ def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";
     return stop_audio
 
 async def main():
-    settings = Settings("config.json")
+    settings: Settings
+    try:
+        settings = Settings("config.json")
+    except GeneratedConfigError:
+        logger.info("Generated config.json. Update config file before running again.")
+        return
+
     discord = DiscordClient(settings.config.token)
 
     user_bindings = [[

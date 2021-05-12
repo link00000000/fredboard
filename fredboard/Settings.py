@@ -23,6 +23,9 @@ class Config():
     quit_keybind: list[str]
     keybinds: list[KeyBind] = field(default_factory=list)
 
+class GeneratedConfigError(RuntimeError):
+    pass
+
 class Settings:
     config: Config
 
@@ -47,10 +50,12 @@ class Settings:
 
                 self.config = __default_config
                 self.__write_file()
+                raise GeneratedConfigError()
 
         else:
             self.config = __default_config
             self.__write_file()
+            raise GeneratedConfigError()
 
     def __write_file(self):
         """Write current in-memory config to the file system."""

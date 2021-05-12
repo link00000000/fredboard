@@ -6,9 +6,13 @@ name = "pypi"
 [packages]
 aiohttp = "*"
 pypiwin32 = "*"
+pydantic = "*"
 
 [dev-packages]
 pyinstaller = "*"
 
 [requires]
 python_version = "3.9"
+
+[scripts]
+build = "pyinstaller --onefile --name fredboard main.py"

@@ -92,3 +92,4 @@ stdout_handler.setFormatter(__formatter)
 stdout_handler.setLevel(logging.DEBUG)
 logger.addHandler(stdout_handler)
 
+logger.setLevel(logging.DEBUG)
