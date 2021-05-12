@@ -90,7 +90,7 @@ async def main():
     hotkeys.stop_checking_hotkeys()
     await discord.close()
     
-    os.system('pause')
-
 if __name__ == "__main__":
     asyncio.run(main())
+    os.system('pause')
+
