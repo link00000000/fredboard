@@ -5,8 +5,10 @@ name = "pypi"
 
 [packages]
 aiohttp = "*"
+pypiwin32 = "*"
 
 [dev-packages]
+pyinstaller = "*"
 
 [requires]
 python_version = "3.9"
