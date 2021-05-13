@@ -5,7 +5,7 @@ import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
 from fredboard import (DiscordClient, RateLimitError,
         UnauthorizedError, HTTPError, Settings, GeneratedConfigError,
-        logger, YoutubeAPI)
+        logger, YoutubeAPI, FredboatMusicBot, AbstractMusicBot)
 
 is_running = True
 shutdown = False
@@ -14,45 +14,15 @@ def exit():
     global shutdown
     shutdown = True
 
-def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_prefix = ";;"):
+def create_bind(music_bot: AbstractMusicBot, url: str):
     async def play_audio():
-        try:
-            await client.send_message(command_prefix + "play " + audio_url, channel_id)
-
-        except RateLimitError:
-            logger.error("Too many requests made too quickly. Try again later.")
-
-        except UnauthorizedError:
-            logger.error("Invalid login token. Did you set your login token in config.json?")
-            exit()
-
-        except HTTPError as error:
-            if error.status == 400:
-                logger.error("Bad request. Did you set your channel id in config.json?")
-
-            else:
-                raise error
+        await music_bot.start_audio(url)
 
     return play_audio
 
-def create_stop_bind(client: DiscordClient, channel_id: str, command_prefix = ";;"):
+def create_stop_bind(music_bot: AbstractMusicBot):
     async def stop_audio():
-        try:
-            await client.send_message(command_prefix + "stop", channel_id)
-
-        except RateLimitError:
-            logger.error("Too many requests made too quickly. Try again later.")
-
-        except UnauthorizedError:
-            logger.error("Invalid login token. Did you set your login token in config.json?")
-            exit()
-
-        except HTTPError as error:
-            if error.status == 400:
-                logger.error("Bad request. Did you set your channel id in config.json?")
-
-            else:
-                raise error
+        await music_bot.stop_audio()
 
     return stop_audio
 
@@ -86,16 +56,18 @@ async def main():
             logger.error("Invalid login token. Did you set your login token in config.json?")
             return
 
+        fredboat = FredboatMusicBot(discord, settings.config.channel_id, settings.config.command_prefix)
+
         user_bindings = [[
             binding.sequence,
             None,
-            create_bind(discord, binding.audio, settings.config.channel_id)
+            create_bind(fredboat, binding.audio)
         ] for binding in settings.config.keybinds]
 
         stop_binding = [
             settings.config.stop_keybind,
             None,
-            create_stop_bind(discord, settings.config.channel_id, settings.config.command_prefix)
+            create_stop_bind(fredboat)
         ]
 
         quit_binding = [settings.config.quit_keybind, None, exit]
