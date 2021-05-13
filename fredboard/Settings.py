@@ -4,6 +4,9 @@ import json
 import os
 import dataclasses
 from dataclasses import field
+from typing import Callable
+import asyncio
+import inspect
 
 from pydantic.dataclasses import dataclass
 
@@ -28,6 +31,8 @@ class GeneratedConfigError(RuntimeError):
 
 class Settings:
     config: Config
+
+    __on_change_callbacks = list[Callable]()
 
     def __init__(self, path: str):
         self.path = path
@@ -56,6 +61,33 @@ class Settings:
             self.config = __default_config
             self.__write_file()
             raise GeneratedConfigError()
+
+    def on_change(self, func):
+        self.__on_change_callbacks.append(func)
+        return func
+
+    def start_watching_file(self):
+        self.__is_watching = True
+        asyncio.create_task(self.__watch_file())
+
+    def stop_watching_file(self):
+        self.__is_watching = False
+
+    async def __watch_file(self):
+        last_change = os.path.getmtime('config.json')
+
+        while self.__is_watching:
+            if os.path.getmtime('config.json') != last_change:
+
+                last_change = os.path.getmtime('config.json')
+                for callback in self.__on_change_callbacks:
+                    self.__read_file()
+                    if inspect.iscoroutinefunction(callback):
+                        await callback()
+                    else:
+                        callback()
+            
+            await asyncio.sleep(0.25)
 
     def __write_file(self):
         """Write current in-memory config to the file system."""

@@ -8,10 +8,11 @@ from fredboard import (DiscordClient, RateLimitError,
         logger, YoutubeAPI)
 
 is_running = True
+shutdown = False
 
 def exit():
-    global is_running
-    is_running = False
+    global shutdown
+    shutdown = True
 
 def create_bind(client: DiscordClient, audio_url: str, channel_id: str, command_prefix = ";;"):
     async def play_audio():
@@ -62,52 +63,69 @@ async def main():
     except GeneratedConfigError:
         logger.info("Generated config.json. Update config file before running again.")
         return
+    
+    @settings.on_change
+    def on_settings_file_change():
+        logger.info("**Detected config.json change. Reloading config...**")
 
-    discord = DiscordClient(settings.config.token)
-    try:
-        logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
-    except UnauthorizedError:
-        logger.error("Invalid login token. Did you set your login token in config.json?")
-        return
+        global is_running
+        is_running = False
 
-    user_bindings = [[
-        binding.sequence,
-        None,
-        create_bind(discord, binding.audio, settings.config.channel_id)
-    ] for binding in settings.config.keybinds]
+    settings.start_watching_file()
 
-    stop_binding = [
-        settings.config.stop_keybind,
-        None,
-        create_stop_bind(discord, settings.config.channel_id, settings.config.command_prefix)
-    ]
+    while not shutdown:
+        global is_running
+        is_running = True
 
-    quit_binding = [settings.config.quit_keybind, None, exit]
-    hotkeys.register_hotkeys(user_bindings + [stop_binding] + [quit_binding])
+        hotkeys.clear_hotkeys()
 
-    youtube = YoutubeAPI()
-    logger.info("Registered global keybinds:")
-    logger.info("\t" + "+".join(stop_binding[0]) + " - Stop")
-    logger.info("\t" + "+".join(quit_binding[0]) + " - Quit")
-    for bind in settings.config.keybinds:
-        if youtube.is_youtube_video(bind.audio):
-            logger.info("\t" + "+".join(bind.sequence) + ' - YouTube: ' + await youtube.video_title(bind.audio))
-        else:
-            logger.info("\t" + "+".join(bind.sequence) + ' - ' + bind.audio)
+        discord = DiscordClient(settings.config.token)
+        try:
+            logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
+        except UnauthorizedError:
+            logger.error("Invalid login token. Did you set your login token in config.json?")
+            return
 
-    await youtube.close()
+        user_bindings = [[
+            binding.sequence,
+            None,
+            create_bind(discord, binding.audio, settings.config.channel_id)
+        ] for binding in settings.config.keybinds]
 
-    hotkeys.start_checking_hotkeys()
+        stop_binding = [
+            settings.config.stop_keybind,
+            None,
+            create_stop_bind(discord, settings.config.channel_id, settings.config.command_prefix)
+        ]
 
-    while is_running:
-        await asyncio.sleep(0.1)
+        quit_binding = [settings.config.quit_keybind, None, exit]
+        hotkeys.register_hotkeys(user_bindings + [stop_binding] + [quit_binding])
 
-    logger.info("Quitting...")
+        youtube = YoutubeAPI()
+        logger.info("Registered global keybinds:")
+        logger.info("\t" + "+".join(stop_binding[0]) + " - Stop")
+        logger.info("\t" + "+".join(quit_binding[0]) + " - Quit")
+        for bind in settings.config.keybinds:
+            if youtube.is_youtube_video(bind.audio):
+                logger.info("\t" + "+".join(bind.sequence) + ' - YouTube: ' + await youtube.video_title(bind.audio))
+            else:
+                logger.info("\t" + "+".join(bind.sequence) + ' - ' + bind.audio)
 
-    hotkeys.stop_checking_hotkeys()
-    await discord.close()
+        await youtube.close()
+
+        hotkeys.start_checking_hotkeys()
+
+        while is_running and not shutdown:
+            await asyncio.sleep(0.1)
+
+        hotkeys.stop_checking_hotkeys()
+        await discord.close()
+
+    settings.stop_watching_file()
     
 if __name__ == "__main__":
     asyncio.run(main())
-    os.system('pause')
+
+    if not shutdown:
+        os.system('pause')
 

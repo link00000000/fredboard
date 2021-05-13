@@ -7,6 +7,7 @@ name = "pypi"
 aiohttp = "*"
 pypiwin32 = "*"
 pydantic = "*"
+watchdog = "*"
 
 [dev-packages]
 pyinstaller = "*"

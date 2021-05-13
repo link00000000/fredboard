@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c88662eac2cf0e4d9e3cdae3d6869a9a122e82d8e50d33090a9205bbdd9415b9"
+            "sha256": "9881d0bbeb4631cb63019cdfb543e67291173b5dd9f045c35d4ae18da05e095c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -192,6 +192,29 @@
                 "sha256:779383f6086d90c99ae41cf0ff39aac8a7937a9283ce0a414e5dd782f4c94a84"
             ],
             "version": "==3.10.0.0"
+        },
+        "watchdog": {
+            "hashes": [
+                "sha256:027c532e2fd3367d55fe235510fc304381a6cc88d0dcd619403e57ffbd83c1d2",
+                "sha256:12645d41d7307601b318c48861e776ce7a9fdcad9f74961013ec39037050582c",
+                "sha256:16078cd241a95124acd4d8d3efba2140faec9300674b12413cc08be11b825d56",
+                "sha256:20d4cabfa2ad7239995d81a0163bc0264a3e104a64f33c6f0a21ad75a0d915d9",
+                "sha256:22c13c19599b0dec7192f8f7d26404d5223cb36c9a450e96430483e685dccd7e",
+                "sha256:2894440b4ea95a6ef4c5d152deedbe270cae46092682710b7028a04d6a6980f6",
+                "sha256:4d83c89ba24bd67b7a7d5752a4ef953ec40db69d4d30582bd1f27d3ecb6b61b0",
+                "sha256:5b391bac7edbdf96fb82a381d04829bbc0d1bb259c206b2b283ef8989340240f",
+                "sha256:604ca364a79c27a694ab10947cd41de81bf229cff507a3156bf2c56c064971a1",
+                "sha256:67c645b1e500cc74d550e9aad4829309c5084dc55e8dc4e1c25d5da23e5be239",
+                "sha256:9f1b124fe2d4a1f37b7068f6289c2b1eba44859eb790bf6bd709adff224a5469",
+                "sha256:a1b3f76e2a0713b406348dd5b9df2aa02bdd741a6ddf54f4c6410b395e077502",
+                "sha256:a9005f968220b715101d5fcdde5f5deda54f0d1873f618724f547797171f5e97",
+                "sha256:aa59afc87a892ed92d7d88d09f4b736f1336fc35540b403da7ee00c3be74bd07",
+                "sha256:c1325b47463fce231d88eb74f330ab0cb4a1bab5defe12c0c80a3a4f197345b4",
+                "sha256:dca75d12712997c713f76e6d68ff41580598c7df94cedf83f1089342e7709081",
+                "sha256:f3edbe1e15e229d2ba8ff5156908adba80d1ba21a9282d9f72247403280fc799"
+            ],
+            "index": "pypi",
+            "version": "==2.1.1"
         },
         "yarl": {
             "hashes": [
