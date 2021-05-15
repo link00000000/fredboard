@@ -4,6 +4,7 @@ from typing import Tuple
 from .Discord import DiscordClient
 from .MusicBots.Types import get_music_bot_type_by_name
 from .MusicBots.AbstractMusicBot import AbstractMusicBotConfig, AbstractMusicBot
+from .Logger import logger
 
 class BotRegister:
     @staticmethod
@@ -23,5 +24,13 @@ class BotRegister:
     @staticmethod
     async def initialize_music_bot_from_config(music_bot_config: AbstractMusicBotConfig, discord: DiscordClient) -> AbstractMusicBot:
         BotType, BotConfigType = get_music_bot_type_by_name(music_bot_config.name)
-        return BotType(discord, BotConfigType(**music_bot_config.dict()))
+        bot = BotType(discord, BotConfigType(**music_bot_config.dict()))
+
+        text_channel = await discord.text_channel(music_bot_config.channel_id)
+        guild = await discord.guild(text_channel.guild_id)
+
+        logger.info("Registered with Discord channels:")
+        logger.info("\t" + f"Using {bot.id} @ {guild.name} - {text_channel.name}")
+
+        return bot
 

@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import lru_cache
 
 import aiohttp
 
@@ -14,6 +15,20 @@ class _User:
     def __init__(self, api_response: dict):
         self.username = api_response['username']
         self.discriminator = api_response['discriminator']
+
+class _TextChannel:
+    name: str
+    guild_id: str
+
+    def __init__(self, api_response: dict):
+        self.name = api_response['name']
+        self.guild_id = api_response['guild_id']
+
+class _Guild:
+    name: str
+
+    def __init__(self, api_response: dict):
+        self.name = api_response['name']
 
 class HttpStatusCode(Enum):
     # 2xx
@@ -69,3 +84,23 @@ class DiscordClient():
             self.__raise_http_exception_if_error(response, 'GET', route)
 
             return _User(await response.json())
+
+    @lru_cache
+    async def text_channel(self, channel_id: str) -> _TextChannel:
+        """Get information about text channel with channel ID"""
+        route = '/channels/' + channel_id
+
+        async with self.__session.get(BASE_URL + route) as response:
+            self.__raise_http_exception_if_error(response, 'GET', route)
+
+            return _TextChannel(await response.json())
+
+    async def guild(self, guild_id: str) -> _Guild:
+        """Get information about guild with guild ID"""
+        route = '/guilds/' + guild_id
+
+        async with self.__session.get(BASE_URL + route) as response:
+            self.__raise_http_exception_if_error(response, 'GET', route)
+
+            return _Guild(await response.json())
+
