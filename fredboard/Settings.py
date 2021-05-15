@@ -7,7 +7,9 @@ import inspect
 
 from pydantic import BaseModel
 
-from fredboard.Logger import logger
+from .Logger import logger
+from .MusicBots.AbstractMusicBot import AbstractMusicBotConifg
+from .MusicBots.FredBoat import FredboatMusicBotConfig
 
 class KeyBind(BaseModel):
     sequence: list[str] 
@@ -15,11 +17,11 @@ class KeyBind(BaseModel):
 
 class Config(BaseModel):
     token: str
-    channel_id: str
     command_prefix: str
     stop_keybind: list[str]
     quit_keybind: list[str]
     keybinds: list[KeyBind] = []
+    music_bots: list[AbstractMusicBotConifg] = []
 
 class GeneratedConfigError(RuntimeError):
     pass
@@ -32,14 +34,15 @@ class Settings:
     def __init__(self, path: str):
         self.path = path
 
-        __default_keybind = KeyBind(sequence=["control", "shift", "5"], audio="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        __default_config = Config(
+        default_keybind = KeyBind(sequence=["control", "shift", "5"], audio="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        default_music_bot = FredboatMusicBotConfig(channel_id="Your channel ID here")
+        default_config = Config(
                 token="Your Token Here",
-                channel_id="Your Channel ID Here",
                 command_prefix = ";;",
                 stop_keybind=["control", "shift", "0"],
                 quit_keybind=["control", "shift", "q"],
-                keybinds=[__default_keybind])
+                keybinds=[default_keybind],
+                music_bots=[default_music_bot])
 
         if os.path.exists(path):
             try:
@@ -48,12 +51,12 @@ class Settings:
             except (json.JSONDecodeError, TypeError):
                 logger.info("Unable to parse config file. Generating clean config...")
 
-                self.config = __default_config
+                self.config = default_config
                 self.__write_file()
                 raise GeneratedConfigError()
 
         else:
-            self.config = __default_config
+            self.config = default_config
             self.__write_file()
             raise GeneratedConfigError()
 

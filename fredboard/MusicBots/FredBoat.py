@@ -1,6 +1,10 @@
-from .AbstractMusicBot import AbstractMusicBot
+from .AbstractMusicBot import AbstractMusicBot, AbstractMusicBotConifg
 from ..Discord import DiscordClient
 from ..Logger import logger
+
+class FredboatMusicBotConfig(AbstractMusicBotConifg):
+    name = "fredboat"
+    command_prefix: str = ";;"
 
 class FredboatMusicBot(AbstractMusicBot):
     def __init__(self, discord_client: DiscordClient, channel_id: str, command_prefix = ";;"):
