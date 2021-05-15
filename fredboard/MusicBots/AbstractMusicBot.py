@@ -1,15 +1,16 @@
 from abc import ABC, ABCMeta, abstractmethod
 
+import pydantic
 from pydantic import BaseModel
 
 class AbstractMusicBotConifg(BaseModel, ABC):
     name: str
     channel_id: str
 
-class AbstractMusicBot(metaclass=ABCMeta):
-    def __init__(self, config: AbstractMusicBotConifg):
-        self.config = config
+    class Config:
+        extra = pydantic.Extra.allow
 
+class AbstractMusicBot(metaclass=ABCMeta):
     @abstractmethod
     async def start_audio(self, url: str):
         raise NotImplemented()

@@ -8,9 +8,9 @@ class FredboatMusicBotConfig(AbstractMusicBotConifg):
 
 class FredboatMusicBot(AbstractMusicBot):
     def __init__(self, discord_client: DiscordClient, channel_id: str, command_prefix = ";;"):
-        super().__init__(channel_id)
 
         self.discord_client = discord_client
+        self.channel_id = channel_id
         self.command_prefix = command_prefix
 
     async def __send_message(self, message):

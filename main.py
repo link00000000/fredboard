@@ -56,7 +56,7 @@ async def main():
             logger.error("Invalid login token. Did you set your login token in config.json?")
             return
 
-        fredboat = FredboatMusicBot(discord, settings.config.channel_id, settings.config.command_prefix)
+        fredboat = FredboatMusicBot(discord, settings.config.music_bots[0].channel_id, settings.config.music_bots[0].command_prefix)
 
         user_bindings = [[
             binding.sequence,
