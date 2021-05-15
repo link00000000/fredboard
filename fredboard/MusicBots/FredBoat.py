@@ -1,21 +1,23 @@
-from .AbstractMusicBot import AbstractMusicBot, AbstractMusicBotConifg
+from .AbstractMusicBot import AbstractMusicBot, AbstractMusicBotConfig
 from ..Discord import DiscordClient
 from ..Logger import logger
+from ..Errors import RateLimitError, UnauthorizedError, HTTPError 
 
-class FredboatMusicBotConfig(AbstractMusicBotConifg):
-    name = "fredboat"
+class FredboatMusicBotConfig(AbstractMusicBotConfig):
+    id = "fredboat"
+    name: str = "fredboat"
     command_prefix: str = ";;"
 
 class FredboatMusicBot(AbstractMusicBot):
-    def __init__(self, discord_client: DiscordClient, channel_id: str, command_prefix = ";;"):
+    id = "fredboat"
 
+    def __init__(self, discord_client: DiscordClient, config: FredboatMusicBotConfig):
+        self.config = config
         self.discord_client = discord_client
-        self.channel_id = channel_id
-        self.command_prefix = command_prefix
 
     async def __send_message(self, message):
         try:
-            await self.discord_client.send_message(message, self.channel_id)
+            await self.discord_client.send_message(message, self.config.channel_id)
 
         except RateLimitError:
             logger.error("Too many requests made too quickly. Try again later.")
@@ -32,8 +34,8 @@ class FredboatMusicBot(AbstractMusicBot):
                 raise error
         
     async def start_audio(self, audio_url: str):
-        await self.__send_message(self.command_prefix + "play " + audio_url)
+        await self.__send_message(self.config.command_prefix + "play " + audio_url)
 
     async def stop_audio(self):
-        await self.__send_message(self.command_prefix + "stop")
+        await self.__send_message(self.config.command_prefix + "stop")
 

@@ -8,19 +8,27 @@ import inspect
 from pydantic import BaseModel
 
 from .Logger import logger
-from .MusicBots.AbstractMusicBot import AbstractMusicBotConifg
+from .MusicBots.AbstractMusicBot import AbstractMusicBotConfig
 from .MusicBots.FredBoat import FredboatMusicBotConfig
 
 class KeyBind(BaseModel):
     sequence: list[str] 
+
+class AudioKeyBind(KeyBind):
     audio: str
+
+class StopKeyBind(KeyBind):
+    pass
+
+class QuitKeyBind(KeyBind):
+    pass
 
 class Config(BaseModel):
     token: str
-    stop_keybind: list[str]
-    quit_keybind: list[str]
-    keybinds: list[KeyBind] = []
-    music_bots: list[AbstractMusicBotConifg] = []
+    stop_keybind: StopKeyBind
+    quit_keybind: QuitKeyBind
+    keybinds: list[AudioKeyBind] = []
+    music_bots: list[AbstractMusicBotConfig] = []
 
 class GeneratedConfigError(RuntimeError):
     pass
@@ -33,14 +41,17 @@ class Settings:
     def __init__(self, path: str):
         self.path = path
 
-        default_keybind = KeyBind(sequence=["control", "shift", "5"], audio="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        default_music_bot = FredboatMusicBotConfig(channel_id="Your channel ID here")
         default_config = Config(
                 token="Your Token Here",
-                stop_keybind=["control", "shift", "0"],
-                quit_keybind=["control", "shift", "q"],
-                keybinds=[default_keybind],
-                music_bots=[default_music_bot])
+                stop_keybind=StopKeyBind(sequence=["control", "shift", "0"]),
+                quit_keybind=QuitKeyBind(sequence=["control", "shift", "q"]),
+                keybinds=[
+                    AudioKeyBind(sequence=["control", "shift", "5"], audio="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                ],
+                music_bots=[
+                    FredboatMusicBotConfig(channel_id="Your channel ID here")
+                ]
+            )
 
         if os.path.exists(path):
             try:
@@ -58,15 +69,23 @@ class Settings:
             self.__write_file()
             raise GeneratedConfigError()
 
+    def __enter__(self):
+        self.__start_watching_file()
+        return self
+
+    def __exit__(self, *args):
+        if self.__is_watching:
+            self.__stop_watching_file()
+
     def on_change(self, func):
         self.__on_change_callbacks.append(func)
         return func
 
-    def start_watching_file(self):
+    def __start_watching_file(self):
         self.__is_watching = True
         asyncio.create_task(self.__watch_file())
 
-    def stop_watching_file(self):
+    def __stop_watching_file(self):
         self.__is_watching = False
 
     async def __watch_file(self):
