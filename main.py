@@ -9,6 +9,7 @@ from fredboard import (DiscordClient, RateLimitError,
 
 from fredboard.MusicBots.Types import get_music_bot_type_by_name
 from fredboard.BindRegister import BindRegiser
+from fredboard.BotRegister import BotRegister
 
 is_running = True
 shutdown = False
@@ -34,13 +35,12 @@ async def main():
                     logger.error("Invalid login token. Did you set your login token in config.json?")
                     return
 
-                music_bots = []
-                for bot_config in settings.config.music_bots:
-                    try:
-                        BotType, BotConfigType = get_music_bot_type_by_name(bot_config.name)
-                        music_bots.append(BotType(discord, BotConfigType(**bot_config.dict())))
-                    except TypeError as error:
-                        logger.error(error)
+                music_bots, bot_registration_exceptions = await BotRegister.initialize_music_bots_from_config(settings.config.music_bots, discord)
+                for exception in bot_registration_exceptions:
+                    logger.error(exception)
+
+                for bot in music_bots:
+                    logger.info(bot)
                 
                 async with BindRegiser(
                     keybinds=settings.config.keybinds + [settings.config.stop_keybind, settings.config.quit_keybind],
