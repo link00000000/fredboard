@@ -5,20 +5,29 @@ import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 from .Settings import KeyBind, StopKeyBind, QuitKeyBind, AudioKeyBind
 from .MusicBots.AbstractMusicBot import AbstractMusicBot
 from .MusicBots.Types import get_music_bot_type_by_name
+from .Logger import logger
+from .Youtube import YoutubeAPI
 
 class BindRegiser():
     def __init__(self, keybinds: list[KeyBind], music_bots: list[AbstractMusicBot]):
         self.on_quit_callbacks = set[Callable]()
 
+        self.stop_binding: StopKeyBind
+        self.quit_binding: QuitKeyBind
+        self.audio_bindings = list[AudioKeyBind]()
+
         bindings = []
         for keybind in keybinds:
             if isinstance(keybind, AudioKeyBind):
+                self.audio_bindings.append(keybind)
                 bindings.append([keybind.sequence, None, self.__create_bind(music_bots, keybind.audio)])
             
             elif isinstance(keybind, StopKeyBind):
+                self.stop_binding = keybind
                 bindings.append([keybind.sequence, None, self.__create_stop_bind(music_bots)])
 
             elif isinstance(keybind, QuitKeyBind):
+                self.quit_binding = keybind
                 bindings.append([keybind.sequence, None, self.__create_quit_bind()])
 
             else:
@@ -27,11 +36,23 @@ class BindRegiser():
         hotkeys.clear_hotkeys()
         hotkeys.register_hotkeys(bindings)
 
-    def __enter__(self):
+    async def __aenter__(self):
         hotkeys.start_checking_hotkeys()
+
+        # Log registered hotkeys
+        async with YoutubeAPI() as youtube:
+            logger.info("Registered global keybinds:")
+            logger.info("\t" + "+".join(self.stop_binding.sequence) + " - Stop")
+            logger.info("\t" + "+".join(self.quit_binding.sequence) + " - Quit")
+            for bind in self.audio_bindings:
+                if youtube.is_youtube_video(bind.audio):
+                    logger.info("\t" + "+".join(bind.sequence) + ' - YouTube: ' + await youtube.video_title(bind.audio))
+                else:
+                    logger.info("\t" + "+".join(bind.sequence) + ' - ' + bind.audio)
+
         return self
 
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         hotkeys.stop_checking_hotkeys()
 
     def __create_bind(self, music_bots: list[AbstractMusicBot], url: str):

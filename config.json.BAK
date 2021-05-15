@@ -1,0 +1,27 @@
+{
+    "token": "ODExMzQ3NzMxMzI1OTUyMDA.XyxXuQ.-HshEdPVtw-KYG-DX9-CImWyp00",
+    "channel_id": "112948060086132736",
+    "command_prefix": ";;",
+    "stop_keybind": [
+        "numpad_9"
+    ],
+    "quit_keybind": [
+        "control",
+        "shift",
+        "q"
+    ],
+    "keybinds": [
+        {
+            "sequence": [
+                "numpad_2"
+            ],
+            "audio": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        },
+        {
+            "sequence": [
+                "numpad_1"
+            ],
+            "audio": "https://www.youtube.com/watch?v=XAYhNHhxN0A"
+        }
+    ]
+}

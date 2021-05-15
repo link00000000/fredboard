@@ -42,7 +42,7 @@ async def main():
                     except TypeError as error:
                         logger.error(error)
                 
-                with BindRegiser(
+                async with BindRegiser(
                     keybinds=settings.config.keybinds + [settings.config.stop_keybind, settings.config.quit_keybind],
                     music_bots=music_bots
                 ) as bind_register:
@@ -67,14 +67,3 @@ if __name__ == "__main__":
     if not shutdown:
         os.system('pause')
 
-#youtube = YoutubeAPI()
-#logger.info("Registered global keybinds:")
-#logger.info("\t" + "+".join(stop_binding[0]) + " - Stop")
-#logger.info("\t" + "+".join(quit_binding[0]) + " - Quit")
-#for bind in settings.config.keybinds:
-#    if youtube.is_youtube_video(bind.audio):
-#        logger.info("\t" + "+".join(bind.sequence) + ' - YouTube: ' + await youtube.video_title(bind.audio))
-#    else:
-#        logger.info("\t" + "+".join(bind.sequence) + ' - ' + bind.audio)
-
-#await youtube.close()

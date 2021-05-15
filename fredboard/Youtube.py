@@ -15,8 +15,10 @@ class YoutubeAPI:
         self.__session = aiohttp.ClientSession()
         self.__cache = dict[str, dict]()
 
-    async def close(self):
-        """Cleanup HTTP session."""
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
         await self.__session.close()
 
     async def __fetch_video_data(self, video_url: str) -> dict:
