@@ -17,7 +17,6 @@ class KeyBind(BaseModel):
 
 class Config(BaseModel):
     token: str
-    command_prefix: str
     stop_keybind: list[str]
     quit_keybind: list[str]
     keybinds: list[KeyBind] = []
@@ -38,7 +37,6 @@ class Settings:
         default_music_bot = FredboatMusicBotConfig(channel_id="Your channel ID here")
         default_config = Config(
                 token="Your Token Here",
-                command_prefix = ";;",
                 stop_keybind=["control", "shift", "0"],
                 quit_keybind=["control", "shift", "q"],
                 keybinds=[default_keybind],
