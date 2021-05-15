@@ -1,30 +1,25 @@
 from __future__ import annotations
-
 import json
 import os
-import dataclasses
-from dataclasses import field
 from typing import Callable
 import asyncio
 import inspect
 
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel
 
 from fredboard.Logger import logger
 
-@dataclass
-class KeyBind:
+class KeyBind(BaseModel):
     sequence: list[str] 
     audio: str
 
-@dataclass
-class Config():
+class Config(BaseModel):
     token: str
     channel_id: str
     command_prefix: str
     stop_keybind: list[str]
     quit_keybind: list[str]
-    keybinds: list[KeyBind] = field(default_factory=list)
+    keybinds: list[KeyBind] = []
 
 class GeneratedConfigError(RuntimeError):
     pass
@@ -37,7 +32,7 @@ class Settings:
     def __init__(self, path: str):
         self.path = path
 
-        __default_keybind = KeyBind(["control", "shift", "5"], "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        __default_keybind = KeyBind(sequence=["control", "shift", "5"], audio="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         __default_config = Config(
                 token="Your Token Here",
                 channel_id="Your Channel ID Here",
@@ -107,9 +102,9 @@ class Settings:
         except IOError as error:
             logger.error(error)
 
-    def __to_json(self) -> str:
+    def __to_json(self) -> dict:
         """Convert in-memory config to JSON-valid Python object."""
-        return dataclasses.asdict(self.config)
+        return self.config.dict()
 
     def __from_json(self, data: str):
         """Convert JSON-valid Python object to in-memory config."""
