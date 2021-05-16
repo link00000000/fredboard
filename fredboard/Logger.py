@@ -92,4 +92,9 @@ stdout_handler.setFormatter(__formatter)
 stdout_handler.setLevel(logging.DEBUG)
 logger.addHandler(stdout_handler)
 
-logger.setLevel(logging.DEBUG)
+# Set the logging level of stdout to INFO if compiled to exe
+if getattr(sys, 'frozen', False):
+    logger.setLevel(logging.INFO)
+
+else:
+    logger.setLevel(logging.DEBUG)
