@@ -35,12 +35,11 @@ async def main():
                     logger.error("Invalid login token. Did you set your login token in config.json?")
                     return
 
-                music_bots, bot_registration_exceptions = await BotRegister.initialize_music_bots_from_config(settings.config.music_bots, discord)
+                music_bots, bot_registration_exceptions = await BotRegister.initialize_music_bots_from_config(
+                        settings.config.music_bots, discord)
+
                 for exception in bot_registration_exceptions:
                     logger.error(exception)
-
-                for bot in music_bots:
-                    logger.info(bot)
                 
                 async with BindRegiser(
                     keybinds=settings.config.keybinds + [settings.config.stop_keybind, settings.config.quit_keybind],

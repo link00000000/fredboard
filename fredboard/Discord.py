@@ -1,7 +1,8 @@
 from enum import Enum
-from functools import lru_cache
+import asyncio
 
 import aiohttp
+import discord as discordpy
 
 from .Errors import HTTPError, UnauthorizedError, RateLimitError
 
@@ -26,9 +27,11 @@ class _TextChannel:
 
 class _Guild:
     name: str
+    id: str
 
     def __init__(self, api_response: dict):
         self.name = api_response['name']
+        self.id = api_response['id']
 
 class HttpStatusCode(Enum):
     # 2xx
@@ -39,6 +42,14 @@ class HttpStatusCode(Enum):
     TOO_MANY_REQUESTS = 429
 
 class DiscordClient():
+    class _DiscordPyClient(discordpy.Client):
+        def run(self, token: str):
+            self.task = asyncio.create_task(self.start(token, bot=False))
+
+        async def stop(self):
+            if not self.is_closed():
+                await self.close()
+
     def __init__(self, token: str):
         self.__token = token
 
@@ -47,10 +58,13 @@ class DiscordClient():
         }
 
         self.__session = aiohttp.ClientSession(headers=global_session_headers)
+        self.__discordpy_client = self._DiscordPyClient()
+        self.__discordpy_client.run(token)
 
     async def close(self):
         """Cleanup HTTP session."""
         await self.__session.close()
+        await self.__discordpy_client.stop()
 
     @staticmethod
     def __raise_http_exception_if_error(response, method: str, route: str):
@@ -85,7 +99,6 @@ class DiscordClient():
 
             return _User(await response.json())
 
-    @lru_cache
     async def text_channel(self, channel_id: str) -> _TextChannel:
         """Get information about text channel with channel ID"""
         route = '/channels/' + channel_id
@@ -103,4 +116,13 @@ class DiscordClient():
             self.__raise_http_exception_if_error(response, 'GET', route)
 
             return _Guild(await response.json())
+
+    async def connected_voice_guild_id(self) -> _Guild:
+        """Get information about current voice channel guild"""
+        for guild in self.__discordpy_client.guilds:
+            if guild.me.voice is not None:
+                return _Guild({
+                    'id': str(guild.id),
+                    'name': str(guild.name)
+                })
 

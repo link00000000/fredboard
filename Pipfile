@@ -8,6 +8,7 @@ aiohttp = "*"
 pypiwin32 = "*"
 pydantic = "*"
 watchdog = "*"
+"discord.py" = "*"
 
 [dev-packages]
 pyinstaller = "*"

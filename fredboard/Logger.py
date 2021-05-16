@@ -24,7 +24,7 @@ class _AsyncHandler(ABC, object):
         Spawn a file logging handler on a separate thread and estabslish communication
         with the main thread.
         """
-        super(_AsyncHandler, self).__init__(*args, *kwargs)
+        super(_AsyncHandler, self).__init__(*args, **kwargs)
         self.__queue = Queue(-1)
         self.__thread = Thread(target=self.__loop)
         self.__thread.daemon = True
@@ -81,7 +81,7 @@ log_file = Path.resolve(Path.joinpath(log_file_dir, __log_file_name))
 
 # Setup async file logging handler
 Path.mkdir(log_file_dir, parents=True, exist_ok=True)
-file_handler = AsyncRotatingFileHanlder(log_file)
+file_handler = AsyncRotatingFileHanlder(log_file, encoding="utf-8")
 file_handler.setFormatter(__formatter)
 file_handler.setLevel(logging.INFO)
 logger.addHandler(file_handler)
