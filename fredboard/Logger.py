@@ -38,6 +38,7 @@ class _AsyncHandler(ABC, object):
         Args:
             record (logging.LogRecord): New log message
         """
+        record.msg = record.msg.encode('ascii', 'ignore').decode('utf-8')
         self.__queue.put(record)
 
     def __loop(self):
@@ -82,9 +83,9 @@ log_file = Path.resolve(Path.joinpath(log_file_dir, __log_file_name))
 
 # Setup async file logging handler
 Path.mkdir(log_file_dir, parents=True, exist_ok=True)
-file_handler = AsyncRotatingFileHanlder(log_file, encoding="utf-8")
+file_handler = AsyncRotatingFileHanlder(log_file)
 file_handler.setFormatter(__formatter)
-file_handler.setLevel(logging.INFO)
+file_handler.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 
 # Setup stdout logging handler
