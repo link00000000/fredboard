@@ -175,6 +175,7 @@ tags
 # End of https://www.toptal.com/developers/gitignore/api/python,vim
 
 config.json
+config.schema.json
 logs/
 *.log
 

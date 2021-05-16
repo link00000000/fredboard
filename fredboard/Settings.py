@@ -4,6 +4,8 @@ import os
 from typing import Callable
 import asyncio
 import inspect
+from io import TextIOWrapper
+import pathlib
 
 from pydantic import BaseModel
 
@@ -38,8 +40,14 @@ class Settings:
 
     __on_change_callbacks = list[Callable]()
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, schema_path = "config.schema.json"):
         self.path = path
+        self.schema_path = pathlib.Path(schema_path).resolve()
+
+        if not self.schema_path.exists():
+            with self.schema_path.open("w") as f:
+                logger.info("Writing schema file to " + schema_path)
+                self.__write_schema_file(f)
 
         default_config = Config(
                 token="Your Token Here",
@@ -68,6 +76,9 @@ class Settings:
             self.config = default_config
             self.__write_file()
             raise GeneratedConfigError()
+
+    def __write_schema_file(self, file: TextIOWrapper):
+        file.write(Config.schema_json(indent=4))
 
     def __enter__(self):
         self.__start_watching_file()
@@ -108,7 +119,11 @@ class Settings:
         """Write current in-memory config to the file system."""
         try:
             with open(self.path, 'w') as f:
-                json.dump(self.__to_json(), f, indent=4)
+                schema_json = {"$schema": "./" + str(self.schema_path.as_posix())}
+                config_json = self.__to_json()
+                schema_json.update(config_json)
+
+                json.dump(schema_json, f, indent=4)
 
         except IOError as error:
             logger.error(error)
