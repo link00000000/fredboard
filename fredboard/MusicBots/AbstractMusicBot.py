@@ -16,6 +16,10 @@ class AbstractMusicBotConfig(BaseModel, ABC):
         extra = pydantic.Extra.allow
 
 class AbstractMusicBot(metaclass=ABCMeta):
+    """
+    @NOTE Make sure to import any subclasses into __init__.py so that
+          it will be able to be reflexivly referenced.
+    """
     id: ClassVar[str]
 
     def __init__(self, discord_client: DiscordClient, config: AbstractMusicBotConfig):
@@ -44,7 +48,7 @@ class AbstractMusicBot(metaclass=ABCMeta):
     async def send_message_if_connected(self, message: str):
         connected_guild = await self.discord_client.connected_voice_guild_id()
         text_channel = await self.discord_client.text_channel(self.config.channel_id)
-        if connected_guild.id == text_channel.guild_id:
+        if connected_guild is not None and connected_guild.id == text_channel.guild_id:
             await self.send_message(message)
 
     @abstractmethod

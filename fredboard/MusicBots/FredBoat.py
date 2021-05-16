@@ -3,13 +3,15 @@ from ..Discord import DiscordClient
 from ..Logger import logger
 from ..Errors import RateLimitError, UnauthorizedError, HTTPError 
 
+_BOT_ID = "fredboat"
+
 class FredboatMusicBotConfig(AbstractMusicBotConfig):
-    id = "fredboat"
-    name: str = "fredboat"
+    id = _BOT_ID
+    name: str = _BOT_ID
     command_prefix: str = ";;"
 
 class FredboatMusicBot(AbstractMusicBot):
-    id = "fredboat"
+    id = _BOT_ID
 
     def __init__(self, discord_client: DiscordClient, config: FredboatMusicBotConfig):
         super().__init__(discord_client, config)

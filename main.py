@@ -44,7 +44,7 @@ async def main():
                             settings.config.music_bots, discord)
 
                     for exception in bot_registration_exceptions:
-                        logger.error(exception)
+                        logger.error(f"Failed to register bot {exception}")
                     
                     async with BindRegiser(
                         keybinds=settings.config.keybinds + [settings.config.stop_keybind, settings.config.quit_keybind],

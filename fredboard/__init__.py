@@ -6,3 +6,4 @@ from .Youtube import YoutubeAPI
 
 from .MusicBots.AbstractMusicBot import AbstractMusicBot
 from .MusicBots.FredBoat import FredboatMusicBot
+from .MusicBots.Rythm import RythmMusicBot
