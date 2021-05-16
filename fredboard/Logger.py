@@ -3,6 +3,7 @@ from logging import FileHandler, LogRecord
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 from pathlib import Path
 from sys import stdout
+import sys
 from abc import ABC
 from queue import Queue
 from threading import Thread
