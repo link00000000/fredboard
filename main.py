@@ -1,5 +1,6 @@
 import asyncio
 import os
+from signal import signal, SIGINT
 
 import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
@@ -13,6 +14,10 @@ from fredboard.BotRegister import BotRegister
 
 is_running = True
 shutdown = False
+
+def exit(*args):
+    global shutdown
+    shutdown = True
 
 async def main():
     try:
@@ -46,10 +51,7 @@ async def main():
                         music_bots=music_bots
                     ) as bind_register:
 
-                        @bind_register.on_quit
-                        def on_hotkey_quit():
-                            global shutdown
-                            shutdown = True
+                        bind_register.on_quit(exit)
 
                         while is_running and not shutdown:
                             await asyncio.sleep(0.1)
@@ -59,6 +61,8 @@ async def main():
         return
     
 if __name__ == "__main__":
+    signal(SIGINT, exit)
+
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
 
