@@ -5,12 +5,13 @@ from signal import signal, SIGINT
 import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
 
 from fredboard import (DiscordClient, RateLimitError,
-        UnauthorizedError, HTTPError, Settings, GeneratedConfigError,
+        UnauthorizedError, HTTPError, Settings, 
         logger, YoutubeAPI, FredboatMusicBot, AbstractMusicBot)
 
 from fredboard.MusicBots.Types import get_music_bot_type_by_name
 from fredboard.BindRegister import BindRegiser
 from fredboard.BotRegister import BotRegister
+from fredboard.Errors import GeneratedConfigError, MalformedConfigError
 
 is_running = True
 shutdown = False
@@ -58,6 +59,10 @@ async def main():
 
     except GeneratedConfigError:
         logger.info("Generated config.json. Update config file before running again.")
+        return
+
+    except MalformedConfigError:
+        logger.error("Unable to parse config file. Remove config.json to generate a clean config.")
         return
     
 if __name__ == "__main__":

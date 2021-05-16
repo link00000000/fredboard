@@ -7,11 +7,12 @@ import inspect
 from io import TextIOWrapper
 import pathlib
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .Logger import logger
 from .MusicBots.AbstractMusicBot import AbstractMusicBotConfig
 from .MusicBots.FredBoat import FredboatMusicBotConfig
+from .Errors import GeneratedConfigError, MalformedConfigError
 
 class KeyBind(BaseModel):
     sequence: list[str] 
@@ -32,13 +33,12 @@ class Config(BaseModel):
     keybinds: list[AudioKeyBind] = []
     music_bots: list[AbstractMusicBotConfig] = []
 
-class GeneratedConfigError(RuntimeError):
-    pass
 
 class Settings:
     config: Config
 
     __on_change_callbacks = list[Callable]()
+    __is_watching = False
 
     def __init__(self, path: str, schema_path = "config.schema.json"):
         self.path = path
@@ -66,11 +66,7 @@ class Settings:
                 self.__read_file()
 
             except (json.JSONDecodeError, TypeError):
-                logger.info("Unable to parse config file. Generating clean config...")
-
-                self.config = default_config
-                self.__write_file()
-                raise GeneratedConfigError()
+                raise MalformedConfigError()
 
         else:
             self.config = default_config
@@ -106,8 +102,13 @@ class Settings:
             if os.path.getmtime('config.json') != last_change:
 
                 last_change = os.path.getmtime('config.json')
-                for callback in self.__on_change_callbacks:
+                try:
                     self.__read_file()
+                except MalformedConfigError:
+                    logger.warning("Malformed config! Not reloading config.")
+                    continue
+
+                for callback in self.__on_change_callbacks:
                     if inspect.iscoroutinefunction(callback):
                         await callback()
                     else:
@@ -143,4 +144,8 @@ class Settings:
 
     def __from_json(self, data: str):
         """Convert JSON-valid Python object to in-memory config."""
-        self.config = Config(**data)
+        try:
+            self.config = Config(**data)
+        except ValidationError as error:
+            raise MalformedConfigError("Missing required fields") from error
+
