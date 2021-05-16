@@ -28,33 +28,31 @@ async def main():
                 global is_running
                 is_running = True
 
-                discord = DiscordClient(settings.config.token)
-                try:
-                    logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
-                except UnauthorizedError:
-                    logger.error("Invalid login token. Did you set your login token in config.json?")
-                    return
+                async with DiscordClient(settings.config.token) as discord:
+                    try:
+                        logger.info("Connected as {0.username}#{0.discriminator}".format(await discord.id()))
+                    except UnauthorizedError:
+                        logger.error("Invalid login token. Did you set your login token in config.json?")
+                        return
 
-                music_bots, bot_registration_exceptions = await BotRegister.initialize_music_bots_from_config(
-                        settings.config.music_bots, discord)
+                    music_bots, bot_registration_exceptions = await BotRegister.initialize_music_bots_from_config(
+                            settings.config.music_bots, discord)
 
-                for exception in bot_registration_exceptions:
-                    logger.error(exception)
-                
-                async with BindRegiser(
-                    keybinds=settings.config.keybinds + [settings.config.stop_keybind, settings.config.quit_keybind],
-                    music_bots=music_bots
-                ) as bind_register:
+                    for exception in bot_registration_exceptions:
+                        logger.error(exception)
+                    
+                    async with BindRegiser(
+                        keybinds=settings.config.keybinds + [settings.config.stop_keybind, settings.config.quit_keybind],
+                        music_bots=music_bots
+                    ) as bind_register:
 
-                    @bind_register.on_quit
-                    def on_hotkey_quit():
-                        global shutdown
-                        shutdown = True
+                        @bind_register.on_quit
+                        def on_hotkey_quit():
+                            global shutdown
+                            shutdown = True
 
-                    while is_running and not shutdown:
-                        await asyncio.sleep(0.1)
-
-                await discord.close()
+                        while is_running and not shutdown:
+                            await asyncio.sleep(0.1)
 
     except GeneratedConfigError:
         logger.info("Generated config.json. Update config file before running again.")

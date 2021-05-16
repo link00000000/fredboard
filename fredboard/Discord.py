@@ -61,6 +61,12 @@ class DiscordClient():
         self.__discordpy_client = self._DiscordPyClient()
         self.__discordpy_client.run(token)
 
+    async def __aenter__(self):
+        pass
+
+    async def __aexit__(self, *args):
+        await self.close()
+
     async def close(self):
         """Cleanup HTTP session."""
         await self.__session.close()
