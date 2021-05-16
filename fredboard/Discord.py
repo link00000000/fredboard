@@ -62,7 +62,7 @@ class DiscordClient():
         self.__discordpy_client.run(token)
 
     async def __aenter__(self):
-        pass
+        return self
 
     async def __aexit__(self, *args):
         await self.close()
