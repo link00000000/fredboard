@@ -9,6 +9,7 @@ pypiwin32 = "*"
 pydantic = "*"
 watchdog = "*"
 "discord.py" = "*"
+colorama = "*"
 
 [dev-packages]
 pyinstaller = "*"

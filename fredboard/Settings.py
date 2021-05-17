@@ -104,7 +104,7 @@ class Settings:
                 last_change = os.path.getmtime('config.json')
                 try:
                     self.__read_file()
-                except MalformedConfigError:
+                except (MalformedConfigError, json.JSONDecodeError):
                     logger.warning("Malformed config! Not reloading config.")
                     continue
 

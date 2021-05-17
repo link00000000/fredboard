@@ -8,7 +8,26 @@ from abc import ABC
 from queue import Queue
 from threading import Thread
 
-__formatter = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+from colorama import Fore, Style
+
+class _ColoredFormatter(logging.Formatter):
+    COLORS = {
+        'WARNING': Fore.YELLOW,
+        'INFO': Fore.CYAN,
+        'DEBUG': Fore.MAGENTA,
+        'CRITICAL': Fore.YELLOW,
+        'ERROR': Fore.RED
+    }
+
+    def format(self, record: LogRecord):
+        level = record.levelname
+        record.levelname = self.COLORS[record.levelname] + record.levelname + Style.RESET_ALL
+
+        return logging.Formatter.format(self, record)
+        
+
+__formatter = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+__colored_formatter = _ColoredFormatter("[%(asctime)s] %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 class _AsyncHandler(ABC, object):
     """
@@ -90,7 +109,7 @@ logger.addHandler(file_handler)
 
 # Setup stdout logging handler
 stdout_handler = logging.StreamHandler(stdout)
-stdout_handler.setFormatter(__formatter)
+stdout_handler.setFormatter(__colored_formatter)
 stdout_handler.setLevel(logging.DEBUG)
 logger.addHandler(stdout_handler)
 
