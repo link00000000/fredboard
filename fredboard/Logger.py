@@ -10,6 +10,8 @@ from threading import Thread
 
 from colorama import Fore, Style
 
+from .Arguments import arguments
+
 class _ColoredFormatter(logging.Formatter):
     COLORS = {
         'WARNING': Fore.YELLOW,
@@ -109,7 +111,7 @@ logger.addHandler(file_handler)
 
 # Setup stdout logging handler
 stdout_handler = logging.StreamHandler(stdout)
-stdout_handler.setFormatter(__colored_formatter)
+stdout_handler.setFormatter(__colored_formatter if arguments.enable_colored_output else __formatter)
 stdout_handler.setLevel(logging.DEBUG)
 logger.addHandler(stdout_handler)
 
