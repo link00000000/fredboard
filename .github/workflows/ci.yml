@@ -42,7 +42,7 @@ jobs:
             - name: Generate metadata with version
               if: startsWith(github.ref, 'refs/tags/v')
               run: |
-                pipenv run generate-version-file --version ${{ steps.version.outputs.group1 }}
+                pipenv run generate-version-file --version ${{ steps.version.outputs.match }}
 
             - name: Generate metadata without version
               if: "!startsWith(github.ref, 'refs/tags/v')"
