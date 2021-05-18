@@ -1,17 +1,17 @@
 import asyncio
+from fredboard.GitHub import GitHub
 import os
 from signal import signal, SIGINT
 
-import aioglobal_hotkeys.aioglobal_hotkeys as hotkeys
-
-from fredboard import (DiscordClient, RateLimitError,
-        UnauthorizedError, HTTPError, Settings, 
-        logger, YoutubeAPI, FredboatMusicBot, AbstractMusicBot)
-
-from fredboard.MusicBots.Types import get_music_bot_type_by_name
+from fredboard.Logger import logger
+from fredboard.Discord import DiscordClient
+from fredboard.Settings import Settings
 from fredboard.BindRegister import BindRegiser
 from fredboard.BotRegister import BotRegister
-from fredboard.Errors import GeneratedConfigError, MalformedConfigError
+from fredboard.Errors import GeneratedConfigError, MalformedConfigError, UnauthorizedError
+from fredboard.Metadata import metadata
+
+REPOSITORY = "link00000000/fredboard"
 
 is_running = True
 shutdown = False
@@ -29,6 +29,17 @@ async def main():
 
                 global is_running
                 is_running = False
+
+            async with GitHub(REPOSITORY) as github:
+                release = await github.latest_release()
+                download_asset = [a for a in release.assets if a.name == 'fredboard.exe'][0]
+
+                current_version = 'v' + metadata.Version
+                latest_release_version = release.tag_name
+
+                if current_version != latest_release_version:
+                    logger.info(f"Newer version of FredBoard available ({current_version} -> {latest_release_version})")
+                    logger.info(f"Download at {download_asset.browser_download_url}")
 
             while not shutdown:
                 global is_running

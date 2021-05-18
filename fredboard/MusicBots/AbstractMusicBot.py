@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from ..Discord import DiscordClient
 from ..Logger import logger
+from ..Errors import RateLimitError, UnauthorizedError, HTTPError
 
 class AbstractMusicBotConfig(BaseModel, ABC):
     id: ClassVar[str]

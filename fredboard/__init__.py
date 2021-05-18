@@ -1,9 +1,7 @@
-from .Discord import DiscordClient
-from .Errors import RateLimitError, UnauthorizedError, HTTPError
-from .Logger import logger
-from .Settings import Settings, GeneratedConfigError
-from .Youtube import YoutubeAPI
-
-from .MusicBots.AbstractMusicBot import AbstractMusicBot
-from .MusicBots.FredBoat import FredboatMusicBot
-from .MusicBots.Rythm import RythmMusicBot
+"""
+All subclasses of AbstractMusicBot must be imported
+here to be referenced reflexively. They do not need to
+be imported elsewhere from this file.
+"""
+from .MusicBots.FredBoat import *
+from .MusicBots.Rythm import *
