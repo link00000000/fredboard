@@ -30,16 +30,17 @@ async def main():
                 global is_running
                 is_running = False
 
-            async with GitHub(REPOSITORY) as github:
-                release = await github.latest_release()
-                download_asset = [a for a in release.assets if a.name == 'fredboard.exe'][0]
+            if metadata.Version != 'Development':
+                async with GitHub(REPOSITORY) as github:
+                    release = await github.latest_release()
+                    download_asset = [a for a in release.assets if a.name == 'fredboard.exe'][0]
 
-                current_version = 'v' + metadata.Version
-                latest_release_version = release.tag_name
+                    current_version = 'v' + metadata.Version
+                    latest_release_version = release.tag_name
 
-                if current_version != latest_release_version:
-                    logger.info(f"Newer version of FredBoard available ({current_version} -> {latest_release_version})")
-                    logger.info(f"Download at {download_asset.browser_download_url}")
+                    if current_version != latest_release_version:
+                        logger.info(f"Newer version of FredBoard available ({current_version} -> {latest_release_version})")
+                        logger.info(f"Download at {download_asset.browser_download_url}")
 
             while not shutdown:
                 global is_running
