@@ -15,3 +15,6 @@ class GeneratedConfigError(ConfigError):
 
 class MalformedConfigError(ConfigError):
     pass
+
+class NotFrozenError(RuntimeError):
+    pass

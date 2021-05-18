@@ -11,6 +11,7 @@ from threading import Thread
 from colorama import Fore, Style
 
 from .Arguments import arguments
+from .Utils import is_frozen
 
 class _ColoredFormatter(logging.Formatter):
     COLORS = {
@@ -116,7 +117,7 @@ stdout_handler.setLevel(logging.DEBUG)
 logger.addHandler(stdout_handler)
 
 # Set the logging level of stdout to INFO if compiled to exe
-if getattr(sys, 'frozen', False):
+if is_frozen():
     logger.setLevel(logging.INFO)
 
 else:
