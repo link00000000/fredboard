@@ -39,10 +39,15 @@ jobs:
                   text: ${{ steps.tagName.outputs.tag }}
                   regex: '(\d+\.\d+\.\d+)'
 
-            - name: Generate metadata
+            - name: Generate metadata with version
               if: startsWith(github.ref, 'refs/tags/v')
               run: |
                 pipenv run generate-version-file --version ${{ steps.version.outputs.group1 }}
+
+            - name: Generate metadata without version
+              if: "!startsWith(github.ref, 'refs/tags/v')"
+              run: |
+                pipenv run generate-version-file
 
             - name: Build executable
               run: |
