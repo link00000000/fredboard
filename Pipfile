@@ -20,6 +20,6 @@ pyinstaller-versionfile = "*"
 python_version = "3.9"
 
 [scripts]
-generate-version-file = "create-version-file metadata.yml --outfile file_version_info.txt --version"
+generate-version-file = "create-version-file metadata.yml --outfile file_version_info.txt"
 build = "pyinstaller --onefile --name fredboard --icon favicon.ico main.py --add-data \"metadata.yml;metadata.yml\" --version-file file_version_info.txt"
 

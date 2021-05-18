@@ -178,4 +178,5 @@ config.json
 config.schema.json
 logs/
 *.log
+file_version_info.txt
 
