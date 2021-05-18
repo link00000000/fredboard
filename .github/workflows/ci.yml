@@ -47,7 +47,7 @@ jobs:
             - name: Generate metadata without version
               if: "!startsWith(github.ref, 'refs/tags/v')"
               run: |
-                  pipenv run generate-version-file
+                  pipenv run generate-metadata-file
 
             - name: Build executable
               run: |
