@@ -4,5 +4,5 @@ build : *.go
 
 .PHONY: run
 run :
-	go run .
+	dotenv -- go run .
 

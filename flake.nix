@@ -33,6 +33,7 @@
             golangci-lint
 
             gnumake
+            dotenv-cli
           ];
         };
       });
