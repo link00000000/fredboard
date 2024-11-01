@@ -34,6 +34,7 @@
 
             gnumake
             dotenv-cli
+            yt-dlp
           ];
         };
       });
