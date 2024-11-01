@@ -1,12 +1,12 @@
 package main
 
 import (
-	"log/slog"
-	"os"
-	"os/signal"
-	"strings"
+  "log/slog"
+  "os"
+  "os/signal"
+  "strings"
 
-	"github.com/bwmarrin/discordgo"
+  "github.com/bwmarrin/discordgo"
 )
 
 var logger = slog.Default()
