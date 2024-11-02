@@ -5,7 +5,7 @@ import (
 	"log/slog"
   "os"
 	"os/signal"
-	"strings"
+  "strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -155,8 +155,29 @@ func onInteractionCreate(s *discordgo.Session, e *discordgo.InteractionCreate) {
         logger.Error("Failed to respond to interaction /yt", "event", e, "error", err)
         return
       }
-
       logger.Debug("Responded to interaction /yt", "event", e, "response", res)
+
+      g, err := s.State.Guild(e.GuildID)
+      if err != nil {
+        logger.Error("Failed to get guild", "event", e, "guildId", e.GuildID)
+        return
+      }
+      logger.Debug("Got guild for interaction", "event", e, "guild", g)
+
+      var vcId string
+      for _, vs := range g.VoiceStates {
+        if vs.UserID == e.Member.User.ID {
+          vcId = vs.ChannelID
+          break
+        }
+      }
+
+      if vcId == "" {
+        logger.Error("Sender is not in an accessible voice channel", "event", e)
+        return
+      }
+      logger.Debug("Sender in voice channel", "event", e, "voiceChannelId", vcId)
+
       return
     }
 

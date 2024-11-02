@@ -6,3 +6,7 @@ build : *.go
 run :
 	dotenv -- go run .
 
+.PHONY: debug
+debug :
+	dotenv -- dlv debug .
+

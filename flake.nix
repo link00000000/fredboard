@@ -1,7 +1,6 @@
 {
   description = "A Nix-flake-based Go 1.23 development environment";
-
-  inputs = {
+inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
@@ -25,19 +24,18 @@
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            # go (version is specified by overlay)
+            # Dev dependencies
             go
-
-            # goimports, godoc, etc.
             gotools
-
-            # https://github.com/golangci/golangci-lint
             golangci-lint
-
+            delve
             gnumake
+
+            # Runtime dependencies
             dotenv-cli
             yt-dlp
           ];
+          hardeningDisable = [ "fortify" ]; # Required to prevent error when running `dlv test`
         };
       });
     };
