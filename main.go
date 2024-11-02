@@ -1,12 +1,13 @@
 package main
 
 import (
-  "log/slog"
+	"fmt"
+	"log/slog"
   "os"
-  "os/signal"
-  "strings"
+	"os/signal"
+	"strings"
 
-  "github.com/bwmarrin/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 var logger = slog.Default()
@@ -145,7 +146,7 @@ func onInteractionCreate(s *discordgo.Session, e *discordgo.InteractionCreate) {
       res := &discordgo.InteractionResponse{
         Type: discordgo.InteractionResponseChannelMessageWithSource,
         Data: &discordgo.InteractionResponseData{
-          Content: "YouTube video will now play...",
+          Content: fmt.Sprintf("YouTube video will now play... { %#+v }", url),
         },
       }
 
