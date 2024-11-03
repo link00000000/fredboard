@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"log/slog"
-  "os"
+	"os"
 	"os/signal"
-  "strings"
+	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -177,6 +180,62 @@ func onInteractionCreate(s *discordgo.Session, e *discordgo.InteractionCreate) {
         return
       }
       logger.Debug("Sender in voice channel", "event", e, "voiceChannelId", vcId)
+
+      vc, err := s.ChannelVoiceJoin(e.GuildID, vcId, false, true)
+      if err != nil {
+        logger.Error("Failed to join voice channel", "event", e, "voiceChannelId", vcId, "error", err)
+        return
+      }
+      defer vc.Disconnect()
+
+      time.Sleep(250 * time.Millisecond)
+
+      file, err := os.Open("assets/airhorn.dca")
+      if err != nil {
+        logger.Error("Failed to open assets/airhorn.dca", "error", err)
+        return
+      }
+      defer func() { 
+        err := file.Close()
+        if err != nil {
+          logger.Error("Failed to close assets/airhorn.dca", "error", err)
+        }
+      }()
+
+      err = vc.Speaking(true)
+      if err != nil {
+        logger.Error("Error while setting speaking status: true", "event", e, "voiceCHannel", vc)
+        return
+      }
+
+      defer func() {
+        err := vc.Speaking(false)
+        if err != nil {
+        logger.Error("Error while setting speaking status: false", "event", e, "voiceCHannel", vc)
+        }
+      }()
+
+      for {
+        var frameSize int16
+        if err = binary.Read(file, binary.LittleEndian, &frameSize); err == io.EOF || err == io.ErrUnexpectedEOF {
+          logger.Debug("Reached EOF for assets/airhorn.dca")
+          break
+        } else if err != nil {
+          logger.Error("Error while reading next frame size from assets/airhorn.dca", "error", err)
+          return
+        } else {
+          logger.Debug("Read OPUS frame size", "frameSize", frameSize)
+        }
+
+        buf := make([]byte, frameSize)
+        err = binary.Read(file, binary.LittleEndian, &buf)
+        if err != nil {
+          logger.Error("Error while reading data from assets/airhorn.dca", "error", err)
+          return
+        }
+
+        vc.OpusSend <- buf
+      }
 
       return
     }
