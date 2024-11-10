@@ -30,10 +30,12 @@ inputs = {
             golangci-lint
             delve
             gnumake
+            vlc
 
             # Runtime dependencies
             dotenv-cli
             yt-dlp
+            ffmpeg
           ];
           hardeningDisable = [ "fortify" ]; # Required to prevent error when running `dlv test`
         };
