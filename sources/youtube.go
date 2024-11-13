@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+
+	"accidentallycoded.com/fredboard/v3/codecs"
 )
 
 type YouTubeQuality string
@@ -75,14 +77,16 @@ func (s *YouTubeStream) Start(dataChannel chan []byte, errChannel chan error) er
   } else {
     go func() {
       for {
-        buf := make([]byte, 0xff)
-        if _, err := ffmpegStdout.Read(buf); err == io.EOF || err == io.ErrUnexpectedEOF {
+        reader := codecs.NewOggOpusReader(ffmpegStdout)
+        if _, pkt, err := reader.ReadNextPacket(); err == io.EOF || err == io.ErrUnexpectedEOF {
           return
         } else if err != nil {
           errChannel <- err
           return
         } else {
-          dataChannel <- buf
+          for _, s := range pkt.Segments {
+            dataChannel <- s
+          }
         }
       }
     }()

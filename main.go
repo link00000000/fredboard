@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
+	"accidentallycoded.com/fredboard/v3/codecs"
 	"accidentallycoded.com/fredboard/v3/sources"
 	"github.com/bwmarrin/discordgo"
 )
@@ -19,13 +22,13 @@ type DiscordBot struct {
 }
 
 func NewDiscordBot(appId, pubilcKey, token string) (*DiscordBot, error) {
-  b := &DiscordBot{}
+	b := &DiscordBot{}
 
 	if session, err := discordgo.New("Bot " + token); err != nil {
-    return nil, err
-  } else {
-    b.Session = session
-  }
+		return nil, err
+	} else {
+		b.Session = session
+	}
 
 	logger.Debug("Registering handlers")
 	b.Session.AddHandler(b.onReady)
@@ -42,6 +45,32 @@ func NewDiscordBot(appId, pubilcKey, token string) (*DiscordBot, error) {
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "url",
 					Description: "Url to the YouTube video to play",
+					Required:    true,
+				},
+			},
+		},
+		&discordgo.ApplicationCommand{
+			Type:        discordgo.ChatApplicationCommand,
+			Name:        "fs",
+			Description: "Play from filesystem",
+			Options: []*discordgo.ApplicationCommandOption{
+				&discordgo.ApplicationCommandOption{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "path",
+					Description: "Path to file on filesystem to play",
+					Required:    true,
+				},
+			},
+		},
+		&discordgo.ApplicationCommand{
+			Type:        discordgo.ChatApplicationCommand,
+			Name:        "dca",
+			Description: "Play from DCA file",
+			Options: []*discordgo.ApplicationCommandOption{
+				&discordgo.ApplicationCommandOption{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "path",
+					Description: "Path to file on filesystem to play",
 					Required:    true,
 				},
 			},
@@ -107,10 +136,72 @@ func (b *DiscordBot) onInteractionCreate(s *discordgo.Session, e *discordgo.Inte
 				return
 			}
 
-      b.ytCommand(url, e)
+			b.ytCommand(url, e)
 
 			return
 		}
+
+    if data.Name == "fs" {
+      logger.Debug("Interaction matched type /fs", "event", e)
+
+      var path string
+      for _, opt := range data.Options {
+        switch opt.Name {
+        case "path":
+					if opt.Type != discordgo.ApplicationCommandOptionString {
+						logger.Error("Option received does not match the registered type for interaction /fs",
+							"name", "path",
+							"registeredType", discordgo.ApplicationCommandOptionString,
+							"receivedOption", opt,
+						)
+						continue
+          }
+
+          path = opt.StringValue()
+          logger.Debug("Received option for /fs", "name", "path", "value", opt.StringValue())
+        }
+      }
+
+			if len(path) == 0 {
+				logger.Error("Did not receive required option for interaction /fs", "name", "path", "event", e)
+				return
+			}
+
+			b.fsCommand(path, e)
+
+			return
+    }
+
+    if data.Name == "dca" {
+      logger.Debug("Interaction matched type /dca", "event", e)
+
+      var path string
+      for _, opt := range data.Options {
+        switch opt.Name {
+        case "path":
+					if opt.Type != discordgo.ApplicationCommandOptionString {
+						logger.Error("Option received does not match the registered type for interaction /dca",
+							"name", "path",
+							"registeredType", discordgo.ApplicationCommandOptionString,
+							"receivedOption", opt,
+						)
+						continue
+          }
+
+          path = opt.StringValue()
+          logger.Debug("Received option for /dca", "name", "path", "value", opt.StringValue())
+        }
+      }
+
+			if len(path) == 0 {
+				logger.Error("Did not receive required option for interaction /dca", "name", "path", "event", e)
+				return
+			}
+
+			b.dcaCommand(path, e)
+
+			return
+    }
 
 		logger.Warn("Command interaction unknown", "event", e)
 	default:
@@ -119,109 +210,300 @@ func (b *DiscordBot) onInteractionCreate(s *discordgo.Session, e *discordgo.Inte
 }
 
 func (b *DiscordBot) ytCommand(url string, event *discordgo.InteractionCreate) {
-  s := b.Session
+	s := b.Session
 
-  res := &discordgo.InteractionResponse{
-    Type: discordgo.InteractionResponseChannelMessageWithSource,
-    Data: &discordgo.InteractionResponseData{
-      Content: fmt.Sprintf("YouTube video will now play... { %#+v }", url),
-    },
-  }
+	res := &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("YouTube video will now play... { %#+v }", url),
+		},
+	}
 
-  err := s.InteractionRespond(event.Interaction, res)
+	err := s.InteractionRespond(event.Interaction, res)
+	if err != nil {
+		logger.Error("Failed to respond to interaction /yt", "event", event, "error", err)
+		return
+	}
+	logger.Debug("Responded to interaction /yt", "event", event, "response", res)
+
+	g, err := s.State.Guild(event.GuildID)
+	if err != nil {
+		logger.Error("Failed to get guild", "event", event, "guildId", event.GuildID)
+		return
+	}
+	logger.Debug("Got guild for interaction", "event", event, "guild", g)
+
+	var vcId string
+	for _, vs := range g.VoiceStates {
+		if vs.UserID == event.Member.User.ID {
+			vcId = vs.ChannelID
+			break
+		}
+	}
+
+	if vcId == "" {
+		logger.Error("Sender is not in an accessible voice channel", "event", event)
+		return
+	}
+	logger.Debug("Sender in voice channel", "event", event, "voiceChannelId", vcId)
+
+	vc, err := s.ChannelVoiceJoin(event.GuildID, vcId, false, true)
+	if err != nil {
+		logger.Error("Failed to join voice channel", "event", event, "voiceChannelId", vcId, "error", err)
+		return
+	}
+	defer vc.Disconnect()
+
+	time.Sleep(250 * time.Millisecond)
+
+	err = vc.Speaking(true)
+	if err != nil {
+		logger.Error("Error while setting speaking status: true", "event", event, "voiceCHannel", vc)
+		return
+	}
+
+	defer func() {
+		if err := vc.Speaking(false); err != nil {
+			logger.Error("Error while setting speaking status: false", "event", event, "voiceCHannel", vc)
+		}
+	}()
+
+	yt := sources.NewYouTubeStream(url, sources.YOUTUBEQUALITY_WORST)
+
+	dataChan := make(chan []byte, 32)
+	errChan := make(chan error, 32)
+	done := make(chan bool, 1)
+
+	go func() {
+		for {
+			select {
+			case data := <-dataChan:
+				vc.OpusSend <- data
+			case err := <-errChan:
+				logger.Error("Error from YouTubeStream", "error", err, "yt", yt)
+			case <-done:
+				break
+			}
+		}
+	}()
+
+	if err = yt.Start(dataChan, errChan); err != nil {
+		logger.Error("Failed to start YouTubeStream", "error", err, "yt", yt)
+		return
+	}
+
+	defer func() {
+		if err := yt.Wait(); err != nil {
+			logger.Error("Failed to wait for YouTubeStream", "error", err, "yt", yt)
+		} else {
+			done <- true
+		}
+	}()
+
+	return
+}
+
+func (b *DiscordBot) fsCommand(path string, event *discordgo.InteractionCreate) {
+	s := b.Session
+
+	res := &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("File on filesystem will now play... { %#+v }", path),
+		},
+	}
+
+	err := s.InteractionRespond(event.Interaction, res)
+	if err != nil {
+		logger.Error("Failed to respond to interaction /fs", "event", event, "error", err)
+		return
+	}
+	logger.Debug("Responded to interaction /fs", "event", event, "response", res)
+
+	g, err := s.State.Guild(event.GuildID)
+	if err != nil {
+		logger.Error("Failed to get guild", "event", event, "guildId", event.GuildID)
+		return
+	}
+	logger.Debug("Got guild for interaction", "event", event, "guild", g)
+
+	var vcId string
+	for _, vs := range g.VoiceStates {
+		if vs.UserID == event.Member.User.ID {
+			vcId = vs.ChannelID
+			break
+		}
+	}
+
+	if vcId == "" {
+		logger.Error("Sender is not in an accessible voice channel", "event", event)
+		return
+	}
+	logger.Debug("Sender in voice channel", "event", event, "voiceChannelId", vcId)
+
+	vc, err := s.ChannelVoiceJoin(event.GuildID, vcId, false, true)
+	if err != nil {
+		logger.Error("Failed to join voice channel", "event", event, "voiceChannelId", vcId, "error", err)
+		return
+	}
+	defer vc.Disconnect()
+
+	time.Sleep(250 * time.Millisecond)
+
+	err = vc.Speaking(true)
+	if err != nil {
+		logger.Error("Error while setting speaking status: true", "event", event, "voiceCHannel", vc)
+		return
+	}
+
+	defer func() {
+		if err := vc.Speaking(false); err != nil {
+			logger.Error("Error while setting speaking status: false", "event", event, "voiceCHannel", vc)
+		}
+	}()
+
+  f, err := os.Open(path)
   if err != nil {
-    logger.Error("Failed to respond to interaction /yt", "event", event, "error", err)
-    return
+    logger.Error("Error while opening file", "path", path, "error", err)
   }
-  logger.Debug("Responded to interaction /yt", "event", event, "response", res)
 
-  g, err := s.State.Guild(event.GuildID)
-  if err != nil {
-    logger.Error("Failed to get guild", "event", event, "guildId", event.GuildID)
-    return
-  }
-  logger.Debug("Got guild for interaction", "event", event, "guild", g)
+  reader := codecs.NewOggOpusReader(f)
+  allPkts := make([]codecs.OggPacket, 0xffff)
 
-  var vcId string
-  for _, vs := range g.VoiceStates {
-    if vs.UserID == event.Member.User.ID {
-      vcId = vs.ChannelID
+  i := 0
+  for {
+    _, pkt, err := reader.ReadNextPacket()
+    
+    if err == io.EOF {
       break
+    } else if err != nil {
+      logger.Error("Error while reading next packet", "error", err)
+      continue
+    }
+
+    if i >= 2 {
+      allPkts = append(allPkts, *pkt)
+    }
+
+    i++
+  }
+
+  for _, pkt := range allPkts {
+    for _, s := range pkt.Segments {
+      vc.OpusSend <- s
     }
   }
 
-  if vcId == "" {
-    logger.Error("Sender is not in an accessible voice channel", "event", event)
-    return
-  }
-  logger.Debug("Sender in voice channel", "event", event, "voiceChannelId", vcId)
+	return
+}
 
-  vc, err := s.ChannelVoiceJoin(event.GuildID, vcId, false, true)
+func (b *DiscordBot) dcaCommand(path string, event *discordgo.InteractionCreate) {
+	s := b.Session
+
+	res := &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("DCA on filesystem will now play... { %#+v }", path),
+		},
+	}
+
+	err := s.InteractionRespond(event.Interaction, res)
+	if err != nil {
+		logger.Error("Failed to respond to interaction /dca", "event", event, "error", err)
+		return
+	}
+	logger.Debug("Responded to interaction /dca", "event", event, "response", res)
+
+	g, err := s.State.Guild(event.GuildID)
+	if err != nil {
+		logger.Error("Failed to get guild", "event", event, "guildId", event.GuildID)
+		return
+	}
+	logger.Debug("Got guild for interaction", "event", event, "guild", g)
+
+	var vcId string
+	for _, vs := range g.VoiceStates {
+		if vs.UserID == event.Member.User.ID {
+			vcId = vs.ChannelID
+			break
+		}
+	}
+
+	if vcId == "" {
+		logger.Error("Sender is not in an accessible voice channel", "event", event)
+		return
+	}
+	logger.Debug("Sender in voice channel", "event", event, "voiceChannelId", vcId)
+
+	vc, err := s.ChannelVoiceJoin(event.GuildID, vcId, false, true)
+	if err != nil {
+		logger.Error("Failed to join voice channel", "event", event, "voiceChannelId", vcId, "error", err)
+		return
+	}
+	defer vc.Disconnect()
+
+	time.Sleep(250 * time.Millisecond)
+
+	err = vc.Speaking(true)
+	if err != nil {
+		logger.Error("Error while setting speaking status: true", "event", event, "voiceCHannel", vc)
+		return
+	}
+
+	defer func() {
+		if err := vc.Speaking(false); err != nil {
+			logger.Error("Error while setting speaking status: false", "event", event, "voiceCHannel", vc)
+		}
+	}()
+
+  f, err := os.Open(path)
   if err != nil {
-    logger.Error("Failed to join voice channel", "event", event, "voiceChannelId", vcId, "error", err)
-    return
-  }
-  defer vc.Disconnect()
-
-  time.Sleep(250 * time.Millisecond)
-
-  file, err := os.Open("assets/airhorn.dca")
-  if err != nil {
-    logger.Error("Failed to open assets/airhorn.dca", "error", err)
-    return
-  }
-  defer func() {
-    err := file.Close()
-    if err != nil {
-      logger.Error("Failed to close assets/airhorn.dca", "error", err)
-    }
-  }()
-
-  err = vc.Speaking(true)
-  if err != nil {
-    logger.Error("Error while setting speaking status: true", "event", event, "voiceCHannel", vc)
-    return
+    logger.Error("Error while opening file", "path", path, "error", err)
   }
 
-  defer func() {
-    if err := vc.Speaking(false); err != nil {
-      logger.Error("Error while setting speaking status: false", "event", event, "voiceCHannel", vc)
-    }
-  }()
+  buffer := make([][]byte, 0)
 
-  yt := sources.NewYouTubeStream(url, sources.YOUTUBEQUALITY_WORST)
+  i := 0
+  var opuslen uint16
+  for {
+		// Read opus frame length from dca file.
+		err = binary.Read(f, binary.LittleEndian, &opuslen)
 
-  dataChan := make(chan []byte, 32)
-  errChan := make(chan error, 32)
-  done := make(chan bool, 1)
+		// If this is the end of the file, just return.
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			err := f.Close()
+			if err != nil {
+        panic(err)
+			}
+			break
+		}
 
-  go func() {
-    for {
-      select {
-      case data := <-dataChan:
-        vc.OpusSend <- data
-      case err := <-errChan:
-        logger.Error("Error from YouTubeStream", "error", err, "yt", yt)
-      case <-done:
-        break
-      }
-    }
-  }()
+		if err != nil {
+			fmt.Println("Error reading from dca file :", err)
+			break
+		}
 
-  if err = yt.Start(dataChan, errChan); err != nil {
-    logger.Error("Failed to start YouTubeStream", "error", err, "yt", yt)
-    return
+		// Read encoded pcm from dca file.
+		InBuf := make([]byte, opuslen)
+		err = binary.Read(f, binary.LittleEndian, &InBuf)
+
+		// Should not be any end of file errors
+		if err != nil {
+			fmt.Println("Error reading from dca file :", err)
+			break
+		}
+
+		// Append encoded pcm data to the buffer.
+		buffer = append(buffer, InBuf)
+    
+    i++
   }
 
-  defer func() {
-    if err := yt.Wait(); err != nil {
-      logger.Error("Failed to wait for YouTubeStream", "error", err, "yt", yt)
-    } else {
-      done <- true
-    }
-  }()
+  for _, buf := range buffer {
+    vc.OpusSend <- buf
+  }
 
-  return
+	return
 }
 
 func main() {
@@ -263,10 +545,10 @@ func main() {
 	}
 	logger.Debug("Read environment variable DISCORD_TOKEN", "value", "[secret]")
 
-  bot, err := NewDiscordBot(discordAppId, discordPublicKey, discordToken)
-  if err != nil {
-    logger.Error("Failed to create discord bot", "error", err)
-  }
+	bot, err := NewDiscordBot(discordAppId, discordPublicKey, discordToken)
+	if err != nil {
+		logger.Error("Failed to create discord bot", "error", err)
+	}
 
 	defer func() {
 		if err := bot.Close(); err != nil {
@@ -280,4 +562,3 @@ func main() {
 	signal.Notify(intSig, os.Interrupt)
 	<-intSig
 }
-
