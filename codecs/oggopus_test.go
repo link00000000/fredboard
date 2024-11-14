@@ -7,7 +7,7 @@ import (
 )
 
 func TestRead(t *testing.T) {
-  f, err := os.Open("./data/test.opus")
+  f, err := os.Open("./test_samples/sample.ogg")
   if err != nil {
     t.Fatal(err)
   }

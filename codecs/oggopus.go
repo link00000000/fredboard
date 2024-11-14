@@ -37,9 +37,9 @@ func NewOggOpusReader(reader io.Reader) *OggOpusReader {
 	return &OggOpusReader{ internalReader: reader }
 }
 
-func (o *OggOpusReader) ReadNextPacket() (int, *OggPacket, error) {
+func (oor *OggOpusReader) ReadNextPacket() (int, *OggPacket, error) {
 	n := 0
-  r := o.internalReader
+  r := oor.internalReader
 
 	capturePatternBuf := make([]byte, len(oggCapturePatern)) // Capture pattern is always "OggS"
 	nn, err := r.Read(capturePatternBuf)
