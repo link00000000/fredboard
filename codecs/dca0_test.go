@@ -5,11 +5,11 @@ import (
 	"os"
 	"testing"
 
-  "accidentallycoded.com/fredboard/v3/codecs/test_samples"
+  "accidentallycoded.com/fredboard/v3/codecs/testdata"
 )
 
 func TestDCA0Reader(t *testing.T) {
-  f, err := os.Open("./test_samples/sample.dca")
+  f, err := os.Open("./testdata/sample.dca")
 
   if err != nil {
     t.Fatal(err)
@@ -35,10 +35,10 @@ func TestDCA0Reader(t *testing.T) {
       t.Fatal("Failed to read next segment", err)
     }
 
-    sampleSegment := test_samples.TestSample[segIdx]
+    sampleSegment := testdata.TestSample[segIdx]
 
     if len(segment) != len(sampleSegment) {
-      t.Fatalf("Segment is not the correct length. Expected %d, got %d", len(sampleSegment), len(segment))
+      t.Fatalf("Segment %d is not the correct length. Expected %d, got %d", segIdx, len(sampleSegment), len(segment))
     }
 
     for i, b := range segment {

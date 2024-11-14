@@ -5,11 +5,11 @@ import (
 	"os"
 	"testing"
 
-  "accidentallycoded.com/fredboard/v3/codecs/test_samples"
+  "accidentallycoded.com/fredboard/v3/codecs/testdata"
 )
 
 func TestRead(t *testing.T) {
-  f, err := os.Open("./test_samples/sample.dca")
+  f, err := os.Open("./testdata/sample.dca")
 
   if err != nil {
     t.Fatal(err)
@@ -37,10 +37,10 @@ func TestRead(t *testing.T) {
     }
 
     for i, segment := range pkt.Segments {
-      sampleSegment := test_samples.TestSample[segIdx]
+      sampleSegment := testdata.TestSample[segIdx]
 
       if len(segment) != len(sampleSegment) {
-        t.Fatalf("Segment is not the correct length. Expected %d, got %d", len(sampleSegment), len(segment))
+        t.Fatalf("Segment at packet %d, segment %d (segment %d in sample) is not the correct length. Expected %d, got %d", pktIdx, i, segIdx, len(sampleSegment), len(segment))
       }
 
       for j, b := range segment {
