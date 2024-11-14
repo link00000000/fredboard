@@ -178,15 +178,6 @@ func (oor *OggOpusReader) ReadNextPacket() (int, *OggPacket, error) {
   for i := 0; i < int(pageSegmentsBuf[0]); i++ {
     logger.Debug("Reading next segment", "index", i, "total", int(pageSegmentsBuf[0]))
 
-    // TODO: Remove
-    // Segment table can contain segments of length 0, skip it
-    /*
-    if segmentTable[i] == 0x00 {
-      segmentData = append(segmentData, []byte{})
-      continue
-    }
-    */
-
     segmentData[i] = make([]byte, int(segmentTable[i]))
     nn, err := r.Read(segmentData[i])
     n += nn
