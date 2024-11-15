@@ -9,7 +9,7 @@ import (
 )
 
 func TestRead(t *testing.T) {
-  f, err := os.Open("./testdata/sample.dca")
+  f, err := os.Open("./testdata/sample.ogg")
 
   if err != nil {
     t.Fatal(err)
@@ -34,6 +34,11 @@ func TestRead(t *testing.T) {
 
     if err != nil {
       t.Fatal("Failed to read next packet", err)
+    }
+
+    if segIdx == 0 || segIdx == 1 {
+      // The first two packets will be metadata. Skip them.
+      continue
     }
 
     for i, segment := range pkt.Segments {

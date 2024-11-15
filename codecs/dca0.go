@@ -13,7 +13,12 @@ func NewDCA0Reader(reader io.Reader) *DCA0Reader {
   return &DCA0Reader{ internalReader: reader };
 }
 
-func (dr *DCA0Reader) ReadNextSegment() (int, []byte, error) {
+// Implements [codecs.Reader]
+func (r *DCA0Reader) ReadNextOpusPacket() (int, OpusPacket, error) {
+  return r.readNextSegment()
+}
+
+func (dr *DCA0Reader) readNextSegment() (int, []byte, error) {
   n := 0
   r := dr.internalReader
 

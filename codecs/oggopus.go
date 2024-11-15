@@ -1,9 +1,6 @@
 package codecs
 
 import (
-	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 )
@@ -12,32 +9,87 @@ const oggCapturePatern = "OggS"
 
 var logger = slog.Default()
 
-type OggHeaderType uint8
+type oggHeaderType uint8
 
 const (
-	OggHeaderType_Continuation = 1 << iota
-	OggHeaderType_BeginningOfStream
-	OggHeaderType_EndOfStream
+	oggHeaderType_continuation = 1 << iota
+	oggHeaderType_beginningOfStream
+	oggHeaderType_endOfStream
 )
 
-type OggPacket struct {
-  HeaderType OggHeaderType
-  GranulePosition uint64
-  BitstreamSerialNumber uint32
-  PageSequenceNumber uint32
-  Checksum uint32
-  Segments [][]byte
+type oggPage struct {
+  headerType oggHeaderType
+  granulePosition uint64
+  bitstreamSerialNumber uint32
+  pageSequenceNumber uint32
+  checksum uint32
+  segments [][]byte
 }
+
+type oggReaderState uint8
+
+const (
+  oggReaderState_ready = iota
+  oggReaderState_readingHeader
+  oggReaderState_readingData
+  oggReaderState_done
+  oggReaderState_failed
+)
 
 type OggOpusReader struct {
 	internalReader io.Reader
+  currentPage *oggPage
+  state oggReaderState
 }
 
 func NewOggOpusReader(reader io.Reader) *OggOpusReader {
 	return &OggOpusReader{ internalReader: reader }
 }
 
-func (oor *OggOpusReader) ReadNextPacket() (int, *OggPacket, error) {
+func (r *OggOpusReader) ReadNextOggPacket() (int, OpusPacket, error) {
+  /*
+  n := 0
+
+  for {
+    switch r.state {
+    case oggReaderState_ready:
+      r.state = oggReaderState_readingHeader
+
+    case oggReaderState_readingHeader:
+      nn, err := r.readNextOggPageHeader()
+      n += nn
+
+      if err == io.EOF {
+        r.state = oggReaderState_done
+        break
+      }
+
+      if err != nil {
+        r.state = oggReaderState_failed
+        return n, nil, err
+      }
+
+    case oggReaderState_readingData:
+      nn, buf, err := r.readNextOggDataSegment()
+      n += nn
+
+      if err != nil {
+        r.state = oggReaderState_failed
+        return n, nil, err
+      }
+
+      return n, OpusPacket(buf), nil
+    
+    case oggReaderState_done:
+      return 0, nil, io.EOF
+
+    case oggReaderState_failed:
+      return 0, nil, errors.New("Attempted to call ReadNextOggPacket() on failed reader")
+    }
+  }
+}
+
+func (oor *OggOpusReader) ReadNextPacket() (int, *oggPage, error) {
 	n := 0
   r := oor.internalReader
 
@@ -192,14 +244,16 @@ func (oor *OggOpusReader) ReadNextPacket() (int, *OggPacket, error) {
     }
   }
 
-  packet := &OggPacket{
-    HeaderType: OggHeaderType(headerTypeBuf[0]),
-    GranulePosition: binary.LittleEndian.Uint64(granulePositionBuf),
-    BitstreamSerialNumber: binary.LittleEndian.Uint32(bitstreamSerialNumberBuf),
-    PageSequenceNumber: binary.LittleEndian.Uint32(pageSequenceNumberBuf),
-    Checksum: binary.LittleEndian.Uint32(checksumBuf),
-    Segments: segmentData,
+  packet := &oggPage{
+    headerType: oggHeaderType(headerTypeBuf[0]),
+    granulePosition: binary.LittleEndian.Uint64(granulePositionBuf),
+    bitstreamSerialNumber: binary.LittleEndian.Uint32(bitstreamSerialNumberBuf),
+    pageSequenceNumber: binary.LittleEndian.Uint32(pageSequenceNumberBuf),
+    checksum: binary.LittleEndian.Uint32(checksumBuf),
+    segments: segmentData,
   }
 
   return n, packet, nil
+  */
+  panic("not implemented")
 }
