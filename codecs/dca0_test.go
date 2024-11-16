@@ -23,30 +23,34 @@ func TestDCA0Reader(t *testing.T) {
   }()
 
   r := NewDCA0Reader(f)
-  segIdx := 0
+  pktIdx := 0
 
   for {
-    _, segment, err := r.ReadNextSegment()
+    _, pkt, err := r.ReadNextOpusPacket()
     if err == io.EOF {
+      if pktIdx < len(testdata.TestSample) {
+        t.Fatalf("Expected more data. Stopped at packet %d, should be %d packets", pktIdx, len(testdata.TestSample))
+      }
+
       break
     }
 
     if err != nil {
-      t.Fatal("Failed to read next segment", err)
+      t.Fatal("Failed to read next packet", err)
     }
 
-    sampleSegment := testdata.TestSample[segIdx]
+    samplePkt := testdata.TestSample[pktIdx]
 
-    if len(segment) != len(sampleSegment) {
-      t.Fatalf("Segment %d is not the correct length. Expected %d, got %d", segIdx, len(sampleSegment), len(segment))
+    if len(pkt) != len(samplePkt) {
+      t.Fatalf("Packet %d is not the correct length. Expected %d, got %d", pktIdx, len(samplePkt), len(pkt))
     }
 
-    for i, b := range segment {
-      if b != sampleSegment[i] {
-        t.Fatalf("Incorrect value at segment %d, byte %d. Expected %d, got %d", segIdx, i, sampleSegment[i], b)
+    for i, b := range pkt {
+      if b != samplePkt[i] {
+        t.Fatalf("Incorrect value at packet %d, byte %d. Expected %d, got %d", pktIdx, i, samplePkt[i], b)
       }
     }
 
-    segIdx++
+    pktIdx++
   }
 }

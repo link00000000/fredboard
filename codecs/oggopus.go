@@ -1,6 +1,9 @@
 package codecs
 
 import (
+	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 )
@@ -17,14 +20,16 @@ const (
 	oggHeaderType_endOfStream
 )
 
-type oggPage struct {
+type oggPageHeader struct {
   headerType oggHeaderType
   granulePosition uint64
   bitstreamSerialNumber uint32
   pageSequenceNumber uint32
   checksum uint32
-  segments [][]byte
+  segmentTable []uint8
 }
+
+type oggPageData []byte
 
 type oggReaderState uint8
 
@@ -38,47 +43,73 @@ const (
 
 type OggOpusReader struct {
 	internalReader io.Reader
-  currentPage *oggPage
   state oggReaderState
+  currentPageHeader *oggPageHeader
+  currentDataSegmentIdx int
 }
 
 func NewOggOpusReader(reader io.Reader) *OggOpusReader {
 	return &OggOpusReader{ internalReader: reader }
 }
 
-func (r *OggOpusReader) ReadNextOggPacket() (int, OpusPacket, error) {
-  /*
+func (r *OggOpusReader) ReadNextOpusPacket() (int, OpusPacket, error) {
   n := 0
 
   for {
     switch r.state {
     case oggReaderState_ready:
+      logger.Debug("ReadNextOggPacket: beginning of file", "reader", r)
       r.state = oggReaderState_readingHeader
 
     case oggReaderState_readingHeader:
-      nn, err := r.readNextOggPageHeader()
+      nn, pageHeader, err := readOggPageHeader(r.internalReader)
       n += nn
 
+      logger.Debug("ReadNextOggPacket: read page header", "reader", r, "numBytesRead", nn, "pageHeader", pageHeader)
+
       if err == io.EOF {
+        logger.Debug("ReadNextOggPacket: end of file", "reader", r)
         r.state = oggReaderState_done
         break
       }
 
       if err != nil {
+        logger.Error("ReadNextOggPacket: error while reading most recent page header", "reader", r, "error", err)
         r.state = oggReaderState_failed
         return n, nil, err
       }
+
+      r.currentPageHeader = pageHeader
+      r.currentDataSegmentIdx = 0
+
+      logger.Debug("ReadNextOggPacket: set current page header", "reader", r, "pageHeader", pageHeader)
 
     case oggReaderState_readingData:
-      nn, buf, err := r.readNextOggDataSegment()
+      if (r.currentPageHeader == nil) {
+        panic("Tried to read page data before reading page header")
+      }
+
+      if (r.currentDataSegmentIdx >= len(r.currentPageHeader.segmentTable)) {
+        logger.Debug("ReadNextOggPacket: end of page")
+        r.state = oggReaderState_readingHeader
+        break
+      }
+
+      nn, pageDataSegment, err := readOggPageDataSegment(r.internalReader, r.currentPageHeader.segmentTable[r.currentDataSegmentIdx])
       n += nn
 
+      logger.Debug("ReadNextOggPacket: read page data segment", "reader", r, "numBytesRead", nn, "pageDataSegment", pageDataSegment)
+
+      r.currentDataSegmentIdx++
+      logger.Debug("ReadNextOggPacket: advancing current data segment index", "reader", r)
+
       if err != nil {
+        logger.Error("ReadNextOggPacket: error while reading most recent page data segment", "reader", r, "error", err)
         r.state = oggReaderState_failed
         return n, nil, err
       }
 
-      return n, OpusPacket(buf), nil
+      return n, OpusPacket(*pageDataSegment), nil
     
     case oggReaderState_done:
       return 0, nil, io.EOF
@@ -89,9 +120,8 @@ func (r *OggOpusReader) ReadNextOggPacket() (int, OpusPacket, error) {
   }
 }
 
-func (oor *OggOpusReader) ReadNextPacket() (int, *oggPage, error) {
+func readOggPageHeader(r io.Reader) (int, *oggPageHeader, error) {
 	n := 0
-  r := oor.internalReader
 
 	capturePatternBuf := make([]byte, len(oggCapturePatern)) // Capture pattern is always "OggS"
 	nn, err := r.Read(capturePatternBuf)
@@ -198,8 +228,8 @@ func (oor *OggOpusReader) ReadNextPacket() (int, *oggPage, error) {
 
 	logger.Debug("Read checksum for packet in OggOpusReader", "checksum", checksumBuf)
 
-  pageSegmentsBuf := make([]byte, 1)
-  nn, err = r.Read(pageSegmentsBuf)
+  numPageSegmentsBuf := make([]byte, 1)
+  nn, err = r.Read(numPageSegmentsBuf)
   n += n
 
   if err != nil && nn != 1 {
@@ -211,14 +241,14 @@ func (oor *OggOpusReader) ReadNextPacket() (int, *oggPage, error) {
 		return n, nil, err
 	}
 
-	logger.Debug("Read page segments for packet in OggOpusReader", "pageSegments", pageSegmentsBuf)
+	logger.Debug("Read page segments for packet in OggOpusReader", "pageSegments", numPageSegmentsBuf)
 
-  segmentTable := make([]byte, int(pageSegmentsBuf[0]))
+  segmentTable := make([]byte, int(numPageSegmentsBuf[0]))
   nn, err = r.Read(segmentTable)
   n += nn
 
-  if err != nil && nn != int(pageSegmentsBuf[0]) {
-		err = errors.New(fmt.Sprintf("Expected to read %d bytes for segment table, got %d bytes", int(pageSegmentsBuf[0]), nn))
+  if err != nil && nn != int(numPageSegmentsBuf[0]) {
+		err = errors.New(fmt.Sprintf("Expected to read %d bytes for segment table, got %d bytes", int(numPageSegmentsBuf[0]), nn))
   }
 
   if err != nil {
@@ -226,34 +256,28 @@ func (oor *OggOpusReader) ReadNextPacket() (int, *oggPage, error) {
 		return n, nil, err
   }
 
-  segmentData := make([][]byte, int(pageSegmentsBuf[0]))
-  for i := 0; i < int(pageSegmentsBuf[0]); i++ {
-    logger.Debug("Reading next segment", "index", i, "total", int(pageSegmentsBuf[0]))
-
-    segmentData[i] = make([]byte, int(segmentTable[i]))
-    nn, err := r.Read(segmentData[i])
-    n += nn
-
-    if err != nil && nn != int(segmentTable[i]) {
-      err = errors.New(fmt.Sprintf("Expected to read %d bytes for segment data, got %d bytes", int(segmentTable[i]), nn))
-    }
-
-    if err != nil {
-      logger.Debug("Error while reading segment data for packet in OggOpusReader", "error", err)
-      return n, nil, err
-    }
-  }
-
-  packet := &oggPage{
+  header := &oggPageHeader{
     headerType: oggHeaderType(headerTypeBuf[0]),
     granulePosition: binary.LittleEndian.Uint64(granulePositionBuf),
     bitstreamSerialNumber: binary.LittleEndian.Uint32(bitstreamSerialNumberBuf),
     pageSequenceNumber: binary.LittleEndian.Uint32(pageSequenceNumberBuf),
     checksum: binary.LittleEndian.Uint32(checksumBuf),
-    segments: segmentData,
+    segmentTable: segmentTable,
+  };
+
+  return n, header, nil
+}
+
+func readOggPageDataSegment(r io.Reader, segmentLength uint8) (int, *oggPageData, error) {
+  segmentData := &oggPageData{}
+  n, err := r.Read(*segmentData)
+
+  if err != nil {
+    logger.Error("readOggDataSegment: Failed to next segment", "reader", r, "segmentLength", segmentLength, "error", err)
+    return n, nil, err
   }
 
-  return n, packet, nil
-  */
-  panic("not implemented")
+  logger.Debug("readOggDataSegment: Read next segment", "reader", r, "segmentLength", segmentLength, "numBytesRead", n, "segmentData", segmentData)
+
+  return n, segmentData, nil
 }

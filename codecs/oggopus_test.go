@@ -24,11 +24,14 @@ func TestRead(t *testing.T) {
 
   r := NewOggOpusReader(f)
   pktIdx := 0
-  segIdx := 0
 
   for {
-    _, pkt, err := r.ReadNextPacket()
+    _, pkt, err := r.ReadNextOpusPacket()
     if err == io.EOF {
+      if pktIdx < len(testdata.TestSample) {
+        t.Fatalf("Expected more data. Stopped at packet %d, should be %d packets", pktIdx, len(testdata.TestSample))
+      }
+
       break
     }
 
@@ -36,25 +39,16 @@ func TestRead(t *testing.T) {
       t.Fatal("Failed to read next packet", err)
     }
 
-    if segIdx == 0 || segIdx == 1 {
-      // The first two packets will be metadata. Skip them.
-      continue
+    samplePkt := testdata.TestSample[pktIdx]
+
+    if len(pkt) != len(samplePkt) {
+      t.Fatalf("Packet %d is not the correct length. Expected %d, got %d", pktIdx, len(samplePkt), len(pkt))
     }
 
-    for i, segment := range pkt.Segments {
-      sampleSegment := testdata.TestSample[segIdx]
-
-      if len(segment) != len(sampleSegment) {
-        t.Fatalf("Segment at packet %d, segment %d (segment %d in sample) is not the correct length. Expected %d, got %d", pktIdx, i, segIdx, len(sampleSegment), len(segment))
+    for i, b := range pkt {
+      if b != samplePkt[i] {
+        t.Fatalf("Incorrect value at packet %d, byte %d. Expected %d, got %d", pktIdx, i, samplePkt[i], b)
       }
-
-      for j, b := range segment {
-        if b != sampleSegment[i] {
-          t.Fatalf("Incorrect value at packet %d, segment %d, byte %d (segment %d, byte %d in sample). Expected %d, got %d", pktIdx, i, j, segIdx, j, sampleSegment[j], segment[j])
-        }
-      }
-
-      segIdx++
     }
 
     pktIdx++
