@@ -34,7 +34,7 @@ func (s *FileStream) Start(dataChannel chan[]byte, errChannel chan error) error 
 
   go func() {
     for {
-      _, pkt, err := s.reader.ReadNextPacket()
+      _, pkt, err := s.reader.ReadNextOpusPacket()
 
       switch {
       case err == io.EOF:
@@ -45,9 +45,7 @@ func (s *FileStream) Start(dataChannel chan[]byte, errChannel chan error) error 
         return
       }
 
-      for _, s := range pkt.Segments {
-        dataChannel <- s
-      }
+      dataChannel <- pkt
     }
   }()
 

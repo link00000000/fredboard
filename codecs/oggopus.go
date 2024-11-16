@@ -29,7 +29,7 @@ type oggPageHeader struct {
   segmentTable []uint8
 }
 
-type oggPageData []byte
+type oggPageDataSegment []byte
 
 type oggReaderState uint8
 
@@ -49,7 +49,12 @@ type OggOpusReader struct {
 }
 
 func NewOggOpusReader(reader io.Reader) *OggOpusReader {
-	return &OggOpusReader{ internalReader: reader }
+	return &OggOpusReader{
+    internalReader: reader,
+    state: oggReaderState_ready,
+    currentPageHeader: nil,
+    currentDataSegmentIdx: 0,
+  }
 }
 
 func (r *OggOpusReader) ReadNextOpusPacket() (int, OpusPacket, error) {
@@ -84,6 +89,8 @@ func (r *OggOpusReader) ReadNextOpusPacket() (int, OpusPacket, error) {
 
       logger.Debug("ReadNextOggPacket: set current page header", "reader", r, "pageHeader", pageHeader)
 
+      r.state = oggReaderState_readingData
+
     case oggReaderState_readingData:
       if (r.currentPageHeader == nil) {
         panic("Tried to read page data before reading page header")
@@ -100,14 +107,36 @@ func (r *OggOpusReader) ReadNextOpusPacket() (int, OpusPacket, error) {
 
       logger.Debug("ReadNextOggPacket: read page data segment", "reader", r, "numBytesRead", nn, "pageDataSegment", pageDataSegment)
 
-      r.currentDataSegmentIdx++
-      logger.Debug("ReadNextOggPacket: advancing current data segment index", "reader", r)
-
       if err != nil {
         logger.Error("ReadNextOggPacket: error while reading most recent page data segment", "reader", r, "error", err)
         r.state = oggReaderState_failed
         return n, nil, err
       }
+
+      // If the segment indicates the start of a header packet, skip the entire page
+      x := r.currentDataSegmentIdx == 0
+      y := isStartOfAHeaderPacket(pageDataSegment)
+
+      if x && y {
+        for i := 1; i < len(r.currentPageHeader.segmentTable); i++ {
+          nn, _, err := readOggPageDataSegment(r.internalReader, r.currentPageHeader.segmentTable[i])
+          n += nn
+
+          logger.Debug("ReadNextOggPacket: skipped data segment", "numBytes", nn)
+
+          if err != nil {
+            logger.Error("ReadNextOggPacket: error while skipping most recent data segment", "error", err)
+            return n, nil, err
+          }
+
+        }
+
+        r.state = oggReaderState_readingHeader
+        break
+      }
+
+      r.currentDataSegmentIdx++
+      logger.Debug("ReadNextOggPacket: advancing current data segment index", "reader", r)
 
       return n, OpusPacket(*pageDataSegment), nil
     
@@ -118,6 +147,11 @@ func (r *OggOpusReader) ReadNextOpusPacket() (int, OpusPacket, error) {
       return 0, nil, errors.New("Attempted to call ReadNextOggPacket() on failed reader")
     }
   }
+}
+
+func isStartOfAHeaderPacket(pageDataSegment *oggPageDataSegment) bool {
+  seg := []byte(*pageDataSegment)
+  return len(seg) >= 2 && string(seg[:2]) == "Op"
 }
 
 func readOggPageHeader(r io.Reader) (int, *oggPageHeader, error) {
@@ -268,9 +302,9 @@ func readOggPageHeader(r io.Reader) (int, *oggPageHeader, error) {
   return n, header, nil
 }
 
-func readOggPageDataSegment(r io.Reader, segmentLength uint8) (int, *oggPageData, error) {
-  segmentData := &oggPageData{}
-  n, err := r.Read(*segmentData)
+func readOggPageDataSegment(r io.Reader, segmentLength uint8) (int, *oggPageDataSegment, error) {
+  segmentData := make([]byte, segmentLength)
+  n, err := r.Read(segmentData)
 
   if err != nil {
     logger.Error("readOggDataSegment: Failed to next segment", "reader", r, "segmentLength", segmentLength, "error", err)
@@ -279,5 +313,5 @@ func readOggPageDataSegment(r io.Reader, segmentLength uint8) (int, *oggPageData
 
   logger.Debug("readOggDataSegment: Read next segment", "reader", r, "segmentLength", segmentLength, "numBytesRead", n, "segmentData", segmentData)
 
-  return n, segmentData, nil
+  return n, (*oggPageDataSegment)(&segmentData), nil
 }
