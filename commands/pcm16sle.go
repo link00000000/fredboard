@@ -49,24 +49,16 @@ func playPCMS16LEFile(session *discordgo.Session, interaction *discordgo.Interac
 		logger.Debug("playPCMS16LEFile: Closed file", "file", f)
 	}()
 
-	voiceChannelId, err := findVoiceChannelIdOfInteractionCreator(session, interaction)
-	if err != nil {
-		logger.Error("playPCMS16LEFile: Failed to find join voice channel of interaction creator", "session", session, "interaction", interaction, "error", err)
-		// TODO: Notify the user that there was an error
-		return
-	}
-
-	logger.Debug("playPCMS16LEFile: Found voice channel of interaction creator", "session", session, "interaction", interaction, "voiceChannelId", voiceChannelId)
-
 	const mute = false
 	const deaf = true
-	voiceConnection, err := session.ChannelVoiceJoin(interaction.GuildID, voiceChannelId, mute, deaf)
-
+	voiceConnection, err := joinVoiceChannelIdOfInteractionCreator(session, interaction, mute, deaf)
 	if err != nil {
-		logger.Error("playPCMS16LEFile: Failed to join voice channel", "session", session, "interaction", interaction, "voiceChannelId", voiceChannelId)
+		logger.Error("playDCA0File: Failed to join voice channel of interaction creator", "session", session, "interaction", interaction, "error", err)
 		// TODO: Notify the user that there was an error
 		return
 	}
+
+	logger.Debug("playDCA0File: Joined voice channel of interaction creator", "session", session, "interaction", interaction)
 
 	defer func() {
 		err := voiceConnection.Disconnect()

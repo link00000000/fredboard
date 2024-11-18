@@ -2,12 +2,10 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 
-	"accidentallycoded.com/fredboard/v3/codecs"
 	"accidentallycoded.com/fredboard/v3/commands"
 	"accidentallycoded.com/fredboard/v3/config"
 	"github.com/bwmarrin/discordgo"
@@ -74,74 +72,14 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 	switch data.Name {
 	case "yt":
 		return commands.Yt(session, interaction)
-	case "dca0":
-		return commands.DCA0(session, interaction)
-	case "pcms16le":
-		return commands.PCMS16LE(session, interaction)
+	case "fs":
+		return commands.FS(session, interaction)
 	default:
 		return nil, ErrUnknownCommand
 	}
 }
 
-type MyWriter struct {
-	AllSegments *[][]byte
-}
-
-func (writer MyWriter) Write(bytes []byte) (int, error) {
-	*writer.AllSegments = append(*writer.AllSegments, bytes)
-	return len(bytes), nil
-}
-
 func main() {
-	config.Init()
-	slog.SetLogLoggerLevel(config.Config.Logging.Level)
-
-	f, err := os.Open("./codecs/testdata/sample.pcms16le")
-	if err != nil {
-		panic(err)
-	}
-
-	defer f.Close()
-
-	outfile, err := os.Create("./codecs/testdata/pcms16le.opus.go")
-	if err != nil {
-		panic(err)
-	}
-
-	defer outfile.Close()
-
-	writer := MyWriter{}
-	allSegs := make([][]byte, 0)
-	writer.AllSegments = &allSegs
-
-	encoder, err := codecs.NewOpusEncoder(48000, 2)
-	if err != nil {
-		panic(err)
-	}
-
-	err = encoder.EncodePCMS16LE(f, writer, 960)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("%#v", writer)
-
-	outfile.WriteString("var PCMS16LESampleEncodedAsOpus [][]byte = [][]byte {\n")
-	for _, seg := range *writer.AllSegments {
-		outfile.WriteString("{")
-		for i, b := range seg {
-			if i != 0 {
-				outfile.WriteString(", ")
-			}
-
-			outfile.WriteString(fmt.Sprintf("0x%02x", b))
-		}
-		outfile.WriteString("},\n")
-	}
-	outfile.WriteString("}\n")
-}
-
-func main2() {
 	config.Init()
 	if ok, err := config.IsValid(); !ok {
 		unwrappedErrs, ok := err.(interface{ Unwrap() []error })
@@ -187,8 +125,8 @@ func main2() {
 		},
 		&discordgo.ApplicationCommand{
 			Type:        discordgo.ChatApplicationCommand,
-			Name:        "dca0",
-			Description: "Play a dca0 file from the filesystem",
+			Name:        "fs",
+			Description: "Play a file from the file system",
 			Options: []*discordgo.ApplicationCommandOption{
 				&discordgo.ApplicationCommandOption{
 					Type:        discordgo.ApplicationCommandOptionString,
@@ -196,17 +134,10 @@ func main2() {
 					Description: "Path to file on filesystem to play",
 					Required:    true,
 				},
-			},
-		},
-		&discordgo.ApplicationCommand{
-			Type:        discordgo.ChatApplicationCommand,
-			Name:        "pcms16le",
-			Description: "Play a pcms16le file from the filesystem",
-			Options: []*discordgo.ApplicationCommandOption{
 				&discordgo.ApplicationCommandOption{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "path",
-					Description: "Path to file on filesystem to play",
+					Name:        "encoding",
+					Description: "Encoding of the audio file. Either DCA0 or PCMS16LE",
 					Required:    true,
 				},
 			},
