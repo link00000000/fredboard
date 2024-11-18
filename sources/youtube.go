@@ -1,146 +1,58 @@
 package sources
 
 import (
-	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 )
 
-type YouTubeQuality string
+type YouTubeStreamQuality string
 
 const (
-	YOUTUBEQUALITY_WORST YouTubeQuality = "worstaudio"
-	YOUTUBEQUALITY_BEST                 = "bestaudio"
+	YOUTUBESTREAMQUALITY_WORST YouTubeStreamQuality = "worstaudio"
+	YOUTUBESTREAMQUALITY_BEST                       = "bestaudio"
 )
 
-type YouTubeStream struct {
-	url     string
-	quality YouTubeQuality
-
-	dataChannel chan []byte
-	errChannel  chan error
-
-	ytdlpCmd  *exec.Cmd
-	ffmpegCmd *exec.Cmd
+type YouTube struct {
+  ytdlpCmd *exec.Cmd
+  ffmpegCmd *exec.Cmd
 }
 
-func NewYouTubeStream(url string, quality YouTubeQuality) *YouTubeStream {
-	return &YouTubeStream{url: url, quality: quality}
-}
-
-func (s *YouTubeStream) Start(dataChannel chan []byte, errChannel chan error) error {
-	s.ytdlpCmd = exec.Command("yt-dlp",
+func NewYouTubeSource(url string, quality YouTubeStreamQuality) (*YouTube, error) {
+  ytdlpCmd := exec.Command("yt-dlp",
 		"--abort-on-error",
 		"--quiet",
 		"--no-warnings",
-		"--format", fmt.Sprintf("%s[acodec=opus]", s.quality),
+		"--format", fmt.Sprintf("%s[acodec=opus]", quality),
 		"--output", "-",
-		s.url)
+		url)
 
-	s.ffmpegCmd = exec.Command("ffmpeg",
+  ffmpegCmd := exec.Command("ffmpeg",
 		"-hide_banner",
 		"-loglevel", "error",
 		"-i", "pipe:0",
-		"-c:a", "libopus",
-		"-f", "opus",
+		"-f", "s16le",
+    "-ar", "48000",
+    "-ac", "2",
 		"pipe:1")
 
-	if ytdlpStdout, err := s.ytdlpCmd.StdoutPipe(); err != nil {
-		return err
+	if ytdlpStdout, err := ytdlpCmd.StdoutPipe(); err != nil {
+		return nil, err
 	} else {
-		s.ffmpegCmd.Stdin = ytdlpStdout
+		ffmpegCmd.Stdin = ytdlpStdout
 	}
 
-	if ytdlpStderr, err := s.ytdlpCmd.StderrPipe(); err != nil {
-		return err
-	} else {
-		go func() {
-			for {
-				buf := make([]byte, 0xff)
-				if _, err := ytdlpStderr.Read(buf); err == io.EOF || err == io.ErrUnexpectedEOF {
-					return
-				} else if err != nil {
-					errChannel <- err
-					return
-				} else {
-					errChannel <- errors.New(fmt.Sprintf("ytdlp stderr: %s", string(buf)))
-				}
-			}
-		}()
-	}
+  if _, err := ffmpegCmd.StdoutPipe(); err != nil {
+    return nil, err
+  }
 
-	if _, err := s.ffmpegCmd.StdoutPipe(); err != nil {
-		return err
-	} else {
-		go func() {
-			/*
-			   for {
-			     reader := codecs.NewOggOpusReader(ffmpegStdout)
-			     if _, pkt, err := reader.ReadNextPacket(); err == io.EOF || err == io.ErrUnexpectedEOF {
-			       return
-			     } else if err != nil {
-			       errChannel <- err
-			       return
-			     } else {
-			       for _, s := range pkt.Segments {
-			         dataChannel <- s
-			       }
-			     }
-			   }
-			*/
-		}()
-	}
+  // TODO: Print ytdlpCmd.Stderr
+  // TODO: Print ffmpegCmd.Stderr
 
-	if ffmpegStderr, err := s.ffmpegCmd.StderrPipe(); err != nil {
-		return err
-	} else {
-		go func() {
-			for {
-				buf := make([]byte, 0xff)
-				if _, err := ffmpegStderr.Read(buf); err == io.EOF || err == io.ErrUnexpectedEOF {
-					return
-				} else if err != nil {
-					errChannel <- err
-					return
-				} else {
-					errChannel <- errors.New(fmt.Sprintf("ffmpeg stderr: %s", string(buf)))
-				}
-			}
-		}()
-	}
-
-	if err := s.ytdlpCmd.Start(); err != nil {
-		return err
-	}
-
-	if err := s.ffmpegCmd.Start(); err != nil {
-		return err
-	}
-
-	return nil
+  return &YouTube{ytdlpCmd: ytdlpCmd, ffmpegCmd: ffmpegCmd}, nil
 }
 
-func (s *YouTubeStream) Stop() error {
-	if err := s.ytdlpCmd.Process.Kill(); err != nil {
-		return err
-	}
-
-	if err := s.ffmpegCmd.Process.Kill(); err != nil {
-		return err
-	}
-
-	return nil
+// Implements [io.Reader]
+func (youtube *YouTube) Read(p []byte) (int, error) {
+  return youtube.ffmpegCmd.Stdout.Write(p)
 }
 
-func (s *YouTubeStream) Wait() error {
-	if err := s.ytdlpCmd.Wait(); err != nil {
-		return err
-	}
-
-	if err := s.ffmpegCmd.Wait(); err != nil {
-		return err
-	}
-
-	return nil
-}

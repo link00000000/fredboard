@@ -80,6 +80,5 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction) {
 	default:
 		logger.Error("FS: Unknown encoding", "encoding", encoding)
 		// TODO: Notify the user that there was an error
-		return
 	}
 }
