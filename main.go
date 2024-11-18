@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,8 +12,6 @@ import (
 
 var logger = slog.Default()
 
-var ErrUnknownCommand = errors.New("unknown command")
-
 func onReady(session *discordgo.Session, e *discordgo.Ready) {
 	logger.Info("Session opened", "event", e)
 }
@@ -22,60 +19,22 @@ func onReady(session *discordgo.Session, e *discordgo.Ready) {
 func onInteractionCreate(session *discordgo.Session, event *discordgo.InteractionCreate) {
 	logger.Debug("InteractionCreate event received", "guildId", event.GuildID, "channelId", event.ChannelID)
 
-	var err error
-	var response *discordgo.InteractionResponse
-
 	switch event.Data.Type() {
 	case discordgo.InteractionApplicationCommand:
-		response, err = onApplicationCommandInteraction(session, event.Interaction)
+		onApplicationCommandInteraction(session, event.Interaction)
 	default:
-		err = errors.New("unsupported interaction type")
-	}
-
-	if err != nil {
-		logger.Error("onInteractionCreate: Error while handling interaction", "session", session, "event", event, "error", err)
-
-		err := session.InteractionRespond(event.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "There was an error while handling interaction",
-				Embeds: []*discordgo.MessageEmbed{
-					&discordgo.MessageEmbed{
-						Type:        discordgo.EmbedTypeRich,
-						Title:       "Error",
-						Description: err.Error(),
-						Color:       15548997, // Discord red
-					},
-				},
-			},
-		})
-
-		if err != nil {
-			logger.Error("onInteractionCreate: Error while responding to interaction", "session", session, "event", event, "error", err)
-		}
-
-		return
-	}
-
-	if response != nil {
-		err := session.InteractionRespond(event.Interaction, response)
-
-		if err != nil {
-			logger.Error("onInteractionCreate: Error while responding to interaction", "session", session, "event", event, "error", err)
-		}
+		logger.Warn("Ignoring interaction with unsupported / unknown interaction type", "session", session, "event", event)
 	}
 }
 
-func onApplicationCommandInteraction(session *discordgo.Session, interaction *discordgo.Interaction) (*discordgo.InteractionResponse, error) {
-	data := interaction.ApplicationCommandData()
-
-	switch data.Name {
+func onApplicationCommandInteraction(session *discordgo.Session, interaction *discordgo.Interaction) {
+	switch data := interaction.ApplicationCommandData(); data.Name {
 	case "yt":
-		return commands.Yt(session, interaction)
+		go commands.YT(session, interaction)
 	case "fs":
-		return commands.FS(session, interaction)
+		go commands.FS(session, interaction)
 	default:
-		return nil, ErrUnknownCommand
+		logger.Warn("Ignoring invalid command", "session", session, "interaction", interaction, "command", data.Name)
 	}
 }
 
@@ -150,7 +109,7 @@ func main() {
 	}
 
 	for _, cmd := range newCmds {
-		logger.Debug("Registered new command", "name", cmd.Name, "type", cmd.Type)
+		logger.Info("Registered command", "name", cmd.Name, "type", cmd.Type)
 	}
 
 	err = session.Open()
