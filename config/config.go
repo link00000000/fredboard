@@ -2,10 +2,11 @@ package config
 
 import (
 	"errors"
-	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+
+	"accidentallycoded.com/fredboard/v3/telemetry"
 )
 
 type OptionError struct {
@@ -35,7 +36,7 @@ var Config struct {
 		Token     string
 	}
 	Logging struct {
-		Level slog.Level
+		Level telemetry.Level
 	}
 }
 
@@ -73,19 +74,21 @@ func Init() {
 	Config.Discord.PublicKey, _ = os.LookupEnv("FREDBOARD_DISCORD_PUBLIC_KEY")
 	Config.Discord.Token, _ = os.LookupEnv("FREDBOARD_DISCORD_TOKEN")
 
-	Config.Logging.Level = slog.LevelInfo
+	Config.Logging.Level = telemetry.LevelInfo
 	if opt, ok := os.LookupEnv("FREDBOARD_LOG_LEVEL"); ok {
 		switch strings.ToUpper(opt) {
+    case "FATAL":
+      Config.Logging.Level = telemetry.LevelFatal
 		case "ERROR":
-			Config.Logging.Level = slog.LevelInfo.Level()
+			Config.Logging.Level = telemetry.LevelError
 		case "WARN":
-			Config.Logging.Level = slog.LevelWarn.Level()
+			Config.Logging.Level = telemetry.LevelWarn
 		case "INFO":
-			Config.Logging.Level = slog.LevelInfo.Level()
+			Config.Logging.Level = telemetry.LevelInfo
 		case "DEBUG":
-			Config.Logging.Level = slog.LevelDebug.Level()
+			Config.Logging.Level = telemetry.LevelDebug
 		default:
-			initErrors = append(initErrors, NewOptionError("Logging.Level", "invalid option value, allowed values are ERROR, WARN, INFO, DEBUG"))
+			initErrors = append(initErrors, NewOptionError("Logging.Level", "invalid option value, allowed values are FATAL, ERROR, WARN, INFO, DEBUG"))
 		}
 	}
 }

@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ErrInsignificant = errors.New("message was not processed because configured log level is too low")
 
 var projectRoot string = "/"
 
@@ -23,11 +26,11 @@ func init() {
 }
 
 const (
-	LevelError = iota
+	LevelFatal = iota
+	LevelError
 	LevelWarn
 	LevelInfo
 	LevelDebug
-	LevelTrace
 )
 
 type Level uint8
@@ -45,11 +48,21 @@ type Record struct {
 	Root    uuid.UUID  `json:"rootLogger"`
 	Time    time.Time  `json:"time"`
 	Level   Level      `json:"level"`
+	Message string     `json:"message"`
+	Err     error      `json:"error"`
 	Caller  *Caller    `json:"caller"`
 	Context Context    `json:"context"`
 }
 
-func NewRecord(logger *Logger, time time.Time, level Level, caller *Caller, context Context) Record {
+func NewRecord(
+	logger *Logger,
+	time time.Time,
+	level Level,
+	message string,
+	err error,
+	caller *Caller,
+	context Context,
+) Record {
 	var parent *uuid.UUID
 	if logger.parent != nil {
 		parent = &logger.parent.id
@@ -61,6 +74,8 @@ func NewRecord(logger *Logger, time time.Time, level Level, caller *Caller, cont
 		Root:    logger.root.id,
 		Time:    time,
 		Level:   level,
+		Message: message,
+		Err:     err,
 		Caller:  caller,
 		Context: context,
 	}
@@ -94,10 +109,11 @@ type Logger struct {
 	parent   *Logger
 	root     *Logger
 	handlers []Handler
+  level    Level
 }
 
 func NewLogger(handlers []Handler) *Logger {
-	logger := &Logger{id: uuid.New()}
+  logger := &Logger{id: uuid.New(), level: LevelInfo}
 	logger.root = logger
 	logger.handlers = handlers[:]
 
@@ -131,8 +147,14 @@ func (logger *Logger) Close() error {
 	return nil
 }
 
-func (logger *Logger) Log(level Level, context Context) error {
-	errs := []error{}
+func (logger *Logger) SetLevel(level Level) {
+  logger.level = level
+}
+
+func (logger *Logger) Log(level Level, message string, err error, context Context) error {
+  if level > logger.level {
+    return ErrInsignificant
+  }
 
 	var caller *Caller
 	if pc, file, line, ok := runtime.Caller(1); ok {
@@ -143,9 +165,12 @@ func (logger *Logger) Log(level Level, context Context) error {
 		caller = &Caller{file, line, frame.Function}
 	}
 
+	errs := []error{}
 	for _, handler := range logger.handlers {
-		r := NewRecord(logger, time.Now(), level, caller, context)
-		handler.Handle(r)
+		r := NewRecord(logger, time.Now(), level, message, err, caller, context)
+		if err := handler.Handle(r); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) > 0 {
@@ -153,4 +178,49 @@ func (logger *Logger) Log(level Level, context Context) error {
 	}
 
 	return nil
+}
+
+func (logger *Logger) FatalWithContext(message string, err error, context Context) {
+	logger.Log(LevelFatal, message, err, context)
+  os.Exit(1)
+}
+
+func (logger *Logger) Fatal(message string, err error) {
+	logger.FatalWithContext(message, err, nil)
+}
+
+func (logger *Logger) ErrorWithContext(message string, err error, context Context) error {
+	return logger.Log(LevelError, message, err, context)
+}
+
+func (logger *Logger) Error(message string, err error) error {
+	return logger.ErrorWithContext(message, err, nil)
+}
+
+func (logger *Logger) WarnWithContext(message string, context Context) error {
+	return logger.Log(LevelWarn, message, nil, context)
+}
+
+func (logger *Logger) Warn(message string) error {
+	return logger.WarnWithContext(message, nil)
+}
+
+func (logger *Logger) InfoWithContext(message string, context Context) error {
+	return logger.Log(LevelInfo, message, nil, context)
+}
+
+func (logger *Logger) Info(message string) error {
+	return logger.InfoWithContext(message, nil)
+}
+
+func (logger *Logger) DebugWithContext(message string, context Context) error {
+	return logger.Log(LevelDebug, message, nil, context)
+}
+
+func (logger *Logger) Debug(message string) error {
+	return logger.DebugWithContext(message, nil)
+}
+
+func (logger *Logger) Err(err error) error {
+	return logger.Error("an error has occurred", err)
 }

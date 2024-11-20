@@ -1,30 +1,32 @@
 package main
 
 import (
-	"log/slog"
 	"os"
 	"os/signal"
 
 	"accidentallycoded.com/fredboard/v3/commands"
 	"accidentallycoded.com/fredboard/v3/config"
+	"accidentallycoded.com/fredboard/v3/telemetry"
 	"accidentallycoded.com/fredboard/v3/web"
 	"github.com/bwmarrin/discordgo"
 )
 
-var logger = slog.Default()
+var logger = telemetry.NewLogger([]telemetry.Handler{
+	telemetry.NewJsonHandler(os.Stdout),
+})
 
 func onReady(session *discordgo.Session, e *discordgo.Ready) {
-	logger.Info("Session opened", "event", e)
+	logger.InfoWithContext("Session opened", telemetry.Context{"session": session, "event": e})
 }
 
 func onInteractionCreate(session *discordgo.Session, event *discordgo.InteractionCreate) {
-	logger.Debug("InteractionCreate event received", "guildId", event.GuildID, "channelId", event.ChannelID)
+	logger.DebugWithContext("InterationCreate event received", telemetry.Context{"session": session, "event": event})
 
 	switch event.Data.Type() {
 	case discordgo.InteractionApplicationCommand:
 		onApplicationCommandInteraction(session, event.Interaction)
 	default:
-		logger.Warn("Ignoring interaction with unsupported / unknown interaction type", "session", session, "event", event)
+		logger.WarnWithContext("Ignoring interaction with unsupported / unknown interaction type", telemetry.Context{"session": session, "event": event})
 	}
 }
 
@@ -35,7 +37,7 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 	case "fs":
 		go commands.FS(session, interaction)
 	default:
-		logger.Warn("Ignoring invalid command", "session", session, "interaction", interaction, "command", data.Name)
+		logger.WarnWithContext("Ignoring invalid command", telemetry.Context{"session": session, "interaction": interaction, "commandData": data})
 	}
 }
 
@@ -44,27 +46,20 @@ func main() {
 
 	config.Init()
 	if ok, err := config.IsValid(); !ok {
-		unwrappedErrs, ok := err.(interface{ Unwrap() []error })
+		logger.Fatal("Invalid config", err)
+	} else {
+    logger.DebugWithContext("Loaded config", telemetry.Context{"config": config.Config})
+  }
 
-		var errs []error
-		if ok {
-			errs = unwrappedErrs.Unwrap()
-		} else {
-			errs = []error{err}
-		}
-
-		logger.Error("Invalid config", "errors", errs)
-		os.Exit(1)
-	}
-
-	slog.SetLogLoggerLevel(config.Config.Logging.Level)
-	logger.Debug("Set log level", "level", config.Config.Logging.Level.String())
+  logger.SetLevel(config.Config.Logging.Level)
+  logger.DebugWithContext("Set log level", telemetry.Context{"level": config.Config.Logging.Level})
 
 	session, err := discordgo.New("Bot " + config.Config.Discord.Token)
 	if err != nil {
-		logger.Error("Failed to create bot", "error", err)
-		os.Exit(1)
-	}
+		logger.Fatal("Failed to create discord session", err)
+	} else {
+    logger.DebugWithContext("Created discord session", telemetry.Context{"session": session})
+  }
 
 	logger.Debug("Registering handlers")
 	session.AddHandler(onReady)
@@ -107,26 +102,24 @@ func main() {
 	})
 
 	if err != nil {
-		logger.Error("Failed to register new commands", "error", err)
-		os.Exit(1)
+    logger.FatalWithContext("Failed to register new commands", err, telemetry.Context{"session": session})
 	}
 
 	for _, cmd := range newCmds {
-		logger.Info("Registered command", "name", cmd.Name, "type", cmd.Type)
+		logger.InfoWithContext("Registered command", telemetry.Context{"cmd": cmd})
 	}
 
 	err = session.Open()
 	if err != nil {
-		logger.Error("Failed to open discord session", "error", err)
-		os.Exit(1)
+    logger.FatalWithContext("Failed to open discord session", err, telemetry.Context{"session": session})
 	} else {
-		logger.Debug("Opened discord session", "session", session)
+		logger.DebugWithContext("Opened discord session", telemetry.Context{"session": session})
 	}
 
 	defer func() {
 		err := session.Close()
 		if err != nil {
-			logger.Error("Failed to close discord session", "error", err)
+			logger.Error("Failed to close discord session", err)
 		} else {
 			logger.Info("Closed discord session")
 		}
