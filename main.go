@@ -7,6 +7,7 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/commands"
 	"accidentallycoded.com/fredboard/v3/config"
+	"accidentallycoded.com/fredboard/v3/web"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -39,6 +40,8 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 }
 
 func main() {
+	go web.Start()
+
 	config.Init()
 	if ok, err := config.IsValid(); !ok {
 		unwrappedErrs, ok := err.(interface{ Unwrap() []error })
