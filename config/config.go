@@ -40,7 +40,13 @@ var Config struct {
 	}
 }
 
+var logger = telemetry.NewLogger([]telemetry.Handler{
+	telemetry.NewPrettyHandler(os.Stdout),
+})
+
 func Init() {
+	logger.Info("config Init")
+
 	initErrors = make([]error, 0)
 
 	Config.Audio.NumChannels = 2
@@ -77,8 +83,8 @@ func Init() {
 	Config.Logging.Level = telemetry.LevelInfo
 	if opt, ok := os.LookupEnv("FREDBOARD_LOG_LEVEL"); ok {
 		switch strings.ToUpper(opt) {
-    case "FATAL":
-      Config.Logging.Level = telemetry.LevelFatal
+		case "FATAL":
+			Config.Logging.Level = telemetry.LevelFatal
 		case "ERROR":
 			Config.Logging.Level = telemetry.LevelError
 		case "WARN":

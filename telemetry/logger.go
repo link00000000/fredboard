@@ -3,12 +3,15 @@ package telemetry
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
+	"accidentallycoded.com/fredboard/v3/ansi"
 	"github.com/google/uuid"
 )
 
@@ -36,22 +39,16 @@ const (
 type Level uint8
 type Context map[string]any
 
-type Caller struct {
-	File     string `json:"file"`
-	Line     int    `json:"line"`
-	Function string `json:"function"`
-}
-
 type Record struct {
-	Logger  uuid.UUID  `json:"logger"`
-	Parent  *uuid.UUID `json:"parentLogger"`
-	Root    uuid.UUID  `json:"rootLogger"`
-	Time    time.Time  `json:"time"`
-	Level   Level      `json:"level"`
-	Message string     `json:"message"`
-	Err     error      `json:"error"`
-	Caller  *Caller    `json:"caller"`
-	Context Context    `json:"context"`
+	Logger  uuid.UUID      `json:"logger"`
+	Parent  *uuid.UUID     `json:"parentLogger"`
+	Root    uuid.UUID      `json:"rootLogger"`
+	Time    time.Time      `json:"time"`
+	Level   Level          `json:"level"`
+	Message string         `json:"message"`
+	Err     error          `json:"error"`
+	Caller  *runtime.Frame `json:"caller"`
+	Context Context        `json:"context"`
 }
 
 func NewRecord(
@@ -60,7 +57,7 @@ func NewRecord(
 	level Level,
 	message string,
 	err error,
-	caller *Caller,
+	caller *runtime.Frame,
 	context Context,
 ) Record {
 	var parent *uuid.UUID
@@ -104,16 +101,146 @@ func (handler *JsonHandler) Handle(record Record) error {
 	return err
 }
 
+var ErrNoCaller = errors.New("no caller")
+
+func getModulePath(functionPath string) string {
+	// Module paths contain parens for the struct and have an additional dot in the path
+	// ex.
+	//  Module: accidentallycoded.com/fredboard/v3/telemetry.(*Logger).Log
+	//  Function: ccidentallycoded.com/fredboard/v3/telemetry.NewLogger
+	isMethod := strings.Contains(functionPath, "(")
+
+	var endOfModuleName int
+	if isMethod {
+		endOfModuleName = strings.LastIndex(functionPath, "(") - 1
+	} else {
+		endOfModuleName = strings.LastIndex(functionPath, ".")
+	}
+
+	if endOfModuleName == -1 {
+		panic("malformed module name does not contain a . delimiter")
+	}
+
+	return functionPath[:endOfModuleName]
+}
+
+func getModuleCallerFrame() (*runtime.Frame, error) {
+	pcs := make([]uintptr, 8)
+	n := runtime.Callers(1, pcs)
+	pcs = pcs[:n]
+
+	if len(pcs) == 0 {
+		return nil, ErrNoCaller
+	}
+
+	frames := runtime.CallersFrames(pcs)
+
+	firstFrame, more := frames.Next()
+	if !more {
+		return nil, ErrNoCaller
+	}
+
+	thisModule := getModulePath(firstFrame.Function)
+
+	for {
+		frame, more := frames.Next()
+		module := getModulePath(frame.Function)
+
+		if module != thisModule {
+			return &frame, nil
+		}
+
+		if !more {
+			break
+		}
+	}
+
+	return nil, ErrNoCaller
+}
+
+type PrettyHandler struct {
+	writer io.Writer
+}
+
+func NewPrettyHandler(writer io.Writer) *PrettyHandler {
+	return &PrettyHandler{writer}
+}
+
+func (handler *PrettyHandler) Handle(record Record) error {
+	var str strings.Builder
+
+	str.WriteString(record.Time.Format("2006/01/02 15:04:05"))
+	str.WriteString(" ")
+
+	switch record.Level {
+	case LevelDebug:
+		str.WriteString(ansi.FgMagenta + "DBG" + ansi.Reset)
+	case LevelInfo:
+		str.WriteString(ansi.FgBlue + "INF" + ansi.Reset)
+	case LevelWarn:
+		str.WriteString(ansi.FgYellow + "WRN" + ansi.Reset)
+	case LevelError:
+		str.WriteString(ansi.FgRed + "ERR" + ansi.Reset)
+	case LevelFatal:
+		str.WriteString(ansi.FgBlack + ansi.BgRed + "FTL" + ansi.Reset)
+	}
+	str.WriteString(" ")
+
+  var callerRelativePath *string
+	if record.Caller != nil {
+    if relativePath, err := filepath.Rel(projectRoot, record.Caller.File); err == nil {
+      callerRelativePath = &relativePath
+    }
+  }
+    
+  if callerRelativePath != nil {
+		str.WriteString(ansi.FgBrightBlack + fmt.Sprintf("<%s:%d>", *callerRelativePath, record.Caller.Line) + ansi.Reset)
+	} else {
+		str.WriteString(ansi.FgBrightBlack + "<UNKNOWN CALLER>" + ansi.Reset)
+	}
+	str.WriteString(" ")
+
+	str.WriteString(record.Message)
+	str.WriteString("\n")
+
+  if record.Err != nil {
+    if record.Context != nil && len(record.Context) != 0 {
+      str.WriteString("                     ├─ ")
+    } else {
+      str.WriteString("                     └─ ")
+    }
+
+    str.WriteString(ansi.FgRed + record.Err.Error() + ansi.Reset + "\n")
+  }
+
+  i := 0
+  for k, v := range record.Context {
+    if i < len(record.Context) - 1 {
+      str.WriteString("                     ├─ ")
+    } else {
+      str.WriteString("                     └─ ")
+    }
+
+    i++
+
+    str.WriteString(fmt.Sprintf("%s: %#v", ansi.FgBrightBlack + k + ansi.Reset, v))
+    str.WriteString("\n")
+  }
+
+  _, err := fmt.Fprintf(handler.writer, str.String())
+	return err
+}
+
 type Logger struct {
 	id       uuid.UUID
 	parent   *Logger
 	root     *Logger
 	handlers []Handler
-  level    Level
+	level    Level
 }
 
 func NewLogger(handlers []Handler) *Logger {
-  logger := &Logger{id: uuid.New(), level: LevelInfo}
+	logger := &Logger{id: uuid.New(), level: LevelInfo}
 	logger.root = logger
 	logger.handlers = handlers[:]
 
@@ -148,26 +275,26 @@ func (logger *Logger) Close() error {
 }
 
 func (logger *Logger) SetLevel(level Level) {
-  logger.level = level
+	logger.level = level
 }
 
 func (logger *Logger) Log(level Level, message string, err error, context Context) error {
-  if level > logger.level {
-    return ErrInsignificant
-  }
+  loggedErr := err
 
-	var caller *Caller
-	if pc, file, line, ok := runtime.Caller(1); ok {
-		frames := runtime.CallersFrames([]uintptr{pc})
-		frame, _ := frames.Next()
+	if level > logger.level {
+		return ErrInsignificant
+	}
 
-		file, _ := filepath.Rel(projectRoot, file)
-		caller = &Caller{file, line, frame.Function}
+	caller, err := getModuleCallerFrame()
+
+	// Ignore ErrNoCaller and continue to log without the caller
+	if err != nil && err != ErrNoCaller {
+		return err
 	}
 
 	errs := []error{}
 	for _, handler := range logger.handlers {
-		r := NewRecord(logger, time.Now(), level, message, err, caller, context)
+		r := NewRecord(logger, time.Now(), level, message, loggedErr, caller, context)
 		if err := handler.Handle(r); err != nil {
 			errs = append(errs, err)
 		}
@@ -182,7 +309,7 @@ func (logger *Logger) Log(level Level, message string, err error, context Contex
 
 func (logger *Logger) FatalWithContext(message string, err error, context Context) {
 	logger.Log(LevelFatal, message, err, context)
-  os.Exit(1)
+	os.Exit(1)
 }
 
 func (logger *Logger) Fatal(message string, err error) {

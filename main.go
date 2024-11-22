@@ -12,7 +12,7 @@ import (
 )
 
 var logger = telemetry.NewLogger([]telemetry.Handler{
-	telemetry.NewJsonHandler(os.Stdout),
+	telemetry.NewPrettyHandler(os.Stdout),
 })
 
 func onReady(session *discordgo.Session, e *discordgo.Ready) {
@@ -48,18 +48,18 @@ func main() {
 	if ok, err := config.IsValid(); !ok {
 		logger.Fatal("Invalid config", err)
 	} else {
-    logger.DebugWithContext("Loaded config", telemetry.Context{"config": config.Config})
-  }
+		logger.DebugWithContext("Loaded config", telemetry.Context{"config": config.Config})
+	}
 
-  logger.SetLevel(config.Config.Logging.Level)
-  logger.DebugWithContext("Set log level", telemetry.Context{"level": config.Config.Logging.Level})
+	logger.SetLevel(config.Config.Logging.Level)
+	logger.DebugWithContext("Set log level", telemetry.Context{"level": config.Config.Logging.Level})
 
 	session, err := discordgo.New("Bot " + config.Config.Discord.Token)
 	if err != nil {
 		logger.Fatal("Failed to create discord session", err)
 	} else {
-    logger.DebugWithContext("Created discord session", telemetry.Context{"session": session})
-  }
+		logger.DebugWithContext("Created discord session", telemetry.Context{"session": session})
+	}
 
 	logger.Debug("Registering handlers")
 	session.AddHandler(onReady)
@@ -102,7 +102,7 @@ func main() {
 	})
 
 	if err != nil {
-    logger.FatalWithContext("Failed to register new commands", err, telemetry.Context{"session": session})
+		logger.FatalWithContext("Failed to register new commands", err, telemetry.Context{"session": session})
 	}
 
 	for _, cmd := range newCmds {
@@ -111,7 +111,7 @@ func main() {
 
 	err = session.Open()
 	if err != nil {
-    logger.FatalWithContext("Failed to open discord session", err, telemetry.Context{"session": session})
+		logger.FatalWithContext("Failed to open discord session", err, telemetry.Context{"session": session})
 	} else {
 		logger.DebugWithContext("Opened discord session", telemetry.Context{"session": session})
 	}
