@@ -37,49 +37,110 @@ const (
 )
 
 type Level uint8
-type Context map[string]any
+type Data map[string]any
+
+type Context struct {
+	id       uuid.UUID
+	logger   *Logger
+	children []*Context
+	parent   *Context
+	data     Data
+}
+
+func (logger *Logger) NewContext(parent *Context) *Context {
+	return &Context{
+		id:     uuid.New(),
+		logger: logger,
+		parent: parent,
+		data:   make(Data),
+	}
+}
+
+func (ctx *Context) SetValue(name string, value any) {
+	ctx.data[name] = value
+}
+
+// Implements [io.Closer]
+func (ctx *Context) Close() error {
+	return ctx.logger.onContextClosed(*ctx)
+}
 
 type Record struct {
-	Logger  uuid.UUID      `json:"logger"`
-	Parent  *uuid.UUID     `json:"parentLogger"`
-	Root    uuid.UUID      `json:"rootLogger"`
-	Time    time.Time      `json:"time"`
-	Level   Level          `json:"level"`
-	Message string         `json:"message"`
-	Err     error          `json:"error"`
-	Caller  *runtime.Frame `json:"caller"`
-	Context Context        `json:"context"`
+	Time    time.Time
+	Level   Level
+	Message string
+	Err     error
+	Caller  *runtime.Frame
+	Context Context
 }
 
 func NewRecord(
-	logger *Logger,
 	time time.Time,
 	level Level,
 	message string,
 	err error,
 	caller *runtime.Frame,
-	context Context,
+	ctx Context,
 ) Record {
-	var parent *uuid.UUID
-	if logger.parent != nil {
-		parent = &logger.parent.id
-	}
-
 	return Record{
-		Logger:  logger.id,
-		Parent:  parent,
-		Root:    logger.root.id,
 		Time:    time,
 		Level:   level,
 		Message: message,
 		Err:     err,
 		Caller:  caller,
-		Context: context,
+		Context: ctx,
 	}
 }
 
 type Handler interface {
-	Handle(record Record) error
+	OnRecord(record Record) error
+	OnContextClosed(ctx Context) error
+}
+
+type JsonHandlerRecord struct {
+	Time    time.Time          `json:"time"`
+	Level   Level              `json:"level"`
+	Message string             `json:"message"`
+	Err     error              `json:"error"`
+	Caller  *runtime.Frame     `json:"caller"`
+	Context JsonHandlerContext `json:"context"`
+}
+
+func NewJsonHandlerRecord(record Record) JsonHandlerRecord {
+	return JsonHandlerRecord{
+		Time:    record.Time,
+		Level:   record.Level,
+		Message: record.Message,
+		Err:     record.Err,
+		Caller:  record.Caller,
+		Context: NewJsonHandlerContext(record.Context),
+	}
+}
+
+type JsonHandlerContext struct {
+	Id       uuid.UUID   `json:"id"`
+	Children []uuid.UUID `json:"children"`
+	Parent   *uuid.UUID  `json:"parent"`
+	Data     Data        `json:"data"`
+}
+
+func NewJsonHandlerContext(ctx Context) JsonHandlerContext {
+	children := make([]uuid.UUID, len(ctx.children))
+	for i, c := range ctx.children {
+		children[i] = c.id
+	}
+
+	newCtx := JsonHandlerContext{
+		Id:       ctx.id,
+		Children: children,
+		Data:     ctx.data,
+	}
+
+	if ctx.parent != nil {
+		newCtx.Parent = &ctx.parent.id
+	}
+
+	return newCtx
 }
 
 type JsonHandler struct {
@@ -90,8 +151,8 @@ func NewJsonHandler(writer io.Writer) *JsonHandler {
 	return &JsonHandler{writer}
 }
 
-func (handler *JsonHandler) Handle(record Record) error {
-	data, err := json.Marshal(record)
+func (handler *JsonHandler) OnRecord(record Record) error {
+	data, err := json.Marshal(NewJsonHandlerRecord(record))
 
 	if err != nil {
 		return err
@@ -99,6 +160,10 @@ func (handler *JsonHandler) Handle(record Record) error {
 
 	_, err = handler.writer.Write(append(data, byte('\n')))
 	return err
+}
+
+func (handler *JsonHandler) OnContextClosed(ctx Context) error {
+	return nil
 }
 
 var ErrNoCaller = errors.New("no caller")
@@ -166,7 +231,7 @@ func NewPrettyHandler(writer io.Writer) *PrettyHandler {
 	return &PrettyHandler{writer}
 }
 
-func (handler *PrettyHandler) Handle(record Record) error {
+func (handler *PrettyHandler) OnRecord(record Record) error {
 	var str strings.Builder
 
 	str.WriteString(record.Time.Format("2006/01/02 15:04:05"))
@@ -186,14 +251,14 @@ func (handler *PrettyHandler) Handle(record Record) error {
 	}
 	str.WriteString(" ")
 
-  var callerRelativePath *string
+	var callerRelativePath *string
 	if record.Caller != nil {
-    if relativePath, err := filepath.Rel(projectRoot, record.Caller.File); err == nil {
-      callerRelativePath = &relativePath
-    }
-  }
-    
-  if callerRelativePath != nil {
+		if relativePath, err := filepath.Rel(projectRoot, record.Caller.File); err == nil {
+			callerRelativePath = &relativePath
+		}
+	}
+
+	if callerRelativePath != nil {
 		str.WriteString(ansi.FgBrightBlack + fmt.Sprintf("<%s:%d>", *callerRelativePath, record.Caller.Line) + ansi.Reset)
 	} else {
 		str.WriteString(ansi.FgBrightBlack + "<UNKNOWN CALLER>" + ansi.Reset)
@@ -203,56 +268,57 @@ func (handler *PrettyHandler) Handle(record Record) error {
 	str.WriteString(record.Message)
 	str.WriteString("\n")
 
-  if record.Err != nil {
-    if record.Context != nil && len(record.Context) != 0 {
-      str.WriteString("                     ├─ ")
-    } else {
-      str.WriteString("                     └─ ")
-    }
+	if record.Err != nil {
+		if len(record.Context.data) != 0 {
+			str.WriteString("                     ├─ ")
+		} else {
+			str.WriteString("                     └─ ")
+		}
 
-    str.WriteString(ansi.FgRed + record.Err.Error() + ansi.Reset + "\n")
-  }
+		str.WriteString(ansi.FgRed + record.Err.Error() + ansi.Reset + "\n")
+	}
 
-  i := 0
-  for k, v := range record.Context {
-    if i < len(record.Context) - 1 {
-      str.WriteString("                     ├─ ")
-    } else {
-      str.WriteString("                     └─ ")
-    }
+	i := 0
+	for k, v := range record.Context.data {
+		if i < len(record.Context.data)-1 {
+			str.WriteString("                     ├─ ")
+		} else {
+			str.WriteString("                     └─ ")
+		}
 
-    i++
+		i++
 
-    str.WriteString(fmt.Sprintf("%s: %#v", ansi.FgBrightBlack + k + ansi.Reset, v))
-    str.WriteString("\n")
-  }
+		str.WriteString(fmt.Sprintf("%s: %#v", ansi.FgBrightBlack+k+ansi.Reset, v))
+		str.WriteString("\n")
+	}
 
-  _, err := fmt.Fprintf(handler.writer, str.String())
+	_, err := fmt.Fprintf(handler.writer, str.String())
 	return err
 }
 
+func (*PrettyHandler) OnContextClosed(ctx Context) error {
+	return nil
+}
+
 type Logger struct {
-	id       uuid.UUID
-	parent   *Logger
-	root     *Logger
 	handlers []Handler
 	level    Level
+	RootCtx  *Context
 }
 
 func NewLogger(handlers []Handler) *Logger {
-	logger := &Logger{id: uuid.New(), level: LevelInfo}
-	logger.root = logger
-	logger.handlers = handlers[:]
+	logger := &Logger{level: LevelInfo}
+	logger.RootCtx = logger.NewContext(nil)
+
+	if handlers != nil {
+		logger.handlers = handlers[:]
+	}
 
 	return logger
 }
 
-func NewLoggerWithParent(parent *Logger) *Logger {
-	logger := NewLogger(parent.handlers)
-	logger.parent = parent
-	logger.root = parent.root
-
-	return logger
+func (logger *Logger) AddHandler(handler Handler) {
+	logger.handlers = append(logger.handlers, handler)
 }
 
 // Implements [io.Closer]
@@ -279,7 +345,7 @@ func (logger *Logger) SetLevel(level Level) {
 }
 
 func (logger *Logger) Log(level Level, message string, err error, context Context) error {
-  loggedErr := err
+	loggedErr := err
 
 	if level > logger.level {
 		return ErrInsignificant
@@ -294,8 +360,8 @@ func (logger *Logger) Log(level Level, message string, err error, context Contex
 
 	errs := []error{}
 	for _, handler := range logger.handlers {
-		r := NewRecord(logger, time.Now(), level, message, loggedErr, caller, context)
-		if err := handler.Handle(r); err != nil {
+		r := NewRecord(time.Now(), level, message, loggedErr, caller, context)
+		if err := handler.OnRecord(r); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -307,47 +373,40 @@ func (logger *Logger) Log(level Level, message string, err error, context Contex
 	return nil
 }
 
-func (logger *Logger) FatalWithContext(message string, err error, context Context) {
-	logger.Log(LevelFatal, message, err, context)
+func (logger *Logger) Fatal(message string, err error, ctx *Context) {
+	logger.Log(LevelFatal, message, err, *ctx)
 	os.Exit(1)
 }
 
-func (logger *Logger) Fatal(message string, err error) {
-	logger.FatalWithContext(message, err, nil)
+func (logger *Logger) Error(message string, err error, ctx *Context) error {
+	return logger.Log(LevelError, message, err, *ctx)
 }
 
-func (logger *Logger) ErrorWithContext(message string, err error, context Context) error {
-	return logger.Log(LevelError, message, err, context)
+func (logger *Logger) Warn(message string, ctx *Context) error {
+	return logger.Log(LevelWarn, message, nil, *ctx)
 }
 
-func (logger *Logger) Error(message string, err error) error {
-	return logger.ErrorWithContext(message, err, nil)
+func (logger *Logger) Info(message string, ctx *Context) error {
+	return logger.Log(LevelInfo, message, nil, *ctx)
 }
 
-func (logger *Logger) WarnWithContext(message string, context Context) error {
-	return logger.Log(LevelWarn, message, nil, context)
+func (logger *Logger) Debug(message string, ctx *Context) error {
+	return logger.Log(LevelDebug, message, nil, *ctx)
 }
 
-func (logger *Logger) Warn(message string) error {
-	return logger.WarnWithContext(message, nil)
+func (logger *Logger) Err(err error, ctx *Context) error {
+	return logger.Error("an error has occurred", err, ctx)
 }
 
-func (logger *Logger) InfoWithContext(message string, context Context) error {
-	return logger.Log(LevelInfo, message, nil, context)
-}
+func (logger *Logger) onContextClosed(ctx Context) error {
+	errs := []error{}
+	for _, handler := range logger.handlers {
+		handler.OnContextClosed(ctx)
+	}
 
-func (logger *Logger) Info(message string) error {
-	return logger.InfoWithContext(message, nil)
-}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 
-func (logger *Logger) DebugWithContext(message string, context Context) error {
-	return logger.Log(LevelDebug, message, nil, context)
-}
-
-func (logger *Logger) Debug(message string) error {
-	return logger.DebugWithContext(message, nil)
-}
-
-func (logger *Logger) Err(err error) error {
-	return logger.Error("an error has occurred", err)
+	return nil
 }

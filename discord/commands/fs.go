@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"accidentallycoded.com/fredboard/v3/codecs"
-	"accidentallycoded.com/fredboard/v3/discord"
+	"accidentallycoded.com/fredboard/v3/discord/voice"
 	"accidentallycoded.com/fredboard/v3/sources"
+	"accidentallycoded.com/fredboard/v3/telemetry"
 	"github.com/bwmarrin/discordgo"
 )
 
-func FS(session *discordgo.Session, interaction *discordgo.Interaction) {
+func FS(session *discordgo.Session, interaction *discordgo.Interaction, ltx *telemetry.Context) {
 	interactionData := interaction.ApplicationCommandData()
 
 	session.InteractionRespond(interaction, &discordgo.InteractionResponse{
@@ -68,7 +69,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction) {
 		logger.Debug("FS: Closed voice channel", "session", session, "interaction", interaction, "voiceConnection", voiceConnection)
 	}()
 
-	sink := discord.NewVoiceWriter(voiceConnection)
+	sink := voice.NewVoiceWriter(voiceConnection)
 
 	time.Sleep(250 * time.Millisecond) // Give voice connection time to settle
 

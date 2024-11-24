@@ -1,4 +1,4 @@
-package discord
+package voice
 
 import (
 	"github.com/bwmarrin/discordgo"
@@ -14,6 +14,6 @@ func NewVoiceWriter(voiceConnection *discordgo.VoiceConnection) *VoiceWriter {
 
 // Implements [io.Writer]
 func (writer *VoiceWriter) Write(bytes []byte) (int, error) {
-  writer.voiceConnection.OpusSend <- bytes
-  return len(bytes), nil
+	writer.voiceConnection.OpusSend <- bytes
+	return len(bytes), nil
 }

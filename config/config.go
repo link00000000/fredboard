@@ -40,13 +40,7 @@ var Config struct {
 	}
 }
 
-var logger = telemetry.NewLogger([]telemetry.Handler{
-	telemetry.NewPrettyHandler(os.Stdout),
-})
-
 func Init() {
-	logger.Info("config Init")
-
 	initErrors = make([]error, 0)
 
 	Config.Audio.NumChannels = 2
