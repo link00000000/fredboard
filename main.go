@@ -6,45 +6,48 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/config"
 	"accidentallycoded.com/fredboard/v3/discord"
-	"accidentallycoded.com/fredboard/v3/telemetry"
+	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 	"accidentallycoded.com/fredboard/v3/web"
 )
 
 func main() {
-  var logger = telemetry.NewLogger([]telemetry.Handler{})
-	//logger.AddHandler(telemetry.NewJsonHandler(os.Stdout))
-	//logger.AddHandler(telemetry.NewPrettyHandler(os.Stdout))
-
-	var ltx = logger.RootCtx
-
-  
-
+	var logger = logging.NewLogger()
+	logger.AddHandler(logging.NewPrettyHandler(os.Stdout))
 
 	config.Init()
 	if ok, err := config.IsValid(); !ok {
-		logger.Fatal("Invalid config", err, ltx)
+		logger.FatalWithErr("Invalid config", err)
 	}
 
-	logger.RootCtx.SetValue("config", config.Config)
+	logger.SetData("config", config.Config)
 	logger.SetLevel(config.Config.Logging.Level)
 
-	logger.Debug("Loaded config", logger.RootCtx)
+	logger.Debug("Loaded config")
 
 	go func() {
-		webLtx := logger.NewContext(ltx)
-		defer webLtx.Close()
+		childLogger, err := logger.NewChildLogger()
+		if err != nil {
+			logger.PanicWithErr("failed to create logger for web", err)
+		}
 
-		web.Start(webLtx)
+		defer childLogger.Close()
+
+		web.Start(childLogger)
 	}()
 
 	go func() {
-		discordLtx := logger.NewContext(ltx)
-		defer discordLtx.Close()
+		childLogger, err := logger.NewChildLogger()
+		if err != nil {
+			logger.PanicWithErr("failed to create logger for discord", err)
+		}
 
-		discord.Start(discordLtx)
+		defer childLogger.Close()
+
+		bot := discord.NewBot(config.Config.Discord.AppId, config.Config.Discord.Token, childLogger)
+		bot.Start()
 	}()
 
-	logger.Info("Press ^c to exit", ltx)
+	logger.Info("Press ^c to exit")
 
 	intSig := make(chan os.Signal, 1)
 	signal.Notify(intSig, os.Interrupt)

@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"accidentallycoded.com/fredboard/v3/telemetry"
+	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 )
 
-func Start(ltx *telemetry.Context) {
+func Start(logger *logging.Logger) {
 	http.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(res, "<h1>Hello, world!</h1>")
 	})
@@ -25,10 +25,6 @@ func Start(ltx *telemetry.Context) {
 			http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
 			return
 		}
-
-    select {
-      
-    }
 
 		// Send events in a loop
 		for {
