@@ -13,6 +13,7 @@ import (
 func main() {
 	var logger = logging.NewLogger()
 	logger.AddHandler(logging.NewPrettyHandler(os.Stdout))
+	logger.SetPanicOnError(true)
 
 	config.Init()
 	if ok, err := config.IsValid(); !ok {
@@ -32,7 +33,8 @@ func main() {
 
 		defer childLogger.Close()
 
-		web.Start(childLogger)
+		web := web.NewWeb(childLogger)
+		web.Start()
 	}()
 
 	go func() {
