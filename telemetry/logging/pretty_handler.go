@@ -3,11 +3,12 @@ package logging
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"accidentallycoded.com/fredboard/v3/ansi"
+	"golang.org/x/term"
 )
 
 var projectRoot string = "/"
@@ -29,6 +30,16 @@ func NewPrettyHandler(writer io.Writer) PrettyHandler {
 	return PrettyHandler{writer: writer}
 }
 
+func (handler PrettyHandler) useColor() bool {
+	file, ok := handler.writer.(*os.File)
+	if !ok {
+		return false
+	}
+
+	isTerm := term.IsTerminal(int(file.Fd()))
+	return isTerm
+}
+
 // Implements [logging.Handler]
 func (handler PrettyHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) error {
 	return nil
@@ -41,25 +52,30 @@ func (handler PrettyHandler) OnLoggerClosed(logger *Logger, event OnLoggerClosed
 
 // Implements [logging.Handler]
 func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error {
-	var str strings.Builder
+	var str ansi.AnsiStringBuilder
+	if handler.useColor() {
+		str.SetEscapeMode(ansi.EscapeMode_Enable)
+	} else {
+		str.SetEscapeMode(ansi.EscapeMode_Disable)
+	}
 
-	str.WriteString(event.Time.Format("2006/01/02 15:04:05"))
-	str.WriteString(" ")
+	str.Write(event.Time.Format("2006/01/02 15:04:05"), " ")
 
 	switch event.Level {
 	case Debug:
-		str.WriteString(ansi.FgMagenta + "DBG" + ansi.Reset)
+		str.Write(ansi.FgMagenta, "DBG", ansi.Reset)
 	case Info:
-		str.WriteString(ansi.FgBlue + "INF" + ansi.Reset)
+		str.Write(ansi.FgBlue, "INF", ansi.Reset)
 	case Warn:
-		str.WriteString(ansi.FgYellow + "WRN" + ansi.Reset)
+		str.Write(ansi.FgYellow, "WRN", ansi.Reset)
 	case Error:
-		str.WriteString(ansi.FgRed + "ERR" + ansi.Reset)
+		str.Write(ansi.FgRed, "ERR", ansi.Reset)
 	case Fatal:
-		str.WriteString(ansi.FgBlack + ansi.BgRed + "FTL" + ansi.Reset)
+		str.Write(ansi.FgBlack, ansi.BgRed, "FTL", ansi.Reset)
 	case Panic:
-		str.WriteString(ansi.FgBlack + ansi.BgRed + "!!!" + ansi.Reset)
+		str.Write(ansi.FgBlack, ansi.BgRed, "!!!", ansi.Reset)
 	}
+
 	str.WriteString(" ")
 
 	var callerRelativePath *string
@@ -70,13 +86,15 @@ func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error
 	}
 
 	if callerRelativePath != nil {
-		str.WriteString(ansi.FgBrightBlack + fmt.Sprintf("<%s:%d>", *callerRelativePath, event.Caller.Line) + ansi.Reset)
+		str.Write(ansi.FgBrightBlack, fmt.Sprintf("<%s:%d> ", *callerRelativePath, event.Caller.Line), ansi.Reset)
 	} else {
-		str.WriteString(ansi.FgBrightBlack + "<UNKNOWN CALLER>" + ansi.Reset)
+		str.Write(ansi.FgBrightBlack, "<UNKNOWN CALLER> ", ansi.Reset)
 	}
+
 	str.WriteString(" ")
 
 	str.WriteString(event.Message)
+
 	str.WriteString("\n")
 
 	if event.Error != nil {
@@ -86,7 +104,7 @@ func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error
 			str.WriteString("                     └─ ")
 		}
 
-		str.WriteString(ansi.FgRed + event.Error.Error() + ansi.Reset + "\n")
+		str.Write(ansi.FgRed, event.Error.Error(), ansi.Reset, "\n")
 	}
 
 	i := 0
@@ -99,11 +117,9 @@ func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error
 
 		i++
 
-		str.WriteString(fmt.Sprintf("%s: %#v", ansi.FgBrightBlack+k+ansi.Reset, v))
-		str.WriteString("\n")
+		str.Write(ansi.FgBrightBlack, k, ansi.Reset, ": ", fmt.Sprintf("%#v", v), "\n")
 	}
 
 	_, err := fmt.Fprintf(handler.writer, str.String())
 	return err
-
 }

@@ -8,6 +8,33 @@ import (
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 )
 
+const html = /* html */ `
+<!DOCTYPE html>
+<html>
+
+<body>
+  <h1>Logs</h1>
+  <div id="logs">
+  </div>
+</body>
+
+<script>
+  const logEventSource = new EventSource('/logs');
+
+  logEventSource.onmessage = function(event) {
+    console.dir(event)
+  };
+
+  logEventSource.onerror = function() {
+    console.error("EventSource failed.");
+    alert("EventSource failed.");
+    eventSource.close();
+  };
+</script>
+
+</html>
+`
+
 type SSEResponseWriter struct {
 	res       http.ResponseWriter
 	connected bool
@@ -109,7 +136,7 @@ func (web *Web) handleRoot(res http.ResponseWriter, req *http.Request) {
 	logger.Debug("received request")
 	defer logger.Debug("closed request")
 
-	fmt.Fprintf(res, "<h1>Hello, world!</h1>")
+	fmt.Fprintf(res, html)
 }
 
 func (web *Web) handleLogs(res http.ResponseWriter, req *http.Request) {
