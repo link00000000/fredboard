@@ -27,7 +27,7 @@ func (bot *Bot) onReady(session *discordgo.Session, event *discordgo.Ready) {
 	logger.SetData("session", &session)
 	logger.SetData("event", &event)
 
-	logger.Info("Session opened")
+	logger.Info("session opened")
 }
 
 func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo.InteractionCreate) {
@@ -41,7 +41,7 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo
 	logger.SetData("session", &session)
 	logger.SetData("event", &event)
 
-	logger.Debug("InterationCreate event received")
+	logger.Debug("event received")
 
 	switch event.Data.Type() {
 	case discordgo.InteractionApplicationCommand:
@@ -57,8 +57,8 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 		logger.FatalWithErr("failed to create onApplicationCommandInteraction logger", err)
 	}
 
-	logger.SetData("session", session)
-	logger.SetData("interaction", interaction)
+	logger.SetData("session", &session)
+	logger.SetData("interaction", &interaction)
 
 	switch data := interaction.ApplicationCommandData(); data.Name {
 	case "yt":
@@ -66,7 +66,7 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 	case "fs":
 		go commands.FS(session, interaction, logger)
 	default:
-		logger.Warn("Ignoring invalid command")
+		logger.Warn("ignoring invalid command")
 	}
 }
 
@@ -129,7 +129,7 @@ func (bot *Bot) Start() {
 	}
 
 	for _, cmd := range newCmds {
-		cmdLogger.SetData("cmd", cmd)
+		cmdLogger.SetData("cmd", &cmd)
 		cmdLogger.Info("registered command")
 	}
 

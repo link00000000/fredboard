@@ -38,6 +38,9 @@ var Config struct {
 	Logging struct {
 		Level logging.Level
 	}
+	Web struct {
+		Address string
+	}
 }
 
 func Init() {
@@ -92,6 +95,11 @@ func Init() {
 		default:
 			initErrors = append(initErrors, NewOptionError("Logging.Level", "invalid option value, allowed values are PANIC, FATAL, ERROR, WARN, INFO, DEBUG"))
 		}
+	}
+
+	Config.Web.Address = ":80"
+	if opt, ok := os.LookupEnv("FREDBOARD_WEB_ADDRESS"); ok {
+		Config.Web.Address = opt
 	}
 }
 

@@ -20,10 +20,10 @@ func main() {
 		logger.FatalWithErr("Invalid config", err)
 	}
 
-	logger.SetData("config", config.Config)
+	logger.SetData("config", &config.Config)
 	logger.SetLevel(config.Config.Logging.Level)
 
-	logger.Debug("Loaded config")
+	logger.Debug("loaded config")
 
 	go func() {
 		childLogger, err := logger.NewChildLogger()
@@ -33,7 +33,7 @@ func main() {
 
 		defer childLogger.Close()
 
-		web := web.NewWeb(childLogger)
+		web := web.NewWeb(config.Config.Web.Address, childLogger)
 		web.Start()
 	}()
 
@@ -49,7 +49,7 @@ func main() {
 		bot.Start()
 	}()
 
-	logger.Info("Press ^c to exit")
+	logger.Info("press ^c to exit")
 
 	intSig := make(chan os.Signal, 1)
 	signal.Notify(intSig, os.Interrupt)
