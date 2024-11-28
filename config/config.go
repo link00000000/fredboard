@@ -43,7 +43,7 @@ var Config struct {
 	}
 }
 
-func Init() {
+func Init(logger *logging.Logger) {
 	initErrors = make([]error, 0)
 
 	Config.Audio.NumChannels = 2
@@ -101,6 +101,9 @@ func Init() {
 	if opt, ok := os.LookupEnv("FREDBOARD_WEB_ADDRESS"); ok {
 		Config.Web.Address = opt
 	}
+
+	logger.SetData("config", &Config)
+	logger.Debug("loaded config")
 }
 
 func IsValid() (bool, error) {

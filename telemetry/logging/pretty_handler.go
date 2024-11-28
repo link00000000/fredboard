@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"accidentallycoded.com/fredboard/v3/ansi"
 	"golang.org/x/term"
 )
+
+const globalPadding = "                     "
 
 var projectRoot string = "/"
 
@@ -90,35 +93,64 @@ func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error
 		str.Write(ansi.FgBrightBlack, "<UNKNOWN CALLER> ", ansi.Reset)
 	}
 
-	str.WriteString(" ")
-
 	str.WriteString(event.Message)
 
 	str.WriteString("\n")
 
 	if event.Error != nil {
 		if len(logger.data) != 0 {
-			str.WriteString("                     ├─ ")
+			str.WriteString(globalPadding)
+			str.WriteString("├─ ")
 		} else {
-			str.WriteString("                     └─ ")
+			str.WriteString(globalPadding)
+			str.WriteString("└─ ")
 		}
 
 		str.Write(ansi.FgRed, event.Error.Error(), ansi.Reset, "\n")
 	}
 
+	dataJson, err := json.Marshal(logger.data)
+	if err != nil {
+		return err
+	}
+
+	var dataMap map[string]any
+	err = json.Unmarshal([]byte(dataJson), &dataMap)
+	if err != nil {
+		return err
+	}
+
+	printData(&str, dataMap, globalPadding)
+
+	_, err = fmt.Fprintf(handler.writer, str.String())
+	return err
+}
+
+func printData(str *ansi.AnsiStringBuilder, data map[string]any, padding string) {
 	i := 0
-	for k, v := range logger.data {
-		if i < len(logger.data)-1 {
-			str.WriteString("                     ├─ ")
+	for k, v := range data {
+		str.WriteString(padding)
+
+		isLast := i == len(data)-1
+		if !isLast {
+			str.WriteString("├─ ")
 		} else {
-			str.WriteString("                     └─ ")
+			str.WriteString("└─ ")
+		}
+
+		switch v := v.(type) {
+		case map[string]any:
+			str.Write(ansi.FgBrightBlack, k, ansi.Reset, "\n")
+
+			if !isLast {
+				printData(str, v, padding+"│   ")
+			} else {
+				printData(str, v, padding+"    ")
+			}
+		default:
+			str.Write(ansi.FgBrightBlack, k, ansi.Reset, ": ", fmt.Sprintf("%#v", v), "\n")
 		}
 
 		i++
-
-		str.Write(ansi.FgBrightBlack, k, ansi.Reset, ": ", fmt.Sprintf("%#v", v), "\n")
 	}
-
-	_, err := fmt.Fprintf(handler.writer, str.String())
-	return err
 }
