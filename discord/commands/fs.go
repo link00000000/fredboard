@@ -12,10 +12,7 @@ import (
 )
 
 func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
-	logger, err := log.NewChildLogger()
-	if err != nil {
-		logger.FatalWithErr("failed to create logger for command.YT", err)
-	}
+	logger := log.NewChildLogger()
 
 	logger.SetData("session", &session)
 	logger.SetData("interaction", &interaction)
@@ -33,8 +30,8 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-  logger.SetData("option.encoding", &encoding)
-  logger.Debug("got application option \"encoding\"")
+	logger.SetData("option.encoding", &encoding)
+	logger.Debug("got application option \"encoding\"")
 
 	path, err := getRequiredApplicationCommandOption(interactionData, "path", discordgo.ApplicationCommandOptionString)
 	if err != nil {
@@ -43,8 +40,8 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-  logger.SetData("option.path", &path)
-  logger.Debug("got application option \"path\"")
+	logger.SetData("option.path", &path)
+	logger.Debug("got application option \"path\"")
 
 	encoder, err := codecs.NewOpusEncoder(48000, 2)
 	if err != nil {
@@ -53,8 +50,8 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-  logger.SetData("encoder", &encoder)
-  logger.Debug("created encoder")
+	logger.SetData("encoder", &encoder)
+	logger.Debug("created encoder")
 
 	source, err := sources.NewFSSource(path.StringValue())
 	if err != nil {
@@ -63,8 +60,8 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-  logger.SetData("source", &source)
-  logger.Debug("set source")
+	logger.SetData("source", &source)
+	logger.Debug("set source")
 
 	const mute = false
 	const deaf = true
@@ -75,19 +72,19 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-  logger.SetData("voiceConnection", &voiceConnection)
-  logger.Debug("joined voice channel of interaction creator")
+	logger.SetData("voiceConnection", &voiceConnection)
+	logger.Debug("joined voice channel of interaction creator")
 
 	defer func() {
 		err := voiceConnection.Disconnect()
 
 		if err != nil {
-      logger.ErrorWithErr("failed to close voice connection", err)
+			logger.ErrorWithErr("failed to close voice connection", err)
 			// TODO: Notify the user that there was an error
 			return
 		}
 
-    logger.Debug("closed voice connection")
+		logger.Debug("closed voice connection")
 	}()
 
 	sink := voice.NewVoiceWriter(voiceConnection)

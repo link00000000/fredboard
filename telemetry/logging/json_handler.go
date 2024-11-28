@@ -75,7 +75,7 @@ func NewJsonHandler(writer io.Writer) JsonHandler {
 }
 
 // Implements [logging.Handler]
-func (handler JsonHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) error {
+func (handler JsonHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) {
 	loggerCreated := NewJsonLoggerCreatedMessage()
 	loggerCreated.Data.Time = event.Time
 
@@ -97,15 +97,11 @@ func (handler JsonHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreated
 
 	data, err := json.Marshal(loggerCreated)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
+	// Handle error?
 	handler.writer.Write(append(data, byte('\n')))
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Implements [logging.Handler]

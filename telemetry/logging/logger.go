@@ -104,7 +104,7 @@ type OnRecordEvent struct {
 }
 
 type Handler interface {
-	OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) error
+	OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent)
 	OnLoggerClosed(logger *Logger, event OnLoggerClosedEvent) error
 	OnRecord(logger *Logger, event OnRecordEvent) error
 }
@@ -132,7 +132,7 @@ func NewLogger() *Logger {
 	}
 }
 
-func (logger *Logger) NewChildLogger() (*Logger, error) {
+func (logger *Logger) NewChildLogger() *Logger {
 	childLogger := NewLogger()
 	childLogger.parent = logger
 
@@ -142,7 +142,7 @@ func (logger *Logger) NewChildLogger() (*Logger, error) {
 
 	// Ignore ErrNoCaller and continue to log without the caller
 	if err != nil && err != ErrNoCaller {
-		return nil, err
+		panic(err)
 	}
 
 	event := OnLoggerCreatedEvent{
@@ -150,20 +150,11 @@ func (logger *Logger) NewChildLogger() (*Logger, error) {
 		Caller: caller,
 	}
 
-	errs := make([]error, 0)
 	for _, handler := range childLogger.Handlers() {
-
-		err := handler.OnLoggerCreated(childLogger, event)
-		if err != nil {
-			errs = append(errs, err)
-		}
+		handler.OnLoggerCreated(childLogger, event)
 	}
 
-	if len(errs) != 0 {
-		return childLogger, errors.Join(errs...)
-	}
-
-	return childLogger, nil
+	return childLogger
 }
 
 // Implements [io.Closer]

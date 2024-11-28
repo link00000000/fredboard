@@ -26,22 +26,15 @@ func main() {
 	logger.Debug("loaded config")
 
 	go func() {
-		childLogger, err := logger.NewChildLogger()
-		if err != nil {
-			logger.PanicWithErr("failed to create logger for web", err)
-		}
+		childLogger := logger.NewChildLogger()
 
 		defer childLogger.Close()
 
-		web := web.NewWeb(config.Config.Web.Address, childLogger)
-		web.Start()
+		web.Start(config.Config.Web.Address, childLogger)
 	}()
 
 	go func() {
-		childLogger, err := logger.NewChildLogger()
-		if err != nil {
-			logger.PanicWithErr("failed to create logger for discord", err)
-		}
+		childLogger := logger.NewChildLogger()
 
 		defer childLogger.Close()
 

@@ -17,10 +17,7 @@ func NewBot(appId, token string, logger *logging.Logger) Bot {
 }
 
 func (bot *Bot) onReady(session *discordgo.Session, event *discordgo.Ready) {
-	logger, err := bot.logger.NewChildLogger()
-	if err != nil {
-		bot.logger.FatalWithErr("failed to create onReady handler logger", err)
-	}
+	logger := bot.logger.NewChildLogger()
 
 	defer logger.Close()
 
@@ -31,10 +28,7 @@ func (bot *Bot) onReady(session *discordgo.Session, event *discordgo.Ready) {
 }
 
 func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo.InteractionCreate) {
-	logger, err := bot.logger.NewChildLogger()
-	if err != nil {
-		bot.logger.FatalWithErr("failed to create onInteractionCreate handler logger", err)
-	}
+	logger := bot.logger.NewChildLogger()
 
 	defer logger.Close()
 
@@ -52,10 +46,7 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo
 }
 
 func onApplicationCommandInteraction(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
-	logger, err := log.NewChildLogger()
-	if err != nil {
-		logger.FatalWithErr("failed to create onApplicationCommandInteraction logger", err)
-	}
+	logger := log.NewChildLogger()
 
 	logger.SetData("session", &session)
 	logger.SetData("interaction", &interaction)
@@ -123,10 +114,7 @@ func (bot *Bot) Start() {
 		bot.logger.FatalWithErr("failed to register new commands", err)
 	}
 
-	cmdLogger, err := bot.logger.NewChildLogger()
-	if err != nil {
-		bot.logger.PanicWithErr("failed to create command logger", err)
-	}
+	cmdLogger := bot.logger.NewChildLogger()
 
 	for _, cmd := range newCmds {
 		cmdLogger.SetData("cmd", &cmd)

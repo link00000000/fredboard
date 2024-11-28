@@ -41,8 +41,7 @@ func (handler PrettyHandler) useColor() bool {
 }
 
 // Implements [logging.Handler]
-func (handler PrettyHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) error {
-	return nil
+func (handler PrettyHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) {
 }
 
 // Implements [logging.Handler]
