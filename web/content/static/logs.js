@@ -1,3 +1,3 @@
-import { LogEventSource } from "./logging/event_source.js"
+import * as LogEventSource from "./logging/event_source.js"
 
 LogEventSource.Open()

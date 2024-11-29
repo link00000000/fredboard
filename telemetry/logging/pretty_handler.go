@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"accidentallycoded.com/fredboard/v3/ansi"
 	"golang.org/x/term"
@@ -110,17 +111,20 @@ func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error
 	}
 
 	dataJson, err := json.Marshal(logger.data)
-	if err != nil {
+	if err != nil && (strings.Contains(err.Error(), "unsupported type") || strings.Contains(err.Error(), "unsupported value")) {
+		// Fallback to non-recursive printing
+		printData(&str, logger.data, globalPadding)
+	} else if err != nil {
 		return err
-	}
+	} else {
+		var dataMap map[string]any
+		err = json.Unmarshal([]byte(dataJson), &dataMap)
+		if err != nil {
+			return err
+		}
 
-	var dataMap map[string]any
-	err = json.Unmarshal([]byte(dataJson), &dataMap)
-	if err != nil {
-		return err
+		printDataRec(&str, dataMap, globalPadding)
 	}
-
-	printData(&str, dataMap, globalPadding)
 
 	_, err = fmt.Fprintf(handler.writer, str.String())
 	return err
@@ -138,14 +142,32 @@ func printData(str *ansi.AnsiStringBuilder, data map[string]any, padding string)
 			str.WriteString("└─ ")
 		}
 
+		str.Write(ansi.FgBrightBlack, k, ansi.Reset, ": ", fmt.Sprintf("%#v", v), "\n")
+
+		i++
+	}
+}
+
+func printDataRec(str *ansi.AnsiStringBuilder, data map[string]any, padding string) {
+	i := 0
+	for k, v := range data {
+		str.WriteString(padding)
+
+		isLast := i == len(data)-1
+		if !isLast {
+			str.WriteString("├─ ")
+		} else {
+			str.WriteString("└─ ")
+		}
+
 		switch v := v.(type) {
 		case map[string]any:
 			str.Write(ansi.FgBrightBlack, k, ansi.Reset, "\n")
 
 			if !isLast {
-				printData(str, v, padding+"│   ")
+				printDataRec(str, v, padding+"│   ")
 			} else {
-				printData(str, v, padding+"    ")
+				printDataRec(str, v, padding+"    ")
 			}
 		default:
 			str.Write(ansi.FgBrightBlack, k, ansi.Reset, ": ", fmt.Sprintf("%#v", v), "\n")

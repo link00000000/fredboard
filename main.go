@@ -15,15 +15,15 @@ func main() {
 	logger.AddHandler(logging.NewPrettyHandler(os.Stdout))
 	logger.SetPanicOnError(true)
 
-	config.Init()
+	configLogger := logger.NewChildLogger()
+	defer configLogger.Close()
+
+	config.Init(configLogger)
 	if ok, err := config.IsValid(); !ok {
 		logger.FatalWithErr("Invalid config", err)
 	}
 
-	logger.SetData("config", &config.Config)
 	logger.SetLevel(config.Config.Logging.Level)
-
-	logger.Debug("loaded config")
 
 	go func() {
 		childLogger := logger.NewChildLogger()

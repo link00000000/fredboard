@@ -24,26 +24,15 @@ func (web *Web) NewLogger() *logging.Logger {
 	return web.Logger.NewChildLogger()
 }
 
-// TODO
-/*
-func (web *Web) handleEventLogs(res http.ResponseWriter, req *http.Request) {
-	logger, err := web.logger.NewChildLogger()
-	if err != nil {
-		logger.Fatal("failed to create child logger")
-	}
+// Implements [http.Handler]
+func (web *Web) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger := web.Logger.NewChildLogger()
 
-	defer logger.Close()
-	logger.SetData("request", &req)
-	logger.SetData("response", &res)
+	logger.SetData("request.method", r.Method)
+	logger.SetData("request.url", r.URL)
 
 	logger.Debug("received request")
 	defer logger.Debug("closed request")
 
-	id := web.logBroadcaster.AddResponse(res)
-	defer web.logBroadcaster.RemoveResponse(id)
-
-	// Leave the connection open until the client closes it
-	// so they can receive notifications via SSE
-	<-req.Context().Done()
+	web.Mux.ServeHTTP(w, r)
 }
-*/

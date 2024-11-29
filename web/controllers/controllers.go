@@ -32,7 +32,7 @@ func (controller *Controller) newLogger() *logging.Logger {
   return controller.logger.NewChildLogger()
 }
 
-func (controller *Controller) newLoggerWithRequest(w http.ResponseWriter, r *http.Request) *logging.Logger {
+func (controller *Controller) newLoggerForRequest(w http.ResponseWriter, r *http.Request) *logging.Logger {
   logger := controller.newLogger()
 
 	logger.SetData("request", &r)

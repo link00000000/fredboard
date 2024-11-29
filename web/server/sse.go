@@ -6,57 +6,68 @@ import (
 	"net/http"
 )
 
-type SSEResponseWriter struct {
-	res       http.ResponseWriter
+type SSEConnection struct {
+	writer    http.ResponseWriter
 	connected bool
 }
 
-func NewSSEResponseWriter(res http.ResponseWriter) SSEResponseWriter {
-	return SSEResponseWriter{res: res, connected: false}
+func NewSSEConnection(w http.ResponseWriter) *SSEConnection {
+	return &SSEConnection{writer: w, connected: false}
 }
 
 var ErrStreamingUnsupported = errors.New("streaming unsupported")
 
-// Implements [io.Writer]
-func (writer *SSEResponseWriter) Write(p []byte) (int, error) {
-	res := writer.res
+func (writer *SSEConnection) EstablishConnection() error {
+	w := writer.writer
 
 	// Flush the headers to establish the connection
-	flusher, ok := res.(http.Flusher)
+	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(res, "streaming unsupported!", http.StatusInternalServerError)
-		return 0, ErrStreamingUnsupported
+		http.Error(w, "streaming unsupported!", http.StatusInternalServerError)
+		return ErrStreamingUnsupported
 	}
 
 	if !writer.connected {
-		res.Header().Set("Content-Type", "text/event-stream")
-		res.Header().Set("Cache-Control", "no-cache")
-		res.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
 
 		flusher.Flush()
 
 		writer.connected = true
 	}
 
-	n, err := fmt.Fprint(res, fmt.Sprintf("data: %s\n\n", p))
+	return nil
+}
 
+// Implements [io.Writer]
+func (writer *SSEConnection) Write(p []byte) (int, error) {
+	w := writer.writer
+
+	n, err := fmt.Fprint(w, fmt.Sprintf("data: %s\n\n", p))
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported!", http.StatusInternalServerError)
+		return 0, ErrStreamingUnsupported
+	}
 	flusher.Flush()
 
 	return n, err
 }
 
 type SSEBroadcaster struct {
-	writers map[int]SSEResponseWriter
+	writers map[int]*SSEConnection
 	nextId  int
 }
 
 func NewSSEBroadcaster() *SSEBroadcaster {
-	return &SSEBroadcaster{writers: make(map[int]SSEResponseWriter), nextId: 0}
+	return &SSEBroadcaster{writers: make(map[int]*SSEConnection), nextId: 0}
 }
 
-func (broadcaster SSEBroadcaster) AddResponse(res http.ResponseWriter) int {
+func (broadcaster SSEBroadcaster) AddResponse(conn *SSEConnection) int {
 	id := broadcaster.nextId
-	broadcaster.writers[id] = NewSSEResponseWriter(res)
+	broadcaster.writers[id] = conn
 
 	broadcaster.nextId++
 

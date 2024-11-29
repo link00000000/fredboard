@@ -8,15 +8,15 @@ import (
 )
 
 type staticController struct {
-  *Controller
+	*Controller
 }
 
-func NewStaticController(server *server.Web) *staticController {
-  controller := &staticController{newController(server)}
+func NewStaticController(srv *server.Web) *staticController {
+	controller := &staticController{newController(srv)}
 
-  controller.mux.Handle("/", http.FileServerFS(content.ContentFS))
+	controller.mux.HandleFunc("/", controller.handleIndex)
 
-  return controller
+	return controller
 }
 
 // Implements [http.Handler]
@@ -26,9 +26,17 @@ func (controller *staticController) ServeHTTP(w http.ResponseWriter, r *http.Req
 
 // Implements [io.Closer]
 func (controller *staticController) Close() error {
-  return controller.logger.Close()
+	return controller.logger.Close()
 }
 
 func (controller *staticController) handleIndex(w http.ResponseWriter, r *http.Request) {
-  http.ServeFile(w, r, "static/" + r.URL.Path)
+	logger := controller.newLoggerForRequest(w, r)
+
+	path := "static" + r.URL.Path
+
+	logger.SetData("path", path)
+	logger.SetData("fs", content.ContentFS)
+
+	logger.Debug("Serving static asset")
+	http.ServeFileFS(w, r, content.ContentFS, path)
 }
