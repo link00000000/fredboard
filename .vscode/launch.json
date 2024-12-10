@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug fredboard",
+      "type": "go",
+      "request": "launch",
+      "program": "main.go"
+    }
+  ]
+}

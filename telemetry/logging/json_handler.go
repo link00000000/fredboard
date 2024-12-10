@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type JsonHandlerMessageType int
@@ -22,10 +20,10 @@ type JsonHandlerCaller struct {
 }
 
 type JsonHandlerLogger struct {
-	Id       uuid.UUID   `json:"id"`
-	Parent   *uuid.UUID  `json:"parent"`
-	Children []uuid.UUID `json:"children"`
-	Root     uuid.UUID   `json:"root"`
+	Id       string   `json:"id"`
+	Parent   *string  `json:"parent"`
+	Children []string `json:"children"`
+	Root     string   `json:"root"`
 }
 
 type JsonHandlerLoggerCreated struct {
@@ -44,14 +42,14 @@ type JsonHandlerRecord struct {
 	Time    time.Time         `json:"time"`
 	Level   string            `json:"level"`
 	Message string            `json:"message"`
-	Error   error             `json:"error"`
+	Error   *string           `json:"error"`
 	Caller  JsonHandlerCaller `json:"caller"`
 	Logger  JsonHandlerLogger `json:"logger"`
 }
 
 type JsonHandlerMessage[T any] struct {
 	Type JsonHandlerMessageType `json:"type"`
-	Data T
+	Data T                      `json:"data"`
 }
 
 func NewJsonLoggerCreatedMessage() JsonHandlerMessage[JsonHandlerLoggerCreated] {
@@ -83,16 +81,17 @@ func (handler JsonHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreated
 	loggerCreated.Data.Caller.File = event.Caller.File
 	loggerCreated.Data.Caller.Line = event.Caller.Line
 
-	loggerCreated.Data.Logger.Id = logger.id
-	loggerCreated.Data.Logger.Root = logger.RootLogger().id
+	loggerCreated.Data.Logger.Id = logger.id.String()
+	loggerCreated.Data.Logger.Root = logger.RootLogger().id.String()
 
 	if logger.parent != nil {
-		loggerCreated.Data.Logger.Parent = &logger.parent.id
+		str := logger.parent.id.String()
+		loggerCreated.Data.Logger.Parent = &str
 	}
 
-	loggerCreated.Data.Logger.Children = make([]uuid.UUID, len(logger.children))
+	loggerCreated.Data.Logger.Children = make([]string, len(logger.children))
 	for i, c := range logger.children {
-		loggerCreated.Data.Logger.Children[i] = c.id
+		loggerCreated.Data.Logger.Children[i] = c.id.String()
 	}
 
 	data, err := json.Marshal(loggerCreated)
@@ -113,16 +112,17 @@ func (handler JsonHandler) OnLoggerClosed(logger *Logger, event OnLoggerClosedEv
 	loggerClosed.Data.Caller.File = event.Caller.File
 	loggerClosed.Data.Caller.Line = event.Caller.Line
 
-	loggerClosed.Data.Logger.Id = logger.id
-	loggerClosed.Data.Logger.Root = logger.RootLogger().id
+	loggerClosed.Data.Logger.Id = logger.id.String()
+	loggerClosed.Data.Logger.Root = logger.RootLogger().id.String()
 
 	if logger.parent != nil {
-		loggerClosed.Data.Logger.Parent = &logger.parent.id
+		str := logger.parent.id.String()
+		loggerClosed.Data.Logger.Parent = &str
 	}
 
-	loggerClosed.Data.Logger.Children = make([]uuid.UUID, len(logger.children))
+	loggerClosed.Data.Logger.Children = make([]string, len(logger.children))
 	for i, c := range logger.children {
-		loggerClosed.Data.Logger.Children[i] = c.id
+		loggerClosed.Data.Logger.Children[i] = c.id.String()
 	}
 
 	data, err := json.Marshal(loggerClosed)
@@ -159,22 +159,27 @@ func (handler JsonHandler) OnRecord(logger *Logger, event OnRecordEvent) error {
 	}
 
 	record.Data.Message = event.Message
-	record.Data.Error = event.Error
+
+	if event.Error != nil {
+		msg := event.Error.Error()
+		record.Data.Error = &msg
+	}
 
 	record.Data.Caller = JsonHandlerCaller{}
 	record.Data.Caller.File = event.Caller.File
 	record.Data.Caller.Line = event.Caller.Line
 
-	record.Data.Logger.Id = logger.id
-	record.Data.Logger.Root = logger.RootLogger().id
+	record.Data.Logger.Id = logger.id.String()
+	record.Data.Logger.Root = logger.RootLogger().id.String()
 
 	if logger.parent != nil {
-		record.Data.Logger.Parent = &logger.parent.id
+		str := logger.parent.id.String()
+		record.Data.Logger.Parent = &str
 	}
 
-	record.Data.Logger.Children = make([]uuid.UUID, len(logger.children))
+	record.Data.Logger.Children = make([]string, len(logger.children))
 	for i, c := range logger.children {
-		record.Data.Logger.Children[i] = c.id
+		record.Data.Logger.Children[i] = c.id.String()
 	}
 
 	data, err := json.Marshal(record)
