@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
+	"sync"
 
 	"accidentallycoded.com/fredboard/v3/config"
 	"accidentallycoded.com/fredboard/v3/discord"
@@ -20,26 +22,33 @@ func main() {
 
 	config.Init(configLogger)
 	if ok, err := config.IsValid(); !ok {
-		logger.FatalWithErr("Invalid config", err)
+		logger.FatalWithErr("invalid config", err)
 	}
 
 	logger.SetLevel(config.Config.Logging.Level)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
 	go func() {
 		childLogger := logger.NewChildLogger()
-
 		defer childLogger.Close()
 
-		web.Start(config.Config.Web.Address, childLogger)
+		wg.Add(1)
+		defer wg.Done()
+
+		web.Run(ctx, config.Config.Web.Address, childLogger)
 	}()
 
 	go func() {
 		childLogger := logger.NewChildLogger()
-
 		defer childLogger.Close()
 
+		wg.Add(1)
+		defer wg.Done()
+
 		bot := discord.NewBot(config.Config.Discord.AppId, config.Config.Discord.Token, childLogger)
-		bot.Start()
+		bot.Run(ctx)
 	}()
 
 	logger.Info("press ^c to exit")
@@ -47,4 +56,9 @@ func main() {
 	intSig := make(chan os.Signal, 1)
 	signal.Notify(intSig, os.Interrupt)
 	<-intSig
+
+	logger.Info("received interrupt signal")
+	cancel()
+
+	wg.Wait()
 }

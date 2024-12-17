@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
@@ -8,7 +9,7 @@ import (
 	"accidentallycoded.com/fredboard/v3/web/server"
 )
 
-func Start(address string, logger *logging.Logger) {
+func Run(ctx context.Context, address string, logger *logging.Logger) {
 	server := server.NewWebServer(logger)
 
 	logsController := controllers.NewLogsController(server)
@@ -21,6 +22,26 @@ func Start(address string, logger *logging.Logger) {
 
 	logger.SetData("web", server)
 
-	logger.Info("listening for requests")
-	http.ListenAndServe(address, server)
+	httpServer := &http.Server{Addr: address, Handler: server}
+
+	go func() {
+		logger.Info("listening for requests")
+		err := httpServer.ListenAndServe()
+
+    logger.Info("http server closed")
+
+		if err != http.ErrServerClosed {
+			logger.ErrorWithErr("http server error", err)
+		}
+	}()
+
+	<-ctx.Done()
+	logger.Info("stopping web server")
+
+	err := httpServer.Shutdown(ctx)
+  logger.Info("http server shutdown")
+
+	if err != nil {
+		logger.ErrorWithErr("error while stopping http server", err)
+	}
 }

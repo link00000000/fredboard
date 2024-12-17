@@ -1,6 +1,8 @@
 package discord
 
 import (
+	"context"
+
 	"accidentallycoded.com/fredboard/v3/discord/commands"
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
@@ -61,7 +63,7 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 	}
 }
 
-func (bot *Bot) Start() {
+func (bot *Bot) Run(ctx context.Context) {
 	session, err := discordgo.New("Bot " + bot.token)
 	if err != nil {
 		bot.logger.FatalWithErr("failed to create discord session", err)
@@ -128,7 +130,7 @@ func (bot *Bot) Start() {
 		bot.logger.FatalWithErr("failed to open discord session", err)
 	}
 
-	bot.logger.Debug("opened discord session")
+	defer bot.logger.Info("discord bot shutdown")
 
 	defer func() {
 		err := session.Close()
@@ -137,6 +139,9 @@ func (bot *Bot) Start() {
 			return
 		}
 
-		bot.logger.Info("closed discord session")
+		bot.logger.Info("discord session closed")
 	}()
+
+	<-ctx.Done()
+	bot.logger.Info("stopping discord bot")
 }
