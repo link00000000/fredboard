@@ -1,9 +1,9 @@
 package sources
 
 import (
-	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
@@ -11,122 +11,154 @@ import (
 
 type YouTubeStreamQuality string
 
-type StdStreams struct {
-	cmd *exec.Cmd
-
-	stdin       io.Writer
-	stdinLogger *logging.Logger
-
-	stdout       io.Reader
-	stdoutLogger *logging.Logger
-
-	stderr       io.Reader
-	stderrLogger *logging.Logger
-}
-
-// Implements [io.Closer]
-func (streams *StdStreams) Close() error {
-	errs := make([]error, 0, 3)
-
-	if streams.stdinLogger != nil {
-		err := streams.stderrLogger.Close()
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if streams.stdout != nil {
-		err := streams.stdoutLogger.Close()
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if streams.stderr != nil {
-		err := streams.stderrLogger.Close()
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(errs) > 0 {
-		return errors.Join(errs...)
-	}
-
-	return nil
-}
-
-func NewStdStreams(cmd *exec.Cmd, logger *logging.Logger) (*StdStreams, error) {
-	stdStreams := &StdStreams{cmd: cmd}
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, err
-	}
-	stdStreams.stdinLogger = logger.NewChildLogger()
-	stdStreams.stdin = logging.LogWriter(stdin, stdStreams.stdinLogger, logging.Debug)
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	stdStreams.stdoutLogger = logger.NewChildLogger()
-	stdStreams.stdout = logging.LogReader(stdout, stdStreams.stdoutLogger, logging.Debug)
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-	stdStreams.stderrLogger = logger.NewChildLogger()
-	stdStreams.stderr = logging.LogReader(stderr, stdStreams.stderrLogger, logging.Debug)
-
-	return stdStreams, nil
-}
-
 const (
 	YOUTUBESTREAMQUALITY_WORST YouTubeStreamQuality = "worstaudio"
 	YOUTUBESTREAMQUALITY_BEST                       = "bestaudio"
 )
 
-type YouTube struct {
-	ytdlp  *StdStreams
-	ffmpeg *StdStreams
-}
-
-func NewYouTubeSource(url string, quality YouTubeStreamQuality, logger *logging.Logger) (*YouTube, error) {
-	fmt.Println("----------------------------------------------------- 1")
-
-	ytdlp, err := NewStdStreams(exec.Command("yt-dlp",
+func newYtdlpCmd(url string, quality YouTubeStreamQuality, logger *logging.Logger) (*exec.Cmd, error) {
+	ytdlp := exec.Command("yt-dlp",
 		"--abort-on-error",
 		"--quiet",
 		"--no-warnings",
 		"--format", fmt.Sprintf("%s[acodec=opus]", quality),
 		"--output", "-",
-		url), logger)
+		url)
 
+	stderr, err := ytdlp.StderrPipe()
 	if err != nil {
 		return nil, err
 	}
 
-	ffmpeg, err := NewStdStreams(exec.Command("ffmpeg",
+	go func() {
+		buf := make([]byte, 0, 0xffff)
+
+		for {
+			buf = buf[:0]
+			_, err := stderr.Read(buf)
+
+			if err == io.EOF || err == os.ErrClosed {
+				return
+			}
+
+			if err != nil {
+				logger.ErrorWithErr("failed to read from ytdlp stderr pipe", err)
+				return
+			}
+
+			if len(buf) > 0 {
+				logger.Debug(fmt.Sprintf("ytdlp stderr: %s", string(buf)))
+			}
+		}
+	}()
+
+	return ytdlp, nil
+}
+
+func newFfmpegCmd(logger *logging.Logger) (*exec.Cmd, error) {
+	ffmpeg := exec.Command("ffmpeg",
 		"-hide_banner",
 		"-loglevel", "error",
 		"-i", "pipe:0",
 		"-f", "s16le",
 		"-ar", "48000",
 		"-ac", "2",
-		"pipe:1"), logger)
+		"pipe:1")
 
+	stderr, err := ffmpeg.StderrPipe()
 	if err != nil {
 		return nil, err
 	}
 
-	ffmpeg.cmd.Stdin = ytdlp.stdout
+	go func() {
+		buf := make([]byte, 0, 0xffff)
 
-	return &YouTube{ytdlp, ffmpeg}, nil
+		for {
+			buf = buf[:0]
+			_, err := stderr.Read(buf)
+
+			if err == io.EOF || err == os.ErrClosed {
+				return
+			}
+
+			if err != nil {
+				logger.ErrorWithErr("failed to read from ffmpeg stderr pipe", err)
+				return
+			}
+
+			if len(buf) > 0 {
+				logger.Debug(fmt.Sprintf("ffmpeg stderr: %s", string(buf)))
+			}
+		}
+	}()
+
+	return ffmpeg, nil
 }
 
-// Implements [io.Reader]
+type YouTube struct {
+	ytdlp  *exec.Cmd
+	ffmpeg *exec.Cmd
+
+	ffmpegStdout io.Reader
+}
+
+func NewYouTubeSource(url string, quality YouTubeStreamQuality, logger *logging.Logger) (*YouTube, error) {
+	ytdlp, err := newYtdlpCmd(url, quality, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	ffmpeg, err := newFfmpegCmd(logger)
+	if err != nil {
+		return nil, err
+	}
+
+	ytdlpStdout, err := ytdlp.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	ffmpeg.Stdin = ytdlpStdout
+
+	ffmpegStdout, err := ffmpeg.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	return &YouTube{ytdlp, ffmpeg, ffmpegStdout}, nil
+}
+
+// Implements [Source]
 func (youtube *YouTube) Read(p []byte) (int, error) {
-	return youtube.ffmpeg.stdout.Read(p)
+	return youtube.ffmpegStdout.Read(p)
+}
+
+// Implements [Source]
+func (youtube *YouTube) Start() error {
+	err := youtube.ytdlp.Start()
+	if err != nil {
+		return err
+	}
+
+	err = youtube.ffmpeg.Start()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Implements [Source]
+func (youtube *YouTube) Wait() error {
+	err := youtube.ytdlp.Wait()
+	if err != nil {
+		return err
+	}
+
+	err = youtube.ffmpeg.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

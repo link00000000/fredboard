@@ -84,5 +84,15 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	time.Sleep(250 * time.Millisecond) // Give voice connection time to settle
 
-	encoder.EncodePCMS16LE(source, sink, 960)
+	err = source.Start()
+	if err != nil {
+		logger.ErrorWithErr("failed to start source", err)
+	}
+
+	go encoder.EncodePCMS16LE(source, sink, 960)
+
+	err = source.Wait()
+	if err != nil {
+		logger.ErrorWithErr("error while waiting for source", err)
+	}
 }

@@ -53,12 +53,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.SetData("encoder", &encoder)
 	logger.Debug("created encoder")
 
-	source, err := sources.NewFSSource(path.StringValue())
-	if err != nil {
-		logger.ErrorWithErr("failed to create FS source", err)
-		// TODO: Notify the user that there was an error
-		return
-	}
+	source := sources.NewFSSource(path.StringValue())
 
 	logger.SetData("source", &source)
 	logger.Debug("set source")
@@ -91,13 +86,25 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	time.Sleep(250 * time.Millisecond) // Give voice connection time to settle
 
+	err = source.Start()
+	if err != nil {
+		logger.ErrorWithErr("failed to start source", err)
+		return
+	}
+
 	switch strings.ToUpper(encoding.StringValue()) {
 	case "PCMS16LE":
-		encoder.EncodePCMS16LE(source, sink, 960)
+		go encoder.EncodePCMS16LE(source, sink, 960)
 	case "DCA0":
-		encoder.EncodeDCA0(source, sink)
+		go encoder.EncodeDCA0(source, sink)
 	default:
 		logger.Error("unknown encoding")
 		// TODO: Notify the user that there was an error
+	}
+
+	err = source.Wait()
+	if err != nil {
+		logger.ErrorWithErr("error while waiting for source", err)
+		return
 	}
 }

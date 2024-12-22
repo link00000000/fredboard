@@ -2,6 +2,7 @@ package codecs
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 
 	"layeh.com/gopus"
@@ -27,6 +28,8 @@ func (e *OpusEncoder) EncodePCMS16LE(reader io.Reader, writer io.Writer, frameSi
 	for {
 		pcmBuf := make([]int16, e.nChannels*frameSize)
 		err := binary.Read(reader, binary.LittleEndian, &pcmBuf)
+
+		fmt.Println("pcmbuf: %v", pcmBuf)
 
 		if err == io.EOF {
 			break
@@ -58,31 +61,31 @@ func (e *OpusEncoder) EncodePCMS16LE(reader io.Reader, writer io.Writer, frameSi
 }
 
 func (e *OpusEncoder) EncodeDCA0(reader io.Reader, writer io.Writer) error {
-  for {
-    var segmentLength uint16
-    err := binary.Read(reader, binary.LittleEndian, &segmentLength)
+	for {
+		var segmentLength uint16
+		err := binary.Read(reader, binary.LittleEndian, &segmentLength)
 
-    if err == io.EOF {
-      break
-    }
+		if err == io.EOF {
+			break
+		}
 
-    if err != nil {
-      return err
-    }
+		if err != nil {
+			return err
+		}
 
-    data := make([]byte, segmentLength)
-    _, err = reader.Read(data)
+		data := make([]byte, segmentLength)
+		_, err = reader.Read(data)
 
-    if err != nil {
-      return err
-    }
+		if err != nil {
+			return err
+		}
 
-    _, err = writer.Write(data)
-    
-    if err != nil {
-      return err
-    }
-  }
+		_, err = writer.Write(data)
 
-  return nil
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

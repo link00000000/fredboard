@@ -5,25 +5,47 @@ import (
 )
 
 type FS struct {
-	f *os.File
+	filePath string
+	f        *os.File
+
+	done chan struct{}
 }
 
-func NewFSSource(filePath string) (*FS, error) {
-	f, err := os.Open(filePath)
+func NewFSSource(filePath string) *FS {
+	return &FS{filePath: filePath, done: make(chan struct{})}
+}
+
+// Implements [Source]
+func (fs *FS) Read(p []byte) (int, error) {
+	n, err := fs.f.Read(p)
 
 	if err != nil {
-		return nil, err
+		close(fs.done)
+		return n, err
 	}
 
-	return &FS{f: f}, nil
+	return n, err
 }
 
-// Implements [io.Closer]
-func (fs *FS) Close() error {
-	return fs.f.Close()
+func (fs *FS) Start() error {
+	f, err := os.Open(fs.filePath)
+
+	if err != nil {
+		return err
+	}
+
+	fs.f = f
+
+	return nil
 }
 
-// Implements [io.Reader]
-func (fs *FS) Read(p []byte) (int, error) {
-	return fs.f.Read(p)
+func (fs *FS) Wait() error {
+	<-fs.done
+
+	err := fs.f.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
