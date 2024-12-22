@@ -2,14 +2,27 @@ package commands
 
 import (
 	"fmt"
-	"time"
 
 	"accidentallycoded.com/fredboard/v3/codecs"
+	"accidentallycoded.com/fredboard/v3/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/discord/voice"
 	"accidentallycoded.com/fredboard/v3/sources"
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
+
+type ytCommandOptions struct {
+	url string
+}
+
+func getYtOpts(interaction *discordgo.Interaction) (*ytCommandOptions, error) {
+	url, err := interactions.GetRequiredStringOpt(interaction, "url")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get required option \"url\"", err)
+	}
+
+	return &ytCommandOptions{url}, nil
+}
 
 func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
 	logger := log.NewChildLogger()
@@ -17,82 +30,152 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.SetData("session", &session)
 	logger.SetData("interaction", &interaction)
 
-	interactionData := interaction.ApplicationCommandData()
-
-	url, err := getRequiredApplicationCommandOption(interactionData, "url", discordgo.ApplicationCommandOptionString)
+	// get command options
+	opts, err := getYtOpts(interaction)
 	if err != nil {
-		logger.ErrorWithErr("failed to get required application option \"url\"", err)
-		// TODO: Notify the user that there was an error
+		logger.ErrorWithErr("failed to get opts", err)
+
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
 		return
 	}
 
-	logger.SetData("option.url", &url)
-	logger.Debug("got application option \"url\"")
+	logger.SetData("opts", &opts)
+	logger.Debug("got required opts")
 
+	// create opus encoder
 	encoder, err := codecs.NewOpusEncoder(48000, 2)
 	if err != nil {
 		logger.ErrorWithErr("failed to create opus encoder", err)
-		// TODO: Notify the user that there was an error
+
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
 		return
 	}
 
 	logger.SetData("encoder", &encoder)
 	logger.Debug("created encoder")
 
-	source, err := sources.NewYouTubeSource(url.StringValue(), sources.YOUTUBESTREAMQUALITY_BEST, logger)
+	// create youtube source
+	source, err := sources.NewYouTubeSource(opts.url, sources.YOUTUBESTREAMQUALITY_BEST, logger)
 	if err != nil {
-		logger.ErrorWithErr("failed to create YouTube source", err)
-		// TODO: Notify the user that there was an error
+		logger.ErrorWithErr("failed to create youtube source", err)
+
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
 		return
 	}
 
 	logger.SetData("source", &source)
 	logger.Debug("set source")
 
-	session.InteractionRespond(interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("YouTube video will now play... (%s)", url.StringValue()),
-		},
-	})
+	// find voice channel
+	vc, err := interactions.FindCreatorVoiceChannelId(session, interaction)
 
-	const mute = false
-	const deaf = true
-	voiceConnection, err := joinVoiceChannelIdOfInteractionCreator(session, interaction, mute, deaf)
-	if err != nil {
-		logger.ErrorWithErr("failed to join voice channel of interaction creator", err)
-		// TODO: Notify the user that there was an error
+	if err == interactions.ErrVoiceChannelNotFound {
+		logger.DebugWithErr("interaction creator not in a voice channel", err)
+
+		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
 		return
 	}
 
-	logger.SetData("voiceConnection", &voiceConnection)
+	if err != nil {
+		logger.ErrorWithErr("failed to find interaction creator's voice channel id", err)
+
+		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
+		return
+	}
+
+	logger.SetData("voiceChannelId", vc)
+	logger.Debug("found interaction creator's voice channel id")
+
+	// create voice connection
+	const (
+		mute = false
+		deaf = true
+	)
+	voiceConn, err := session.ChannelVoiceJoin(interaction.GuildID, vc, mute, deaf)
+
+	if err != nil {
+		logger.ErrorWithErr("failed to join voice channel", err)
+
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
+		return
+	}
+
+	logger.SetData("voiceConn", &voiceConn)
 	logger.Debug("joined voice channel of interaction creator")
 
 	defer func() {
-		err := voiceConnection.Disconnect()
-
+		err := voiceConn.Disconnect()
 		if err != nil {
 			logger.ErrorWithErr("failed to close voice connection", err)
-			// TODO: Notify the user that there was an error
 			return
 		}
 
 		logger.Debug("closed voice connection")
 	}()
 
-	sink := voice.NewVoiceWriter(voiceConnection)
+	// create sink
+	sink := voice.NewVoiceWriter(voiceConn)
 
-	time.Sleep(250 * time.Millisecond) // Give voice connection time to settle
+	logger.SetData("sink", &sink)
+	logger.Debug("created sink")
 
+	// start source
 	err = source.Start()
 	if err != nil {
 		logger.ErrorWithErr("failed to start source", err)
+
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
+		return
 	}
 
-	go encoder.EncodePCMS16LE(source, sink, 960)
+	logger.Debug("started source")
 
+	// transcode source to sink
+	go encoder.EncodePCMS16LE(source, sink, 960)
+	logger.Debug("started transcoding")
+
+	// notify user that everything is OK
+	err = interactions.RespondWithMessage(session, interaction, "Playing...")
+	if err != nil {
+		logger.ErrorWithErr("failed to respond to interaction", err)
+	}
+
+	logger.Debug("notified user that everything is OK")
+
+	// cleanup source
+	logger.Debug("waiting for source")
 	err = source.Wait()
 	if err != nil {
 		logger.ErrorWithErr("error while waiting for source", err)
 	}
+
+	logger.Debug("done")
 }

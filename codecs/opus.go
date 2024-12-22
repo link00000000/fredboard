@@ -2,7 +2,6 @@ package codecs
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 
 	"layeh.com/gopus"
@@ -28,8 +27,6 @@ func (e *OpusEncoder) EncodePCMS16LE(reader io.Reader, writer io.Writer, frameSi
 	for {
 		pcmBuf := make([]int16, e.nChannels*frameSize)
 		err := binary.Read(reader, binary.LittleEndian, &pcmBuf)
-
-		fmt.Println("pcmbuf: %v", pcmBuf)
 
 		if err == io.EOF {
 			break
