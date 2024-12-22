@@ -1,5 +1,6 @@
-"use strict";
+"use strict"
 
+import { FredboardLogElement } from "../elements/fredboard-logger.js"
 import * as errors from "../lib/errors.js"
 
 const MessageType = {
@@ -12,6 +13,24 @@ const eventSource = new EventSource("/logs/events")
 eventSource.onopen = onOpen
 eventSource.onmessage = onMessage
 eventSource.onerror = onError
+
+function findLogElement() {
+  const elem = document.getElementById("log")
+
+  if (elem === null) {
+    throw Error("failed to get log element: '#log' not found")
+  }
+
+  if (!(elem instanceof FredboardLogElement)) {
+    throw Error("failed to get log element: Log element is not an instance of FredboardLogElement")
+  }
+
+  return function() {
+    return elem
+  }
+}
+
+const logElement = findLogElement()
 
 /**
  * @this {EventSource}
@@ -32,41 +51,44 @@ function onMessage(event) {
     const payload = JSON.parse(event.data)
 
     switch (payload.type) {
-    case MessageType.LoggerCreated: {
-      const [data, ok] = parseLoggerCreatedMessage(payload.data)
+      case MessageType.LoggerCreated: {
+        const [data, error] = parseLoggerCreatedMessage(payload.data)
 
-      if (!ok) {
+        if (error !== null) {
+          console.warn("ignoring malformed message", this, event, payload, error)
+          break
+        }
+
+        logElement().notifyLoggerCreated(data)
+
+        break
+      }
+      case MessageType.LoggerClosed: {
+        const [data, error] = parseLoggerClosedMessage(payload.data)
+
+        if (error !== null) {
+          console.warn("ignoring malformed message", this, event, payload, error)
+          break
+        }
+
+        logElement().notifyLoggerClosed(data)
+
+        break
+      }
+      case MessageType.Record: {
+        const [data, error] = parseRecordMessage(payload.data)
+
+        if (error !== null) {
+          console.warn("ignoring malformed message", this, event, payload, error)
+          break
+        }
+
+        logElement().notifyRecord(data)
+
+        break
+      }
+      default:
         console.warn("ignoring malformed message", this, event, payload)
-        break
-      }
-
-      onLoggerCreated(data)
-      break
-    }
-    case MessageType.LoggerClosed: {
-      const [data, ok] = parseLoggerClosedMessage(payload.data)
-
-      if (!ok) {
-        console.warn("ignoring malformed message", this, event, payload)
-        break
-      }
-
-      onLoggerClosed(payload.data)
-      break
-    }
-    case MessageType.Record: {
-      const [data, error] = parseRecordMessage(payload.data)
-
-      if (error !== null) {
-        console.warn("ignoring malformed message", this, event, payload, error)
-        break
-      }
-
-      onRecord(data)
-      break
-    }
-    default:
-      console.warn("ignoring malformed message", this, event, payload)
     }
   }
   catch (error) {
@@ -130,18 +152,192 @@ function onError(event) {
 
 /**
  * @param {unknown} data
- * @returns {[LoggerCreatedMessage, boolean]}
+ * @returns {[LoggerCreatedMessage, null]|[null, Error]}
  */
 function parseLoggerCreatedMessage(data) {
-  // TODO
+  /** @type LoggerCreatedMessage */
+  let msg = {}
+
+  if (typeof data !== "object") {
+    return [null, new Error("'data' is not of type 'object'")]
+  }
+
+  if (data === null) {
+    return [null, new Error("'data' is null")]
+  }
+
+  if (!("time" in data && typeof data.time === "string")) {
+    return [null, new Error("property 'time' not of type 'string'")]
+  }
+
+  const parsedTime = Date.parse(data.time)
+  if (isNaN(parsedTime)) {
+    return [null, new Error("property 'time' could not be parsed as a Date object")]
+  }
+
+  const [time, error] = errors.trycatch(() => new Date(parsedTime))
+  if (error != null) {
+    return [null, new Error("property 'time' could not be parsed as a Date object: " + error.message)]
+  }
+
+  msg.time = time
+
+  if (!("caller" in data && typeof data.caller === "object" && data.caller !== null)) {
+    return [null, new Error("property 'caller' not of type 'object' or null")]
+  }
+
+  if (!("file" in data.caller && typeof data.caller.file === "string")) {
+    return [null, new Error("property 'caller.file' not of type 'string'")]
+  }
+
+  if (!("line" in data.caller && typeof data.caller.line === "number")) {
+    return [null, new Error("property 'caller.line' not of type 'number'")]
+  }
+
+  if (!(Number.isInteger(data.caller.line) && data.caller.line > 0)) {
+    return [null, new Error("property 'caller.line' is not a positive integer")]
+  }
+
+  msg.caller = { file: data.caller.file, line: data.caller.line }
+
+  if (!("logger" in data && data.logger !== null && typeof data.logger === "object")) {
+    return [null, new Error("property 'logger' not of type 'object'")]
+  }
+
+  if (!("id" in data.logger && typeof data.logger.id === "string")) {
+    return [null, new Error("property 'data.logger.id' not of type 'string'")]
+  }
+
+  /** @type {string|undefined} */
+  let parentLogger = undefined
+
+  if ("parent" in data.logger) {
+    if (typeof data.logger.parent !== "string") {
+      return [null, new Error("property 'data.logger.id' not of type 'string'")]
+    }
+
+    parentLogger = data.logger.parent
+  }
+
+  if (!("children" in data.logger && typeof data.logger.children === "object" && Array.isArray(data.logger.children))) {
+    return [null, new Error("property 'data.logger.children' not of type 'array'")]
+  }
+
+
+  /** @type {string[]} */
+  let childLoggers = []
+
+  for (let i = 0; i < data.logger.children.length; ++i) {
+    const child = data.logger.children[i]
+    if (typeof child !== "string") {
+      return [null, new Error(`property 'data.logger.children[${i}]' not of type 'string'`)]
+    }
+
+    childLoggers.push(child)
+  }
+
+  if (!("root" in data.logger && typeof data.logger.root === "string")) {
+    return [null, new Error("property 'data.logger.root' not of type 'string'")]
+  }
+
+  msg.logger = { id: data.logger.id, parent: parentLogger, children: childLoggers, root: data.logger.root }
+
+  return [msg, null]
 }
 
 /**
  * @param {unknown} data
- * @returns {[LoggerClosedMessage, boolean]}
+ * @returns {[LoggerClosedMessage, null]|[null, Error]}
  */
 function parseLoggerClosedMessage(data) {
-  // TODO
+  /** @type LoggerClosedMessage */
+  let msg = {}
+
+  if (typeof data !== "object") {
+    return [null, new Error("'data' is not of type 'object'")]
+  }
+
+  if (data === null) {
+    return [null, new Error("'data' is null")]
+  }
+
+  if (!("time" in data && typeof data.time === "string")) {
+    return [null, new Error("property 'time' not of type 'string'")]
+  }
+
+  const parsedTime = Date.parse(data.time)
+  if (isNaN(parsedTime)) {
+    return [null, new Error("property 'time' could not be parsed as a Date object")]
+  }
+
+  const [time, error] = errors.trycatch(() => new Date(parsedTime))
+  if (error != null) {
+    return [null, new Error("property 'time' could not be parsed as a Date object: " + error.message)]
+  }
+
+  msg.time = time
+
+  if (!("caller" in data && typeof data.caller === "object" && data.caller !== null)) {
+    return [null, new Error("property 'caller' not of type 'object' or null")]
+  }
+
+  if (!("file" in data.caller && typeof data.caller.file === "string")) {
+    return [null, new Error("property 'caller.file' not of type 'string'")]
+  }
+
+  if (!("line" in data.caller && typeof data.caller.line === "number")) {
+    return [null, new Error("property 'caller.line' not of type 'number'")]
+  }
+
+  if (!(Number.isInteger(data.caller.line) && data.caller.line > 0)) {
+    return [null, new Error("property 'caller.line' is not a positive integer")]
+  }
+
+  msg.caller = { file: data.caller.file, line: data.caller.line }
+
+  if (!("logger" in data && data.logger !== null && typeof data.logger === "object")) {
+    return [null, new Error("property 'logger' not of type 'object'")]
+  }
+
+  if (!("id" in data.logger && typeof data.logger.id === "string")) {
+    return [null, new Error("property 'data.logger.id' not of type 'string'")]
+  }
+
+  /** @type {string|undefined} */
+  let parentLogger = undefined
+
+  if ("parent" in data.logger) {
+    if (typeof data.logger.parent !== "string") {
+      return [null, new Error("property 'data.logger.id' not of type 'string'")]
+    }
+
+    parentLogger = data.logger.parent
+  }
+
+  if (!("children" in data.logger && typeof data.logger.children === "object" && Array.isArray(data.logger.children))) {
+    return [null, new Error("property 'data.logger.children' not of type 'array'")]
+  }
+
+
+  /** @type {string[]} */
+  let childLoggers = []
+
+  for (let i = 0; i < data.logger.children.length; ++i) {
+    const child = data.logger.children[i]
+    if (typeof child !== "string") {
+      return [null, new Error(`property 'data.logger.children[${i}]' not of type 'string'`)]
+    }
+
+    childLoggers.push(child)
+  }
+
+  if (!("root" in data.logger && typeof data.logger.root === "string")) {
+    return [null, new Error("property 'data.logger.root' not of type 'string'")]
+  }
+
+  msg.logger = { id: data.logger.id, parent: parentLogger, children: childLoggers, root: data.logger.root }
+
+  return [msg, null]
 }
 
 /**
@@ -232,7 +428,6 @@ function parseRecordMessage(data) {
     return [null, new Error("property 'logger' not of type 'object'")]
   }
 
-
   if (!("id" in data.logger && typeof data.logger.id === "string")) {
     return [null, new Error("property 'data.logger.id' not of type 'string'")]
   }
@@ -251,7 +446,6 @@ function parseRecordMessage(data) {
   if (!("children" in data.logger && typeof data.logger.children === "object" && Array.isArray(data.logger.children))) {
     return [null, new Error("property 'data.logger.children' not of type 'array'")]
   }
-
 
   /** @type {string[]} */
   let childLoggers = []
@@ -272,26 +466,5 @@ function parseRecordMessage(data) {
   msg.logger = { id: data.logger.id, parent: parentLogger, children: childLoggers, root: data.logger.root }
 
   return [msg, null]
-}
-
-/**
- * @param {LoggerCreatedMessage} data
- */
-function onLoggerCreated(data) {
-  // TODO
-}
-
-/**
- * @param {LoggerClosedMessage} data
- */
-function onLoggerClosed(data) {
-  // TODO
-}
-
-/**
- * @param {RecordMessage} data
- */
-function onRecord(data) {
-  console.info("new record", data)
 }
 

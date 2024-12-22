@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"time"
 
 	"accidentallycoded.com/fredboard/v3/codecs"
@@ -17,10 +18,6 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.SetData("interaction", &interaction)
 
 	interactionData := interaction.ApplicationCommandData()
-
-	session.InteractionRespond(interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
 
 	url, err := getRequiredApplicationCommandOption(interactionData, "url", discordgo.ApplicationCommandOptionString)
 	if err != nil {
@@ -42,7 +39,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.SetData("encoder", &encoder)
 	logger.Debug("created encoder")
 
-	source, err := sources.NewYouTubeSource(url.StringValue(), sources.YOUTUBESTREAMQUALITY_BEST)
+	source, err := sources.NewYouTubeSource(url.StringValue(), sources.YOUTUBESTREAMQUALITY_BEST, logger)
 	if err != nil {
 		logger.ErrorWithErr("failed to create YouTube source", err)
 		// TODO: Notify the user that there was an error
@@ -51,6 +48,13 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	logger.SetData("source", &source)
 	logger.Debug("set source")
+
+	session.InteractionRespond(interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("YouTube video will now play... (%s)", url.StringValue()),
+		},
+	})
 
 	const mute = false
 	const deaf = true
