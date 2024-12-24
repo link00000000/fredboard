@@ -25,10 +25,10 @@ jobs:
       - name: 'Build Docker image'
         run: |
           docker build \
-            --build-arg FREDBOARD_SERVER_VERSION={{ steps.tagName.outputs.tag }} \
-            --build-arg FREDBOARD_SERVER_COMMIT={{ github.sha }} \
+            --build-arg FREDBOARD_SERVER_VERSION=${{ steps.tagName.outputs.tag }} \
+            --build-arg FREDBOARD_SERVER_COMMIT=${{ github.sha }} \
             --tag ghcr.io/link00000000/fredboard-server:latest \
-            --tag ghcr.io/link00000000/fredboard-server:{{ steps.tagName.outputs.tag }} \
+            --tag ghcr.io/link00000000/fredboard-server:${{ steps.tagName.outputs.tag }} \
             .
 
           docker push ghcr.io/link00000000/fredboard-server:latest
