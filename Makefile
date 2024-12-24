@@ -1,6 +1,9 @@
+FREDBOARD_SERVER_VERSION := $(FREDBOARD_SERVER_VERSION)
+FREDBOARD_SERVER_COMMIT := $(FREDBOARD_SERVER_COMMIT)
+
 .PHONY: build
 build : *.go
-	go build -o result/fredboard
+	go build -ldflags "-X main.version=$(FREDBOARD_SERVER_VERSION) -X main.commit=$(FREDBOARD_SERVER_COMMIT)" -o result/fredboard
 
 .PHONY: run
 run :

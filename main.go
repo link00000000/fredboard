@@ -12,6 +12,12 @@ import (
 	"accidentallycoded.com/fredboard/v3/web"
 )
 
+// These values are populated by the linker using -ldflags "-X main.version=x.x.x -X main.commit=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+var (
+	version string
+	commit  string
+)
+
 func main() {
 	var logger = logging.NewLogger()
 	logger.AddHandler(logging.NewPrettyHandler(os.Stdout))

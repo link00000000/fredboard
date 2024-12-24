@@ -1,3 +1,6 @@
+ARG FREDBOARD_SERVER_VERSION=""
+ARG FREDBOARD_SERVER_COMMIT=""
+
 FROM alpine:3.21 AS builder
 
 RUN apk add opus opus-dev go make
