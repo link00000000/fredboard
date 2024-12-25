@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -16,8 +17,9 @@ const (
 	YOUTUBESTREAMQUALITY_BEST                       = "bestaudio"
 )
 
-func newYtdlpCmd(url string, quality YouTubeStreamQuality, logger *logging.Logger) (*exec.Cmd, error) {
-	ytdlp := exec.Command("yt-dlp",
+func newYtdlpCmd(url string, quality YouTubeStreamQuality, logger *logging.Logger) (*exec.Cmd, context.Context, context.CancelFunc, error) {
+	context, cancel := context.WithCancel(context.Background())
+	ytdlp := exec.CommandContext(context, "yt-dlp",
 		"--abort-on-error",
 		"--quiet",
 		"--no-warnings",
@@ -27,7 +29,7 @@ func newYtdlpCmd(url string, quality YouTubeStreamQuality, logger *logging.Logge
 
 	stderr, err := ytdlp.StderrPipe()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	go func() {
@@ -52,11 +54,12 @@ func newYtdlpCmd(url string, quality YouTubeStreamQuality, logger *logging.Logge
 		}
 	}()
 
-	return ytdlp, nil
+	return ytdlp, context, cancel, nil
 }
 
-func newFfmpegCmd(logger *logging.Logger) (*exec.Cmd, error) {
-	ffmpeg := exec.Command("ffmpeg",
+func newFfmpegCmd(logger *logging.Logger) (*exec.Cmd, context.Context, context.CancelFunc, error) {
+	context, cancel := context.WithCancel(context.Background())
+	ffmpeg := exec.CommandContext(context, "ffmpeg",
 		"-hide_banner",
 		"-loglevel", "error",
 		"-i", "pipe:0",
@@ -67,7 +70,7 @@ func newFfmpegCmd(logger *logging.Logger) (*exec.Cmd, error) {
 
 	stderr, err := ffmpeg.StderrPipe()
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	go func() {
@@ -92,23 +95,30 @@ func newFfmpegCmd(logger *logging.Logger) (*exec.Cmd, error) {
 		}
 	}()
 
-	return ffmpeg, nil
+	return ffmpeg, context, cancel, nil
 }
 
 type YouTube struct {
-	ytdlp  *exec.Cmd
-	ffmpeg *exec.Cmd
+	ytdlp        *exec.Cmd
+	ytdlpContext context.Context
+	cancelYtdlp  context.CancelFunc
+
+	ffmpeg        *exec.Cmd
+	ffmpegContext context.Context
+	cancelFfmpeg  context.CancelFunc
 
 	ffmpegStdout io.Reader
+
+	stopped bool
 }
 
 func NewYouTubeSource(url string, quality YouTubeStreamQuality, logger *logging.Logger) (*YouTube, error) {
-	ytdlp, err := newYtdlpCmd(url, quality, logger)
+	ytdlp, ytdlpContext, cancelYtdlp, err := newYtdlpCmd(url, quality, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	ffmpeg, err := newFfmpegCmd(logger)
+	ffmpeg, ffmpegContext, cancelFfmpeg, err := newFfmpegCmd(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +135,16 @@ func NewYouTubeSource(url string, quality YouTubeStreamQuality, logger *logging.
 		return nil, err
 	}
 
-	return &YouTube{ytdlp, ffmpeg, ffmpegStdout}, nil
+	return &YouTube{
+		ytdlp,
+		ytdlpContext,
+		cancelYtdlp,
+		ffmpeg,
+		ffmpegContext,
+		cancelFfmpeg,
+		ffmpegStdout,
+		false,
+	}, nil
 }
 
 // Implements [Source]
@@ -143,6 +162,16 @@ func (youtube *YouTube) Start() error {
 	err = youtube.ffmpeg.Start()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Implements [Source]
+func (youtube *YouTube) Stop() error {
+	if !youtube.stopped {
+		youtube.cancelFfmpeg()
+		youtube.cancelYtdlp()
 	}
 
 	return nil

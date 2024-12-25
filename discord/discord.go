@@ -58,6 +58,8 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 		go commands.YT(session, interaction, logger)
 	case "fs":
 		go commands.FS(session, interaction, logger)
+	case "leave":
+		go commands.Leave(session, interaction, logger)
 	default:
 		logger.Warn("ignoring invalid command")
 	}
@@ -109,6 +111,11 @@ func (bot *Bot) Run(ctx context.Context) {
 					Required:    true,
 				},
 			},
+		},
+		&discordgo.ApplicationCommand{
+			Type:        discordgo.ChatApplicationCommand,
+			Name:        "leave",
+			Description: "Stop playing and leave the voice channel",
 		},
 	})
 

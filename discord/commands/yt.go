@@ -170,6 +170,11 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
+	defer source.Stop()
+
+	voice.VoiceConnSources[voiceConn.GuildID] = source
+	defer delete(voice.VoiceConnSources, voiceConn.GuildID)
+
 	logger.Debug("started source")
 
 	// transcode source to sink

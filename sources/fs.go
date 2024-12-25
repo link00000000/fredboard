@@ -8,11 +8,13 @@ type FS struct {
 	filePath string
 	f        *os.File
 
+	stopped bool
+
 	done chan struct{}
 }
 
 func NewFSSource(filePath string) *FS {
-	return &FS{filePath: filePath, done: make(chan struct{})}
+	return &FS{filePath: filePath, stopped: false, done: make(chan struct{})}
 }
 
 // Implements [Source]
@@ -27,6 +29,7 @@ func (fs *FS) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// Implements [Source]
 func (fs *FS) Start() error {
 	f, err := os.Open(fs.filePath)
 
@@ -39,10 +42,23 @@ func (fs *FS) Start() error {
 	return nil
 }
 
+// Implements [Source]
+func (fs *FS) Stop() error {
+	if !fs.stopped {
+		err := fs.f.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Implements [Source]
 func (fs *FS) Wait() error {
 	<-fs.done
 
-	err := fs.f.Close()
+	err := fs.Stop()
 	if err != nil {
 		return err
 	}

@@ -105,6 +105,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	// create fs source
 	source := sources.NewFSSource(opts.path)
+	defer source.Stop()
 
 	logger.SetData("source", &source)
 	logger.Debug("set source")
@@ -184,6 +185,11 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
+	defer source.Stop()
+
+	voice.VoiceConnSources[voiceConn.GuildID] = source
+	defer delete(voice.VoiceConnSources, voiceConn.GuildID)
+
 	logger.Debug("started source")
 
 	// transcode source to sink
@@ -207,4 +213,6 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		logger.ErrorWithErr("error while waiting for source", err)
 		return
 	}
+
+	logger.Debug("done")
 }
