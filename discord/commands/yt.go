@@ -26,6 +26,7 @@ func getYtOpts(interaction *discordgo.Interaction) (*ytCommandOptions, error) {
 
 func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
 	logger := log.NewChildLogger()
+	defer logger.Close()
 
 	logger.SetData("session", &session)
 	logger.SetData("interaction", &interaction)
@@ -45,6 +46,19 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	logger.SetData("opts", &opts)
 	logger.Debug("got required opts")
+
+	existingVoiceConn, ok := session.VoiceConnections[interaction.GuildID]
+	if ok {
+		logger.SetData("existingVoiceConn", existingVoiceConn)
+		logger.Info("voice connection already active for guild, rejecting command")
+
+		err := interactions.RespondWithMessage(session, interaction, "FredBoard is already in a voice channel in this guild. Wait until FredBoard has left and try again.")
+		if err != nil {
+			logger.ErrorWithErr("failed to respond to interaction", err)
+		}
+
+		return
+	}
 
 	// create opus encoder
 	encoder, err := codecs.NewOpusEncoder(48000, 2)
