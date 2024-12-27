@@ -2,9 +2,9 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
+	"os"
 )
 
 type NodeState byte
@@ -16,7 +16,7 @@ const (
 )
 
 type GraphNode interface {
-	io.ReadWriter
+	io.Reader
 
 	GetParentNodes() []GraphNode
 	GetChildNodes() []GraphNode
@@ -40,14 +40,6 @@ func (passthrough *PassthroughNode) Read(p []byte) (int, error) {
 	}
 
 	return passthrough.in.Read(p)
-}
-
-func (passthrough *PassthroughNode) Write(p []byte) (int, error) {
-	if passthrough.out == nil {
-		panic("cannot write to PassthroughNode that does not have an 'out' node")
-	}
-
-	return passthrough.out.Write(p)
 }
 
 func (passthrough *PassthroughNode) GetParentNodes() []GraphNode {
@@ -160,7 +152,7 @@ func (stdoutSink *StdoutSinkNode) Read(p []byte) (int, error) {
 }
 
 func (stdoutSink *StdoutSinkNode) Write(p []byte) (int, error) {
-	return fmt.Println("%v", p)
+	return os.Stdout.Write(p)
 }
 
 func (stdoutSink *StdoutSinkNode) Start(ctx context.Context) error {
@@ -184,6 +176,10 @@ func (stdoutSink *StdoutSinkNode) Start(ctx context.Context) error {
 			}
 
 			n, err := stdoutSink.in.Read(buf)
+			if err == io.EOF {
+				continue
+			}
+
 			if err != nil {
 				// TODO: Do something with error
 				log.Println("failed to read from StdoutSinkNode", err)
@@ -249,4 +245,85 @@ func NewStdoutSinkNode() *StdoutSinkNode {
 	return &StdoutSinkNode{
 		onInNodeChanged: make(chan struct{}),
 	}
+}
+
+// Reads a file from the file system
+type FSFileSourceNode struct {
+	out GraphNode
+	fd  *os.File
+
+	cancelCtx context.CancelFunc
+	ctx       context.Context
+}
+
+func (fsFileSource *FSFileSourceNode) Open(name string, ctx context.Context) error {
+	fsFileSource.ctx, fsFileSource.cancelCtx = context.WithCancel(ctx)
+
+	fd, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+
+	fsFileSource.fd = fd
+
+	return nil
+}
+
+func (fsFileSource *FSFileSourceNode) Close() error {
+	return fsFileSource.fd.Close()
+}
+
+func (fsFileSource *FSFileSourceNode) Wait() error {
+	<-fsFileSource.ctx.Done()
+	return fsFileSource.ctx.Err()
+}
+
+func (fsFileSource *FSFileSourceNode) Read(p []byte) (int, error) {
+	n, err := fsFileSource.fd.Read(p)
+
+	if err == io.EOF {
+		fsFileSource.cancelCtx()
+	}
+
+	return n, err
+}
+
+func (fsFileSource *FSFileSourceNode) Write(p []byte) (int, error) {
+	panic("cannot write to FSFileSource")
+}
+
+func (fsFileSource *FSFileSourceNode) GetParentNodes() []GraphNode {
+	return []GraphNode{}
+}
+
+func (fsFileSource *FSFileSourceNode) GetChildNodes() []GraphNode {
+	if fsFileSource.out == nil {
+		return []GraphNode{}
+	}
+
+	return []GraphNode{fsFileSource.out}
+}
+
+func (fsFileSource *FSFileSourceNode) AddParent(parent GraphNode) {
+	panic("cannot add parent to FSFileSource")
+}
+
+func (fsFileSource *FSFileSourceNode) AddChild(child GraphNode) {
+	if fsFileSource.out != nil {
+		panic("FSFileSource cannot have more than 1 child")
+	}
+
+	fsFileSource.out = child
+	child.notifyAddedAsChildOf(fsFileSource)
+}
+
+func (fsFileSource *FSFileSourceNode) notifyAddedAsParentOf(child GraphNode) {
+	fsFileSource.out = child
+}
+
+func (fsFileSource *FSFileSourceNode) notifyAddedAsChildOf(parent GraphNode) {
+}
+
+func NewFSFileSource() *FSFileSourceNode {
+	return &FSFileSourceNode{}
 }
