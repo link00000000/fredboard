@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 
-	"accidentallycoded.com/fredboard/v3/ansi"
+	"accidentallycoded.com/fredboard/v3/telemetry/logging/ansi"
 	"golang.org/x/term"
 )
 

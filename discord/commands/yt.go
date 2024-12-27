@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 
-	"accidentallycoded.com/fredboard/v3/codecs"
+	"accidentallycoded.com/fredboard/v3/audio/codecs"
 	"accidentallycoded.com/fredboard/v3/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/discord/voice"
 	"accidentallycoded.com/fredboard/v3/sources"

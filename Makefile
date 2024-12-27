@@ -20,3 +20,7 @@ test :
 .PHONY: debug-test
 debug-test :
 	dotenv -- dlv test .
+
+.PHONY: dev
+dev :
+	dotenv -- go run ./cmd/dev

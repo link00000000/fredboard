@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"accidentallycoded.com/fredboard/v3/codecs"
+	"accidentallycoded.com/fredboard/v3/audio/codecs"
+	"accidentallycoded.com/fredboard/v3/audio/graph"
 	"accidentallycoded.com/fredboard/v3/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/discord/voice"
-	"accidentallycoded.com/fredboard/v3/sources"
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -104,7 +104,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.Debug("created encoder")
 
 	// create fs source
-	source := sources.NewFSSource(opts.path)
+	source := graph.NewFileSource(opts.path)
 	defer source.Stop()
 
 	logger.SetData("source", &source)

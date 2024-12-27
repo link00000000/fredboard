@@ -1,0 +1,82 @@
+package graph
+
+import (
+	"os"
+)
+
+var _ SourceNode = (*FileSource)(nil)
+var _ SinkNode = (*FileSink)(nil)
+
+type FileSource struct {
+	*BaseSourceNode
+
+	name string
+	fd   *os.File
+}
+
+func (source *FileSource) Start() error {
+	fd, err := os.Open(source.name)
+	if err != nil {
+		return err
+	}
+
+	source.fd = fd
+
+	return nil
+}
+
+func (source *FileSource) Stop() error {
+	source.done(nil)
+	return source.fd.Close()
+}
+
+func (source *FileSource) Read(p []byte) (int, error) {
+	return source.fd.Read(p)
+}
+
+func NewFileSource(name string) *FileSource {
+	return &FileSource{
+		BaseSourceNode: NewBaseSourceNode(),
+		name:           name,
+	}
+}
+
+type FileSink struct {
+	*BaseSinkNode
+
+	name string
+	fd   *os.File
+}
+
+func (sink *FileSink) Start() error {
+	fd, err := os.OpenFile(sink.name, os.O_WRONLY|os.O_TRUNC, 0)
+	if err != nil {
+		return err
+	}
+
+	sink.fd = fd
+
+	return nil
+}
+
+func (sink *FileSink) Stop() error {
+	return sink.fd.Close()
+}
+
+func (sink *FileSink) Write(p []byte) (int, error) {
+	return sink.fd.Write(p)
+}
+
+func NewFileSink(name string) *FileSink {
+	return &FileSink{
+		BaseSinkNode: NewBaseSinkNode(),
+		name:         name,
+	}
+}
+
+func NewFileSinkWithParents(name string, parents []GraphNode) *FileSink {
+	return &FileSink{
+		BaseSinkNode: NewBaseSinkNodeWithParents(parents),
+		name:         name,
+	}
+}
