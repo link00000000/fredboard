@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"context"
 	"time"
 
 	"accidentallycoded.com/fredboard/v3/audio/graph"
@@ -9,26 +9,14 @@ import (
 
 func main() {
 	sink := graph.NewStdoutSinkNode()
-
-	passthrough := graph.NewPassthroughNode()
-	passthrough.AddChild(sink)
+	sinkCtx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	sink.Start(sinkCtx)
 
 	source := graph.NewZeroSourceNode()
-	source.AddChild(passthrough)
 
-	err := sink.Start()
-	if err != nil {
-		log.Fatalln("Failed to start audio graph", err)
-	}
+	passthrough := graph.NewPassthroughNode()
+	passthrough.AddParent(source)
+	passthrough.AddChild(sink)
 
-	go func() {
-		time.Sleep(5 * time.Minute)
-
-		err := sink.Stop()
-		if err != nil {
-			log.Fatalln("Failed to stop audio graph", err)
-		}
-	}()
-
-	sink.Wait()
+	<-sinkCtx.Done()
 }

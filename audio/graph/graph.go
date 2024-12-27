@@ -1,7 +1,7 @@
 package graph
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -10,20 +10,13 @@ import (
 type NodeState byte
 
 const (
-	NodeState_Ready NodeState = iota
+	NodeState_NotReady NodeState = iota
 	NodeState_Running
-	NodeState_Done
 	NodeState_Stopped
 )
 
 type GraphNode interface {
 	io.ReadWriter
-
-	Start() error
-	Stop() error
-	Wait()
-
-	State() NodeState
 
 	GetParentNodes() []GraphNode
 	GetChildNodes() []GraphNode
@@ -55,38 +48,6 @@ func (passthrough *PassthroughNode) Write(p []byte) (int, error) {
 	}
 
 	return passthrough.out.Write(p)
-}
-
-func (passthrough *PassthroughNode) Start() error {
-	if passthrough.in == nil {
-		panic("cannot start PassthroughNode because 'in' node is nil")
-	}
-
-	return passthrough.in.Start()
-}
-
-func (passthrough *PassthroughNode) Stop() error {
-	if passthrough.in == nil {
-		panic("cannot stop PassthroughNode because 'in' node is nil")
-	}
-
-	return passthrough.in.Start()
-}
-
-func (passthrough *PassthroughNode) Wait() {
-	if passthrough.in == nil {
-		panic("cannot wait PassthroughNode because 'in' node is nil")
-	}
-
-	passthrough.in.Wait()
-}
-
-func (passthrough *PassthroughNode) State() NodeState {
-	if passthrough.in == nil {
-		panic("cannot get state of PassthroughNode because 'in' node is nil")
-	}
-
-	return passthrough.in.State()
 }
 
 func (passthrough *PassthroughNode) GetParentNodes() []GraphNode {
@@ -138,9 +99,6 @@ func NewPassthroughNode() *PassthroughNode {
 // Reads zeroes until stopped
 type ZeroSourceNode struct {
 	out GraphNode
-
-	state NodeState
-	stop  chan struct{}
 }
 
 func (zeroSource *ZeroSourceNode) Read(p []byte) (int, error) {
@@ -153,27 +111,6 @@ func (zeroSource *ZeroSourceNode) Read(p []byte) (int, error) {
 
 func (zeroSource *ZeroSourceNode) Write(p []byte) (int, error) {
 	panic("cannot write to ZeroSourceNode")
-}
-
-func (zeroSource *ZeroSourceNode) Start() error {
-	zeroSource.state = NodeState_Running
-
-	return nil
-}
-
-func (zeroSource *ZeroSourceNode) Stop() error {
-	zeroSource.state = NodeState_Stopped
-	zeroSource.stop <- struct{}{}
-
-	return nil
-}
-
-func (zeroSource *ZeroSourceNode) Wait() {
-	<-zeroSource.stop
-}
-
-func (zeroSource *ZeroSourceNode) State() NodeState {
-	return zeroSource.state
 }
 
 func (zeroSource *ZeroSourceNode) GetParentNodes() []GraphNode {
@@ -209,15 +146,13 @@ func (zeroSource *ZeroSourceNode) notifyAddedAsChildOf(parent GraphNode) {
 }
 
 func NewZeroSourceNode() *ZeroSourceNode {
-	return &ZeroSourceNode{
-		state: NodeState_Ready,
-		stop:  make(chan struct{}),
-	}
+	return &ZeroSourceNode{}
 }
 
 // Writes all input to stdout
 type StdoutSinkNode struct {
-	in GraphNode
+	in              GraphNode
+	onInNodeChanged chan struct{}
 }
 
 func (stdoutSink *StdoutSinkNode) Read(p []byte) (int, error) {
@@ -228,63 +163,45 @@ func (stdoutSink *StdoutSinkNode) Write(p []byte) (int, error) {
 	return fmt.Println("%v", p)
 }
 
-func (stdoutSink *StdoutSinkNode) Start() error {
-	if stdoutSink.in == nil {
-		panic("cannot start StdoutSinkNode because 'in' node is nil")
-	}
-
-	err := stdoutSink.in.Start()
-	if err != nil {
-		return err
-	}
-
+func (stdoutSink *StdoutSinkNode) Start(ctx context.Context) error {
 	go func() {
 		buf := make([]byte, 0xffff)
 
-		for stdoutSink.State() == NodeState_Running {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			if stdoutSink.in == nil {
+				select {
+				case <-stdoutSink.onInNodeChanged:
+					continue
+				case <-ctx.Done():
+					return
+				}
+			}
+
 			n, err := stdoutSink.in.Read(buf)
 			if err != nil {
+				// TODO: Do something with error
 				log.Println("failed to read from StdoutSinkNode", err)
-				stdoutSink.Stop()
-				break
+				return
 			}
 
 			buf = buf[:n]
 
 			_, err = stdoutSink.Write(buf)
 			if err != nil {
+				// TODO: Do something with error
 				log.Println("failed to write to StdoutSinkNode", err)
-				stdoutSink.Stop()
-				break
+				return
 			}
 		}
 	}()
 
 	return nil
-}
-
-func (stdoutSink *StdoutSinkNode) Stop() error {
-	if stdoutSink.in == nil {
-		panic("cannot stop StdoutSinkNode because 'in' node is nil")
-	}
-
-	return stdoutSink.in.Stop()
-}
-
-func (stdoutSink *StdoutSinkNode) Wait() {
-	if stdoutSink.in == nil {
-		panic("cannot wait StdoutSinkNode because 'in' node is nil")
-	}
-
-	stdoutSink.in.Wait()
-}
-
-func (stdoutSink *StdoutSinkNode) State() NodeState {
-	if stdoutSink.in == nil {
-		panic("cannot get state of StdoutSinkNode because 'in' node is nil")
-	}
-
-	return stdoutSink.in.State()
 }
 
 func (stdoutSink *StdoutSinkNode) GetParentNodes() []GraphNode {
@@ -306,6 +223,11 @@ func (stdoutSink *StdoutSinkNode) AddParent(parent GraphNode) {
 
 	stdoutSink.in = parent
 	parent.notifyAddedAsParentOf(stdoutSink)
+
+	select {
+	case stdoutSink.onInNodeChanged <- struct{}{}:
+	default:
+	}
 }
 
 func (stdoutSink *StdoutSinkNode) AddChild(child GraphNode) {
@@ -317,8 +239,14 @@ func (stdoutSink *StdoutSinkNode) notifyAddedAsParentOf(child GraphNode) {
 
 func (stdoutSink *StdoutSinkNode) notifyAddedAsChildOf(parent GraphNode) {
 	stdoutSink.in = parent
+	select {
+	case stdoutSink.onInNodeChanged <- struct{}{}:
+	default:
+	}
 }
 
 func NewStdoutSinkNode() *StdoutSinkNode {
-	return &StdoutSinkNode{}
+	return &StdoutSinkNode{
+		onInNodeChanged: make(chan struct{}),
+	}
 }
