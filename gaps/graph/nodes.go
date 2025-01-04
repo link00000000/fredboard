@@ -346,7 +346,7 @@ func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer
 
 		// Read the next two bytes and convert to int16 sample and add to block
 		if node.currentPCMSampleBufOffset == len(node.currentPCMSampleBuf) {
-			sample := int16((node.currentPCMSampleBuf[0] << 8) | node.currentPCMSampleBuf[1])
+			sample := int16(binary.LittleEndian.Uint16(node.currentPCMSampleBuf[:]))
 			node.currentPCMSampleBlock = append(node.currentPCMSampleBlock, sample)
 
 			node.currentPCMSampleBufOffset = 0
