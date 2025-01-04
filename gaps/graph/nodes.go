@@ -352,7 +352,7 @@ func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer
 			node.currentPCMSampleBufOffset = 0
 		}
 
-		n, err := ins[0].Read(node.currentPCMSampleBuf[:node.currentPCMSampleBufOffset])
+		n, err := ins[0].Read(node.currentPCMSampleBuf[node.currentPCMSampleBufOffset:])
 		node.currentPCMSampleBufOffset += n
 
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
