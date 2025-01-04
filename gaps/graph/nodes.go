@@ -384,7 +384,7 @@ func NewPCM16LE_Opus_TransoderNode(sampleRate, nChannels int, frameDuration time
 		currentPCMSampleBufOffset: 0,
 	}
 
-	node.currentPCMSampleBlock = make([]int16, node.frameSize()*nChannels)
+	node.currentPCMSampleBlock = make([]int16, 0, node.frameSize()*nChannels)
 
 	return node
 }
