@@ -9,13 +9,16 @@ RUN mkdir /build
 COPY . /build
 WORKDIR /build
 
-RUN FREDBOARD_SERVER_VERSION=${FREDBOARD_SERVER_VERSION} FREDBOARD_SERVER_COMMIT=${FREDBOARD_SERVER_COMMIT} make
+RUN \
+  FREDBOARD_SERVER_VERSION=${FREDBOARD_SERVER_VERSION} \
+  FREDBOARD_SERVER_COMMIT=${FREDBOARD_SERVER_COMMIT} \
+  make
 
 FROM alpine:3.21
 
 RUN apk add --no-cache opus go ffmpeg yt-dlp
 
 RUN mkdir /app
-COPY --from=builder /build/result/fredboard /app/fredboard
+COPY --from=builder /build/result/fredboard-server /app/fredboard-server
 
-CMD ["/app/fredboard"]
+CMD ["/app/fredboard-server"]

@@ -1,26 +1,30 @@
-FREDBOARD_SERVER_VERSION := $(FREDBOARD_SERVER_VERSION)
-FREDBOARD_SERVER_COMMIT := $(FREDBOARD_SERVER_COMMIT)
+BUILD_VERSION := $(FREDBOARD_BUILD_VERSION)
+BUILD_COMMIT := $(FREDBOARD_BUILD_COMMIT)
 
-.PHONY: build
-build : *.go
-	go build -ldflags "-X main.version=$(FREDBOARD_SERVER_VERSION) -X main.commit=$(FREDBOARD_SERVER_COMMIT)" -o result/fredboard
+.PHONY: default
+default : fredboard
 
 .PHONY: run
-run :
-	dotenv -- go run .
+run : run-fredboard
 
 .PHONY: debug
+debug : debug-fredboard
+
+#----------------------
+# Fredboard Server
+#----------------------
+
+CMD_FREDBOARD = ./cmd/fredboard_server/
+
+.PHONY: fredboard
+fredboard : $(wildcard **/*.go)
+	go build -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/fredboard-server $(CMD_FREDBOARD)
+
+.PHONY: run-fredboard
+run :
+	dotenv -- go run $(CMD_FREDBOARD)
+
+.PHONY: debug-fredboard
 debug :
-	dotenv -- dlv debug .
+	dotenv -- dlv debug $(CMD_FREDBOARD)
 
-.PHONY: test
-test :
-	dotenv -- go test .
-
-.PHONY: debug-test
-debug-test :
-	dotenv -- dlv test .
-
-.PHONY: dev
-dev :
-	dotenv -- go run ./cmd/dev
