@@ -1,17 +1,70 @@
 package commands
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
-	"accidentallycoded.com/fredboard/v3/audio/codecs"
-	"accidentallycoded.com/fredboard/v3/audio/graph"
 	"accidentallycoded.com/fredboard/v3/discord/interactions"
-	"accidentallycoded.com/fredboard/v3/discord/voice"
+	"accidentallycoded.com/fredboard/v3/gaps/graph"
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
+
+var (
+	_ graph.AudioGraphNode = (*DiscordSinkNode)(nil)
+)
+
+type DiscordSinkNode struct {
+	conn *discordgo.VoiceConnection
+}
+
+func (node *DiscordSinkNode) PreTick() error {
+	return nil
+}
+
+func (node *DiscordSinkNode) PostTick() error {
+	return nil
+}
+
+func (node *DiscordSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	if err := graph.AssertNPins(ins, "in", 1, 1); err != nil {
+		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
+	}
+
+	if err := graph.AssertNPins(outs, "out", 0, 0); err != nil {
+		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
+	}
+
+	for {
+		var encodedFrameSize int16
+		err := binary.Read(ins[0], binary.LittleEndian, &encodedFrameSize)
+
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			break
+		}
+
+		if err != nil {
+			return fmt.Errorf("DiscordSinkNode.Tick read error: %w", err)
+		}
+
+		// TODO: Cache buffer usedf or p?
+		p, err := io.ReadAll(io.LimitReader(ins[0], int64(encodedFrameSize)))
+		if err != nil {
+			return fmt.Errorf("DiscordSinkNode.Tick read error: %w", err)
+		}
+
+		node.conn.OpusSend <- p
+	}
+
+	return nil
+}
+
+func NewDiscordSinkNode(conn *discordgo.VoiceConnection) *DiscordSinkNode {
+	return &DiscordSinkNode{conn: conn}
+}
 
 var ErrUnknownEncoding = errors.New("unknown encoding")
 
@@ -87,27 +140,19 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-	// create opus encoder
-	encoder, err := codecs.NewOpusEncoder(48000, 2)
-	if err != nil {
-		logger.ErrorWithErr("failed to create opus encoder", err)
-
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	logger.SetData("encoder", &encoder)
-	logger.Debug("created encoder")
-
 	// create fs source
-	source := graph.NewFileSource(opts.path)
-	defer source.Stop()
+	sourceEOF := make(chan struct{}, 1)
+	sourceNode := graph.NewFSFileSourceNode()
+	sourceNode.OpenFile(opts.path)
+	sourceNode.OnEOF = func() { sourceEOF <- struct{}{} }
+	defer func() {
+		err := sourceNode.CloseFile()
+		if err != nil {
+			logger.ErrorWithErr("failed to close FSFileSourceNode source", err)
+		}
+	}()
 
-	logger.SetData("source", &source)
+	logger.SetData("sourceNode", &sourceNode)
 	logger.Debug("set source")
 
 	// find voice channel
@@ -170,48 +215,32 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	}()
 
 	// create sink
-	sink := voice.NewVoiceWriter(voiceConn)
+	sinkNode := NewDiscordSinkNode(voiceConn)
 
-	// start source
-	err = source.Start()
-	if err != nil {
-		logger.ErrorWithErr("failed to start source", err)
-
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	defer source.Stop()
-
-	voice.VoiceConnSources[voiceConn.GuildID] = source
-	defer delete(voice.VoiceConnSources, voiceConn.GuildID)
-
-	logger.Debug("started source")
-
-	// transcode source to sink
-	switch opts.encoding {
-	case opusEncodingType_PCMS16LE:
-		go encoder.EncodePCMS16LE(source, sink, 960)
-	case opusEncodingType_DCA0:
-		go encoder.EncodeDCA0(source, sink)
-	}
+	audioGraph := graph.NewAudioGraph()
+	audioGraph.AddNode(sourceNode)
+	audioGraph.AddNode(sinkNode)
+	audioGraph.CreateConnection(sourceNode, sinkNode)
 
 	// notify user that everything is OK
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")
 	if err != nil {
 		logger.ErrorWithErr("failed to respond to interaction", err)
 	}
-
 	logger.Debug("notified user that everything is OK")
 
-	err = source.Wait()
-	if err != nil {
-		logger.ErrorWithErr("error while waiting for source", err)
-		return
+loop:
+	for {
+		select {
+		case <-sourceEOF:
+			break loop
+		default:
+			err := audioGraph.Tick()
+			if err != nil {
+				logger.ErrorWithErr("error while ticking audio graph", err)
+				return
+			}
+		}
 	}
 
 	logger.Debug("done")

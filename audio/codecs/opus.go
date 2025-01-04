@@ -23,6 +23,7 @@ func NewOpusEncoder(sampleRate, nChannels int) (*OpusEncoder, error) {
 	return &OpusEncoder{nChannels: nChannels, internalEncoder: internalEncoder}, nil
 }
 
+// TODO: remove
 func (e *OpusEncoder) EncodePCMS16LE(reader io.Reader, writer io.Writer, frameSize int) error {
 	for {
 		pcmBuf := make([]int16, e.nChannels*frameSize)
@@ -57,6 +58,25 @@ func (e *OpusEncoder) EncodePCMS16LE(reader io.Reader, writer io.Writer, frameSi
 	return nil
 }
 
+func (encoder *OpusEncoder) EncodeFromPCMS16LE(reader io.Reader, writer io.Writer, frameSize int) (int, error) {
+	// TODO: Reinterpret []byte as []int16 without a copy
+	pcm := make([]int16, encoder.nChannels*frameSize)
+	err := binary.Read(reader, binary.LittleEndian, &pcm)
+
+	if err != nil {
+		return 0, err
+	}
+
+	opus, err := encoder.internalEncoder.Encode(pcm, frameSize, frameSize*encoder.nChannels*2)
+	if err != nil {
+		return 0, err
+	}
+
+	n, err := writer.Write(opus)
+	return n, err
+}
+
+// TODO: Replace with a version that doesnt loop
 func (e *OpusEncoder) EncodeDCA0(reader io.Reader, writer io.Writer) error {
 	for {
 		var segmentLength uint16

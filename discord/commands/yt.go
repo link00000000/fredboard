@@ -2,11 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"io"
 
 	"accidentallycoded.com/fredboard/v3/audio/codecs"
 	"accidentallycoded.com/fredboard/v3/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/discord/voice"
-	"accidentallycoded.com/fredboard/v3/sources"
 	"accidentallycoded.com/fredboard/v3/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -77,7 +77,8 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.Debug("created encoder")
 
 	// create youtube source
-	source, err := sources.NewYouTubeSource(opts.url, sources.YOUTUBESTREAMQUALITY_BEST, logger)
+	//source, err := sources.NewYouTubeSource(opts.url, sources.YOUTUBESTREAMQUALITY_BEST, logger)
+	var source io.Reader
 	if err != nil {
 		logger.ErrorWithErr("failed to create youtube source", err)
 
@@ -158,7 +159,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.Debug("created sink")
 
 	// start source
-	err = source.Start()
+	//err = source.Start()
 	if err != nil {
 		logger.ErrorWithErr("failed to start source", err)
 
@@ -170,9 +171,9 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-	defer source.Stop()
+	//defer source.Stop()
 
-	voice.VoiceConnSources[voiceConn.GuildID] = source
+	//voice.VoiceConnSources[voiceConn.GuildID] = source
 	defer delete(voice.VoiceConnSources, voiceConn.GuildID)
 
 	logger.Debug("started source")
@@ -191,7 +192,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	// cleanup source
 	logger.Debug("waiting for source")
-	err = source.Wait()
+	//err = source.Wait()
 	if err != nil {
 		logger.ErrorWithErr("error while waiting for source", err)
 	}

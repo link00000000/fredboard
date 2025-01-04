@@ -26,16 +26,19 @@ inputs = {
           packages = with pkgs; [
             # Dev dependencies
             go
-            gotools
             golangci-lint
-            delve
             gnumake
-            vlc
 
             # Runtime dependencies
-            dotenv-cli
             yt-dlp
             ffmpeg
+
+            # Tools
+            delve
+            dotenv-cli
+            gotools
+            hexyl
+            vlc
           ];
           hardeningDisable = [ "fortify" ]; # Required to prevent error when running `dlv test`
         };
