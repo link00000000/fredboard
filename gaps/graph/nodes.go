@@ -340,6 +340,8 @@ func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer
 			}
 
 			node.currentPCMSampleBlock = node.currentPCMSampleBlock[:0]
+
+			break
 		}
 
 		// Read the next two bytes and convert to int16 sample and add to block
