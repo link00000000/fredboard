@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"accidentallycoded.com/fredboard/v3/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/gaps/graph"
@@ -217,10 +218,14 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	// create sink
 	sinkNode := NewDiscordSinkNode(voiceConn)
 
+	transcodeNode := graph.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
+
 	audioGraph := graph.NewAudioGraph()
 	audioGraph.AddNode(sourceNode)
+	audioGraph.AddNode(transcodeNode)
 	audioGraph.AddNode(sinkNode)
-	audioGraph.CreateConnection(sourceNode, sinkNode)
+	audioGraph.CreateConnection(sourceNode, transcodeNode)
+	audioGraph.CreateConnection(transcodeNode, sinkNode)
 
 	// notify user that everything is OK
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")
