@@ -19,7 +19,7 @@ var (
 	_ AudioGraphNode = (*FSFileSinkNode)(nil)
 	_ AudioGraphNode = (*GainNode)(nil)
 	_ AudioGraphNode = (*MixerNode)(nil)
-	_ AudioGraphNode = (*PCMS16LE_Opus_TranscoderNode)(nil)
+	_ AudioGraphNode = (*OpusEncoderNode)(nil)
 	_ AudioGraphNode = (*CompositeNode)(nil)
 )
 
@@ -286,10 +286,12 @@ func NewMixerNode() *MixerNode {
 	return &MixerNode{}
 }
 
+// Encodes signed int16 PCM to Opus
+//
 // Opus is output using frame-length-encoding
 // 1. The first two bytes are an int16 little endian representing the length of the frame
 // 2. The next n bytes are the frame data
-type PCMS16LE_Opus_TranscoderNode struct {
+type OpusEncoderNode struct {
 	sampleRate    int
 	nChannels     int
 	frameDuration time.Duration
@@ -303,13 +305,13 @@ type PCMS16LE_Opus_TranscoderNode struct {
 	currentPCMSampleBufOffset int
 }
 
-func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer) error {
+func (node *OpusEncoderNode) Tick(ins []io.Reader, outs []io.Writer) error {
 	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
-		return fmt.Errorf("PCMS16LE_Opus_TranscoderNode.Tick error: %w", err)
+		return fmt.Errorf("OpusEncoderNode.Tick error: %w", err)
 	}
 
 	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
-		return fmt.Errorf("PCMS16LE_Opus_TranscoderNode error: %w", err)
+		return fmt.Errorf("OpusEncoderNode error: %w", err)
 	}
 
 	for {
@@ -318,18 +320,18 @@ func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer
 			// TODO: Reuse opus buffer
 			opus, err := node.opusEncoder.Encode(node.currentPCMSampleBlock, node.frameSize(), node.frameSize())
 			if err != nil {
-				return fmt.Errorf("PCMS16LE_Opus_TranscoderNode encoding error: %w", err)
+				return fmt.Errorf("OpusEncoderNode encoding error: %w", err)
 			}
 
 			encodedFrameLength := int16(len(opus))
 			err = binary.Write(outs[0], binary.LittleEndian, encodedFrameLength)
 			if err != nil {
-				return fmt.Errorf("PCMS16LE_Opus_TranscoderNode.Tick write error: %w", err)
+				return fmt.Errorf("OpusEncoderNode.Tick write error: %w", err)
 			}
 
 			_, err = outs[0].Write(opus)
 			if err != nil {
-				return fmt.Errorf("PCMS16LE_Opus_TranscoderNode.Tick write error: %w", err)
+				return fmt.Errorf("OpusEncoderNode.Tick write error: %w", err)
 			}
 
 			node.currentPCMSampleBlock = node.currentPCMSampleBlock[:0]
@@ -353,7 +355,7 @@ func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer
 		}
 
 		if err != nil {
-			return fmt.Errorf("PCMS16LE_Opus_TranscoderNode.Tick read error: %w", err)
+			return fmt.Errorf("OpusEncoderNode.Tick read error: %w", err)
 		}
 	}
 
@@ -361,17 +363,17 @@ func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer
 }
 
 // frame size is measured in samples
-func (node *PCMS16LE_Opus_TranscoderNode) frameSize() int {
+func (node *OpusEncoderNode) frameSize() int {
 	return int(node.frameDuration.Seconds() * float64(node.sampleRate))
 }
 
-func NewPCM16LE_Opus_TransoderNode(sampleRate, nChannels int, frameDuration time.Duration) *PCMS16LE_Opus_TranscoderNode {
+func NewOpusEncoderNode(sampleRate, nChannels int, frameDuration time.Duration) *OpusEncoderNode {
 	opusEncoder, err := gopus.NewEncoder(sampleRate, nChannels, gopus.Audio)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create opus encoder with gopus.NewEncoder: %w", err))
 	}
 
-	node := &PCMS16LE_Opus_TranscoderNode{
+	node := &OpusEncoderNode{
 		sampleRate:                sampleRate,
 		nChannels:                 nChannels,
 		frameDuration:             frameDuration,

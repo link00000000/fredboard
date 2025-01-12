@@ -217,7 +217,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	}()
 
 	// create sink
-	transcodeNode := graph.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
+	transcodeNode := graph.NewOpusEncoderNode(48000, 1, time.Millisecond*20)
 	sinkNode := NewDiscordSinkNode(voiceConn)
 
 	pcmDiscordSinkNode := graph.NewCompositeNode()
