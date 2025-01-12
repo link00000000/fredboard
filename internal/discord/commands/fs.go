@@ -221,12 +221,21 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	transcodeNode := graph.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
 
+	gainNode := graph.NewGainNode(2.0)
+
+	subGraph := graph.NewCompositeNode()
+	subGraph.AddNode(gainNode)
+	subGraph.AddNode(transcodeNode)
+	subGraph.CreateConnection(gainNode, transcodeNode)
+	subGraph.SetInNode(gainNode)
+	subGraph.SetOutNode(transcodeNode)
+
 	audioGraph := graph.NewAudioGraph()
 	audioGraph.AddNode(sourceNode)
-	audioGraph.AddNode(transcodeNode)
+	audioGraph.AddNode(subGraph)
 	audioGraph.AddNode(sinkNode)
-	audioGraph.CreateConnection(sourceNode, transcodeNode)
-	audioGraph.CreateConnection(transcodeNode, sinkNode)
+	audioGraph.CreateConnection(sourceNode, subGraph)
+	audioGraph.CreateConnection(subGraph, sinkNode)
 
 	// notify user that everything is OK
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")
