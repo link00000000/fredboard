@@ -442,11 +442,9 @@ func (node *CompositeNode) AddNode(n AudioGraphNode) error {
 	return nil
 }
 
-func (node *CompositeNode) AddInNode(n AudioGraphNode) error {
-	err := node.AddNode(n)
-
-	if err != nil {
-		return fmt.Errorf("CompositeNode.AddInNode error: %w", err)
+func (node *CompositeNode) SetInNode(n AudioGraphNode) error {
+	if !slices.Contains(node.nodes, n) {
+		return fmt.Errorf("invalid node: %w", ErrNotExist)
 	}
 
 	node.inNode = n
@@ -454,11 +452,9 @@ func (node *CompositeNode) AddInNode(n AudioGraphNode) error {
 	return nil
 }
 
-func (node *CompositeNode) AddOutNode(n AudioGraphNode) error {
-	err := node.AddNode(n)
-
-	if err != nil {
-		return fmt.Errorf("CompositeNode.AddOutNode error: %w", err)
+func (node *CompositeNode) SetOutNode(n AudioGraphNode) error {
+	if !slices.Contains(node.nodes, n) {
+		return fmt.Errorf("invalid node: %w", ErrNotExist)
 	}
 
 	node.outNode = n
