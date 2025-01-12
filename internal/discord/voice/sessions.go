@@ -5,8 +5,6 @@ var voiceSessions map[string]*VoiceSession = make(map[string]*VoiceSession)
 
 type VoiceSession struct {
 	guildId string
-
-	OnSourceStoppedDelegate EventEmitter[func(Source)]
 }
 
 func (s *VoiceSession) AddEventListener() {

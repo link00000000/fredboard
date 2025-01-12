@@ -1,4 +1,4 @@
-package nodes
+package graph
 
 import (
 	"encoding/binary"
@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"time"
 
 	xmath "accidentallycoded.com/fredboard/v3/internal/math"
@@ -19,42 +20,42 @@ var (
 	_ AudioGraphNode = (*GainNode)(nil)
 	_ AudioGraphNode = (*MixerNode)(nil)
 	_ AudioGraphNode = (*PCMS16LE_Opus_TranscoderNode)(nil)
+	_ AudioGraphNode = (*CompositeNode)(nil)
 )
 
 var (
-	ErrFileNotOpen = errors.New("file not open")
+	ErrFileNotOpen   = errors.New("file not open")
+	ErrNotExist      = errors.New("does not exist")
+	ErrAlreadyExists = errors.New("already exists")
 )
 
-type InvalidNPinsError struct {
-	pinType string
+type InvalidNNodeIO struct {
+	ioType  string
 	nMin    int
 	nMax    int
 	nActual int
 }
 
-// TODO: Rename to not use the word Pin
-func AssertNPins[T any](pins []T, pinType string, nMin, nMax int) *InvalidNPinsError {
-	nActual := len(pins)
+func AssertNNodeIO[T any](ios []T, ioType string, nMin, nMax int) *InvalidNNodeIO {
+	nActual := len(ios)
 
 	if nActual < nMin || nActual > nMax {
-		return NewInvalidNPinsError(pinType, nMin, nMax, nActual)
+		return NewInvalidNNodeIOError(ioType, nMin, nMax, nActual)
 	}
 
 	return nil
 }
 
-func (err InvalidNPinsError) Error() string {
-	return fmt.Sprintf("invalid number of %s pins: min = %d, max = %d, actual = %d", err.pinType, err.nMin, err.nMax, err.nActual)
+func (err InvalidNNodeIO) Error() string {
+	return fmt.Sprintf("invalid number of %s IOs: min = %d, max = %d, actual = %d", err.ioType, err.nMin, err.nMax, err.nActual)
 }
 
-func NewInvalidNPinsError(pinType string, nMin, nMax, nActual int) *InvalidNPinsError {
-	return &InvalidNPinsError{pinType, nMin, nMax, nActual}
+func NewInvalidNNodeIOError(ioType string, nMin, nMax, nActual int) *InvalidNNodeIO {
+	return &InvalidNNodeIO{ioType, nMin, nMax, nActual}
 }
 
 type AudioGraphNode interface {
-	PreTick() error
 	Tick(ins []io.Reader, outs []io.Writer) error
-	PostTick() error
 }
 
 type FSFileSourceNode struct {
@@ -88,20 +89,12 @@ func (node *FSFileSourceNode) CloseFile() error {
 	return nil
 }
 
-func (node *FSFileSourceNode) PreTick() error {
-	return nil
-}
-
-func (node *FSFileSourceNode) PostTick() error {
-	return nil
-}
-
 func (node *FSFileSourceNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNPins(ins, "in", 0, 0); err != nil {
+	if err := AssertNNodeIO(ins, "in", 0, 0); err != nil {
 		return fmt.Errorf("FSFileSourceNode.Tick error: %w", err)
 	}
 
-	if err := AssertNPins(outs, "out", 1, 1); err != nil {
+	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
 		return fmt.Errorf("FSFileSourceNode.Tick error: %w", err)
 	}
 
@@ -170,20 +163,12 @@ func (node *FSFileSinkNode) CloseFile() error {
 	return nil
 }
 
-func (node *FSFileSinkNode) PreTick() error {
-	return nil
-}
-
-func (node *FSFileSinkNode) PostTick() error {
-	return nil
-}
-
 func (node *FSFileSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNPins(ins, "in", 1, 1); err != nil {
+	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
 		return fmt.Errorf("FSFileSinkNode.Tick error: %w", err)
 	}
 
-	if err := AssertNPins(outs, "out", 0, 0); err != nil {
+	if err := AssertNNodeIO(outs, "out", 0, 0); err != nil {
 		return fmt.Errorf("FSFileSinkNode.Tick error: %w", err)
 	}
 
@@ -212,20 +197,12 @@ type GainNode struct {
 	GainFactor float32
 }
 
-func (node *GainNode) PreTick() error {
-	return nil
-}
-
-func (node *GainNode) PostTick() error {
-	return nil
-}
-
 func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNPins(ins, "in", 1, 1); err != nil {
+	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
 		return fmt.Errorf("GainNode.Tick error: %w", err)
 	}
 
-	if err := AssertNPins(outs, "out", 1, 1); err != nil {
+	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
 		return fmt.Errorf("GainNode.Tick error: %w", err)
 	}
 
@@ -257,20 +234,12 @@ func NewGainNode(factor float32) *GainNode {
 type MixerNode struct {
 }
 
-func (node *MixerNode) PreTick() error {
-	return nil
-}
-
-func (node *MixerNode) PostTick() error {
-	return nil
-}
-
 func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNPins(ins, "in", 2, 2); err != nil {
+	if err := AssertNNodeIO(ins, "in", 2, 2); err != nil {
 		return fmt.Errorf("MixerNode.Tick error: %w", err)
 	}
 
-	if err := AssertNPins(outs, "out", 1, 1); err != nil {
+	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
 		return fmt.Errorf("MixerNode.Tick error: %w", err)
 	}
 
@@ -334,20 +303,12 @@ type PCMS16LE_Opus_TranscoderNode struct {
 	currentPCMSampleBufOffset int
 }
 
-func (node *PCMS16LE_Opus_TranscoderNode) PreTick() error {
-	return nil
-}
-
-func (node *PCMS16LE_Opus_TranscoderNode) PostTick() error {
-	return nil
-}
-
 func (node *PCMS16LE_Opus_TranscoderNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNPins(ins, "in", 1, 1); err != nil {
+	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
 		return fmt.Errorf("PCMS16LE_Opus_TranscoderNode.Tick error: %w", err)
 	}
 
-	if err := AssertNPins(outs, "out", 1, 1); err != nil {
+	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
 		return fmt.Errorf("PCMS16LE_Opus_TranscoderNode error: %w", err)
 	}
 
@@ -421,4 +382,164 @@ func NewPCM16LE_Opus_TransoderNode(sampleRate, nChannels int, frameDuration time
 	node.currentPCMSampleBlock = make([]int16, 0, node.frameSize()*nChannels)
 
 	return node
+}
+
+type CompositeNode struct {
+	nodes       []AudioGraphNode
+	connections []*AudioGraphConnection
+
+	inNode  AudioGraphNode
+	outNode AudioGraphNode
+}
+
+// TODO: Cancel with context
+// TOOD: Use ins and outs
+func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	if node.inNode != nil {
+		if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
+			return fmt.Errorf("CompositeNode.Tick error: %w", err)
+		}
+	}
+
+	if node.outNode != nil {
+		if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
+			return fmt.Errorf("CompositeNode.Tick error: %w", err)
+		}
+	}
+
+	leafNodes := make([]AudioGraphNode, 0, len(node.connections))
+	for _, n := range node.nodes {
+		if !slices.ContainsFunc(node.connections, func(conn *AudioGraphConnection) bool { return conn.from == n }) {
+			leafNodes = append(leafNodes, n)
+		}
+	}
+
+	for _, n := range leafNodes {
+		conns := make([]*AudioGraphConnection, 0, len(node.connections))
+		for _, conn := range node.connections {
+			if conn.to == n {
+				conns = append(conns, conn)
+			}
+		}
+
+		err := node.tickInternalNode(n, ins, outs)
+
+		if err != nil {
+			return fmt.Errorf("CompositeNode.Tick error: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (node *CompositeNode) AddNode(n AudioGraphNode) error {
+	if slices.Contains(node.nodes, n) {
+		return fmt.Errorf("invalid node: %w", ErrAlreadyExists)
+	}
+
+	node.nodes = append(node.nodes, n)
+
+	return nil
+}
+
+func (node *CompositeNode) AddInNode(n AudioGraphNode) error {
+	err := node.AddNode(n)
+
+	if err != nil {
+		return fmt.Errorf("CompositeNode.AddInNode error: %w", err)
+	}
+
+	node.inNode = n
+
+	return nil
+}
+
+func (node *CompositeNode) AddOutNode(n AudioGraphNode) error {
+	err := node.AddNode(n)
+
+	if err != nil {
+		return fmt.Errorf("CompositeNode.AddOutNode error: %w", err)
+	}
+
+	node.outNode = n
+
+	return nil
+}
+
+// TODO: RemoveNode()
+
+func (node *CompositeNode) CreateConnection(from, to AudioGraphNode) error {
+	// TODO: Make a fast version that does not do this check
+	idx := slices.IndexFunc(node.connections, func(conn *AudioGraphConnection) bool {
+		return conn.from == from && conn.to == to
+	})
+
+	if idx != -1 {
+		return fmt.Errorf("connection is invalid: %w", ErrAlreadyExists)
+	}
+
+	node.connections = append(node.connections, NewAudioGraphConnection(from, to))
+
+	return nil
+}
+
+func (node *CompositeNode) RemoveConnection(from, to AudioGraphNode) error {
+	del := slices.DeleteFunc(node.connections, func(conn *AudioGraphConnection) bool {
+		return conn.from == from && conn.to == to
+	})
+
+	if len(del) == 0 {
+		return fmt.Errorf("connection is invalid: %w", ErrNotExist)
+	}
+
+	return nil
+}
+
+func (node *CompositeNode) tickInternalNode(n AudioGraphNode, ins []io.Reader, outs []io.Writer) error {
+	dependencies := make([]io.Reader, 0)
+	dependents := make([]io.Writer, 0)
+
+	// forward ins from composite node to registered in node
+	if n == node.inNode {
+		dependencies = append(dependencies, ins...)
+	}
+
+	// forward outs from composite node to registered out node
+	if n == node.outNode {
+		dependents = append(dependents, outs...)
+	}
+
+	// aggregate and process dependencies
+	for _, conn := range node.connections {
+		if conn.to == n {
+			dependencies = append(dependencies, conn)
+
+			err := node.tickInternalNode(conn.from, ins, outs)
+			if err != nil {
+				return fmt.Errorf("CompositeNode.tickInternalNode errorr: %w", err)
+			}
+		}
+	}
+
+	// aggregate dependents
+	for _, conn := range node.connections {
+		if conn.from == n {
+			dependents = append(dependents, conn)
+		}
+	}
+
+	// all dependencies have been ticked, now the tick node
+	err := n.Tick(dependencies, dependents)
+	if err != nil {
+		return fmt.Errorf("CompositeNode.tickInternalNode error: %w", err)
+	}
+
+	return nil
+}
+
+func NewCompositeNode() *CompositeNode {
+	return &CompositeNode{
+		nodes:       make([]AudioGraphNode, 0),
+		connections: make([]*AudioGraphConnection, 0),
+	}
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
-	"accidentallycoded.com/fredboard/v3/internal/audio/graph/nodes"
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
@@ -17,7 +16,7 @@ import (
 
 // TODO: Move to graph module
 var (
-	_ nodes.AudioGraphNode = (*DiscordSinkNode)(nil)
+	_ graph.AudioGraphNode = (*DiscordSinkNode)(nil)
 )
 
 type DiscordSinkNode struct {
@@ -33,11 +32,11 @@ func (node *DiscordSinkNode) PostTick() error {
 }
 
 func (node *DiscordSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := nodes.AssertNPins(ins, "in", 1, 1); err != nil {
+	if err := graph.AssertNNodeIO(ins, "in", 1, 1); err != nil {
 		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
 	}
 
-	if err := nodes.AssertNPins(outs, "out", 0, 0); err != nil {
+	if err := graph.AssertNNodeIO(outs, "out", 0, 0); err != nil {
 		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
 	}
 
@@ -145,7 +144,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	// create fs source
 	sourceEOF := make(chan struct{}, 1)
-	sourceNode := nodes.NewFSFileSourceNode()
+	sourceNode := graph.NewFSFileSourceNode()
 	sourceNode.OpenFile(opts.path)
 	sourceNode.OnEOF = func() { sourceEOF <- struct{}{} }
 	defer func() {
@@ -220,7 +219,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	// create sink
 	sinkNode := NewDiscordSinkNode(voiceConn)
 
-	transcodeNode := nodes.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
+	transcodeNode := graph.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
 
 	audioGraph := graph.NewAudioGraph()
 	audioGraph.AddNode(sourceNode)

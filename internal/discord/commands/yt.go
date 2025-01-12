@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"io"
 
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
@@ -23,177 +22,179 @@ func getYtOpts(interaction *discordgo.Interaction) (*ytCommandOptions, error) {
 }
 
 func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
-	logger := log.NewChildLogger()
-	defer logger.Close()
+	/*
+		logger := log.NewChildLogger()
+		defer logger.Close()
 
-	logger.SetData("session", &session)
-	logger.SetData("interaction", &interaction)
+		logger.SetData("session", &session)
+		logger.SetData("interaction", &interaction)
 
-	// get command options
-	opts, err := getYtOpts(interaction)
-	if err != nil {
-		logger.ErrorWithErr("failed to get opts", err)
-
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		// get command options
+		opts, err := getYtOpts(interaction)
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
+			logger.ErrorWithErr("failed to get opts", err)
 
-		return
-	}
+			err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
 
-	logger.SetData("opts", &opts)
-	logger.Debug("got required opts")
-
-	existingVoiceConn, ok := session.VoiceConnections[interaction.GuildID]
-	if ok {
-		logger.SetData("existingVoiceConn", existingVoiceConn)
-		logger.Info("voice connection already active for guild, rejecting command")
-
-		err := interactions.RespondWithMessage(session, interaction, "FredBoard is already in a voice channel in this guild. Wait until FredBoard has left and try again.")
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	// create opus encoder
-	encoder, err := codecs.NewOpusEncoder(48000, 2)
-	if err != nil {
-		logger.ErrorWithErr("failed to create opus encoder", err)
-
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	logger.SetData("encoder", &encoder)
-	logger.Debug("created encoder")
-
-	// create youtube source
-	//source, err := sources.NewYouTubeSource(opts.url, sources.YOUTUBESTREAMQUALITY_BEST, logger)
-	var source io.Reader
-	if err != nil {
-		logger.ErrorWithErr("failed to create youtube source", err)
-
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	logger.SetData("source", &source)
-	logger.Debug("set source")
-
-	// find voice channel
-	vc, err := interactions.FindCreatorVoiceChannelId(session, interaction)
-
-	if err == interactions.ErrVoiceChannelNotFound {
-		logger.DebugWithErr("interaction creator not in a voice channel", err)
-
-		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	if err != nil {
-		logger.ErrorWithErr("failed to find interaction creator's voice channel id", err)
-
-		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	logger.SetData("voiceChannelId", vc)
-	logger.Debug("found interaction creator's voice channel id")
-
-	// create voice connection
-	const (
-		mute = false
-		deaf = true
-	)
-	voiceConn, err := session.ChannelVoiceJoin(interaction.GuildID, vc, mute, deaf)
-
-	if err != nil {
-		logger.ErrorWithErr("failed to join voice channel", err)
-
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
-		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
-		}
-
-		return
-	}
-
-	logger.SetData("voiceConn", &voiceConn)
-	logger.Debug("joined voice channel of interaction creator")
-
-	defer func() {
-		err := voiceConn.Disconnect()
-		if err != nil {
-			logger.ErrorWithErr("failed to close voice connection", err)
 			return
 		}
 
-		logger.Debug("closed voice connection")
-	}()
+		logger.SetData("opts", &opts)
+		logger.Debug("got required opts")
 
-	// create sink
-	sink := voice.NewVoiceWriter(voiceConn)
+		existingVoiceConn, ok := session.VoiceConnections[interaction.GuildID]
+		if ok {
+			logger.SetData("existingVoiceConn", existingVoiceConn)
+			logger.Info("voice connection already active for guild, rejecting command")
 
-	logger.SetData("sink", &sink)
-	logger.Debug("created sink")
+			err := interactions.RespondWithMessage(session, interaction, "FredBoard is already in a voice channel in this guild. Wait until FredBoard has left and try again.")
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
 
-	// start source
-	//err = source.Start()
-	if err != nil {
-		logger.ErrorWithErr("failed to start source", err)
+			return
+		}
 
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		// create opus encoder
+		encoder, err := codecs.NewOpusEncoder(48000, 2)
+		if err != nil {
+			logger.ErrorWithErr("failed to create opus encoder", err)
+
+			err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
+
+			return
+		}
+
+		logger.SetData("encoder", &encoder)
+		logger.Debug("created encoder")
+
+		// create youtube source
+		//source, err := sources.NewYouTubeSource(opts.url, sources.YOUTUBESTREAMQUALITY_BEST, logger)
+		var source io.Reader
+		if err != nil {
+			logger.ErrorWithErr("failed to create youtube source", err)
+
+			err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
+
+			return
+		}
+
+		logger.SetData("source", &source)
+		logger.Debug("set source")
+
+		// find voice channel
+		vc, err := interactions.FindCreatorVoiceChannelId(session, interaction)
+
+		if err == interactions.ErrVoiceChannelNotFound {
+			logger.DebugWithErr("interaction creator not in a voice channel", err)
+
+			err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
+
+			return
+		}
+
+		if err != nil {
+			logger.ErrorWithErr("failed to find interaction creator's voice channel id", err)
+
+			err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
+
+			return
+		}
+
+		logger.SetData("voiceChannelId", vc)
+		logger.Debug("found interaction creator's voice channel id")
+
+		// create voice connection
+		const (
+			mute = false
+			deaf = true
+		)
+		voiceConn, err := session.ChannelVoiceJoin(interaction.GuildID, vc, mute, deaf)
+
+		if err != nil {
+			logger.ErrorWithErr("failed to join voice channel", err)
+
+			err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
+
+			return
+		}
+
+		logger.SetData("voiceConn", &voiceConn)
+		logger.Debug("joined voice channel of interaction creator")
+
+		defer func() {
+			err := voiceConn.Disconnect()
+			if err != nil {
+				logger.ErrorWithErr("failed to close voice connection", err)
+				return
+			}
+
+			logger.Debug("closed voice connection")
+		}()
+
+		// create sink
+		sink := voice.NewVoiceWriter(voiceConn)
+
+		logger.SetData("sink", &sink)
+		logger.Debug("created sink")
+
+		// start source
+		//err = source.Start()
+		if err != nil {
+			logger.ErrorWithErr("failed to start source", err)
+
+			err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+			if err != nil {
+				logger.ErrorWithErr("failed to respond to interaction", err)
+			}
+
+			return
+		}
+
+		//defer source.Stop()
+
+		//voice.VoiceConnSources[voiceConn.GuildID] = source
+		defer delete(voice.VoiceConnSources, voiceConn.GuildID)
+
+		logger.Debug("started source")
+
+		// transcode source to sink
+		go encoder.EncodePCMS16LE(source, sink, 960)
+		logger.Debug("started transcoding")
+
+		// notify user that everything is OK
+		err = interactions.RespondWithMessage(session, interaction, "Playing...")
 		if err != nil {
 			logger.ErrorWithErr("failed to respond to interaction", err)
 		}
 
-		return
-	}
+		logger.Debug("notified user that everything is OK")
 
-	//defer source.Stop()
+		// cleanup source
+		logger.Debug("waiting for source")
+		//err = source.Wait()
+		if err != nil {
+			logger.ErrorWithErr("error while waiting for source", err)
+		}
 
-	//voice.VoiceConnSources[voiceConn.GuildID] = source
-	defer delete(voice.VoiceConnSources, voiceConn.GuildID)
-
-	logger.Debug("started source")
-
-	// transcode source to sink
-	go encoder.EncodePCMS16LE(source, sink, 960)
-	logger.Debug("started transcoding")
-
-	// notify user that everything is OK
-	err = interactions.RespondWithMessage(session, interaction, "Playing...")
-	if err != nil {
-		logger.ErrorWithErr("failed to respond to interaction", err)
-	}
-
-	logger.Debug("notified user that everything is OK")
-
-	// cleanup source
-	logger.Debug("waiting for source")
-	//err = source.Wait()
-	if err != nil {
-		logger.ErrorWithErr("error while waiting for source", err)
-	}
-
-	logger.Debug("done")
+		logger.Debug("done")
+	*/
 }
