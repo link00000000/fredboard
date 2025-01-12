@@ -217,25 +217,19 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	}()
 
 	// create sink
+	transcodeNode := graph.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
 	sinkNode := NewDiscordSinkNode(voiceConn)
 
-	transcodeNode := graph.NewPCM16LE_Opus_TransoderNode(48000, 1, time.Millisecond*20)
-
-	gainNode := graph.NewGainNode(2.0)
-
-	subGraph := graph.NewCompositeNode()
-	subGraph.AddNode(gainNode)
-	subGraph.AddNode(transcodeNode)
-	subGraph.CreateConnection(gainNode, transcodeNode)
-	subGraph.SetInNode(gainNode)
-	subGraph.SetOutNode(transcodeNode)
+	pcmDiscordSinkNode := graph.NewCompositeNode()
+	pcmDiscordSinkNode.AddNode(transcodeNode)
+	pcmDiscordSinkNode.AddNode(sinkNode)
+	pcmDiscordSinkNode.CreateConnection(transcodeNode, sinkNode)
+	pcmDiscordSinkNode.SetInNode(transcodeNode)
 
 	audioGraph := graph.NewAudioGraph()
 	audioGraph.AddNode(sourceNode)
-	audioGraph.AddNode(subGraph)
-	audioGraph.AddNode(sinkNode)
-	audioGraph.CreateConnection(sourceNode, subGraph)
-	audioGraph.CreateConnection(subGraph, sinkNode)
+	audioGraph.AddNode(pcmDiscordSinkNode)
+	audioGraph.CreateConnection(sourceNode, pcmDiscordSinkNode)
 
 	// notify user that everything is OK
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")
