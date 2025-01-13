@@ -8,29 +8,31 @@ const (
 	InvalidDelegateHandle DelegateHandle = 0
 )
 
-type EventEmitter[TDelegate any] struct {
-	delegates    map[DelegateHandle]TDelegate
+type Delegate[TDelegateParam any] func(param TDelegateParam)
+
+type EventEmitter[TDelegateParam any] struct {
+	delegates    map[DelegateHandle](Delegate[TDelegateParam])
 	nextHandleId int
 }
 
-func (emitter *EventEmitter[TDelegate]) Add(cb TDelegate) DelegateHandle {
+func (emitter *EventEmitter[TDelegateParam]) Add(cb Delegate[TDelegateParam]) DelegateHandle {
 	handle := emitter.nextHandle()
 	emitter.delegates[handle] = cb
 
 	return handle
 }
 
-func (emitter *EventEmitter[TDelegate]) Remove(handle DelegateHandle) {
+func (emitter *EventEmitter[TDelegateParam]) Remove(handle DelegateHandle) {
 	delete(emitter.delegates, handle)
 }
 
-func (emitter *EventEmitter[TDelegate]) Broadcast() {
-  for _, d := emitter.delegates {
-    d()
-  }
+func (emitter *EventEmitter[TDelegateParam]) Broadcast(param TDelegateParam) {
+	for _, d := range emitter.delegates {
+		d(param)
+	}
 }
 
-func (emitter *EventEmitter[TDelegate]) nextHandle() DelegateHandle {
+func (emitter *EventEmitter[TDelegateParam]) nextHandle() DelegateHandle {
 	handle := DelegateHandle(emitter.nextHandleId)
 
 	if len(emitter.delegates) == math.MaxInt {
@@ -54,9 +56,9 @@ func (emitter *EventEmitter[TDelegate]) nextHandle() DelegateHandle {
 	return handle
 }
 
-func NewEventEmitter[TDelegate any]() *EventEmitter[TDelegate] {
-	return &EventEmitter[TDelegate]{
-		delegates:    make(map[DelegateHandle]TDelegate),
+func NewEventEmitter[TDelegateParam any]() *EventEmitter[TDelegateParam] {
+	return &EventEmitter[TDelegateParam]{
+		delegates:    make(map[DelegateHandle](Delegate[TDelegateParam])),
 		nextHandleId: 1,
 	}
 }

@@ -32,11 +32,11 @@ func (node *DiscordSinkNode) PostTick() error {
 }
 
 func (node *DiscordSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := graph.AssertNNodeIO(ins, "in", 1, 1); err != nil {
+	if err := graph.AssertNodeIOBounds(ins, graph.NodeIOType_In, 1, 1); err != nil {
 		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
 	}
 
-	if err := graph.AssertNNodeIO(outs, "out", 0, 0); err != nil {
+	if err := graph.AssertNodeIOBounds(outs, graph.NodeIOType_Out, 0, 0); err != nil {
 		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
 	}
 

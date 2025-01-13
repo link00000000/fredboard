@@ -29,29 +29,65 @@ var (
 	ErrAlreadyExists = errors.New("already exists")
 )
 
-type InvalidNNodeIO struct {
-	ioType  string
-	nMin    int
-	nMax    int
+type NodeIOBound int
+
+const (
+	NodeIOBound_Unbounded = -1
+)
+
+func (bound NodeIOBound) String() string {
+	if bound == NodeIOBound_Unbounded {
+		return "unbounded"
+	}
+
+	return fmt.Sprintf("%d", int(bound))
+}
+
+type NodeIOType byte
+
+const (
+	NodeIOType_In = iota
+	NodeIOType_Out
+)
+
+func (ioType NodeIOType) String() string {
+	switch ioType {
+	case NodeIOType_In:
+		return "In"
+	case NodeIOType_Out:
+		return "Out"
+	}
+
+	panic(fmt.Sprintf("invalid NodeIOType 0x%x", ioType))
+}
+
+type NodeIOBoundError struct {
+	ioType  NodeIOType
+	nMin    NodeIOBound
+	nMax    NodeIOBound
 	nActual int
 }
 
-func AssertNNodeIO[T any](ios []T, ioType string, nMin, nMax int) *InvalidNNodeIO {
+func AssertNodeIOBounds[T any](ios []T, ioType NodeIOType, nMin, nMax NodeIOBound) *NodeIOBoundError {
 	nActual := len(ios)
 
-	if nActual < nMin || nActual > nMax {
-		return NewInvalidNNodeIOError(ioType, nMin, nMax, nActual)
+	if nMin != NodeIOBound_Unbounded && nActual < int(nMin) {
+		return NewNodeIOBoundError(ioType, nMin, nMax, nActual)
+	}
+
+	if nMax != NodeIOBound_Unbounded && nActual > int(nMax) {
+		return NewNodeIOBoundError(ioType, nMin, nMax, nActual)
 	}
 
 	return nil
 }
 
-func (err InvalidNNodeIO) Error() string {
-	return fmt.Sprintf("invalid number of %s IOs: min = %d, max = %d, actual = %d", err.ioType, err.nMin, err.nMax, err.nActual)
+func (err NodeIOBoundError) Error() string {
+	return fmt.Sprintf("invalid IO configuration: type = %s, min = %s, max = %s, actual = %d", err.ioType.String(), err.nMin.String(), err.nMax.String(), err.nActual)
 }
 
-func NewInvalidNNodeIOError(ioType string, nMin, nMax, nActual int) *InvalidNNodeIO {
-	return &InvalidNNodeIO{ioType, nMin, nMax, nActual}
+func NewNodeIOBoundError(ioType NodeIOType, nMin, nMax NodeIOBound, nActual int) *NodeIOBoundError {
+	return &NodeIOBoundError{ioType, nMin, nMax, nActual}
 }
 
 type AudioGraphNode interface {
@@ -90,11 +126,11 @@ func (node *FSFileSourceNode) CloseFile() error {
 }
 
 func (node *FSFileSourceNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNNodeIO(ins, "in", 0, 0); err != nil {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 0, 0); err != nil {
 		return fmt.Errorf("FSFileSourceNode.Tick error: %w", err)
 	}
 
-	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
 		return fmt.Errorf("FSFileSourceNode.Tick error: %w", err)
 	}
 
@@ -164,11 +200,11 @@ func (node *FSFileSinkNode) CloseFile() error {
 }
 
 func (node *FSFileSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
 		return fmt.Errorf("FSFileSinkNode.Tick error: %w", err)
 	}
 
-	if err := AssertNNodeIO(outs, "out", 0, 0); err != nil {
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 0, 0); err != nil {
 		return fmt.Errorf("FSFileSinkNode.Tick error: %w", err)
 	}
 
@@ -198,11 +234,11 @@ type GainNode struct {
 }
 
 func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
 		return fmt.Errorf("GainNode.Tick error: %w", err)
 	}
 
-	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
 		return fmt.Errorf("GainNode.Tick error: %w", err)
 	}
 
@@ -231,15 +267,17 @@ func NewGainNode(factor float32) *GainNode {
 	return &GainNode{GainFactor: factor}
 }
 
+// 2 or more inputs, mixes all inputs together into a single output
+// If there is only 1 input, it is passed directly through to the output
 type MixerNode struct {
 }
 
 func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNNodeIO(ins, "in", 2, 2); err != nil {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 2, 2); err != nil {
 		return fmt.Errorf("MixerNode.Tick error: %w", err)
 	}
 
-	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
 		return fmt.Errorf("MixerNode.Tick error: %w", err)
 	}
 
@@ -306,11 +344,11 @@ type OpusEncoderNode struct {
 }
 
 func (node *OpusEncoderNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
 		return fmt.Errorf("OpusEncoderNode.Tick error: %w", err)
 	}
 
-	if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
 		return fmt.Errorf("OpusEncoderNode error: %w", err)
 	}
 
@@ -398,13 +436,13 @@ type CompositeNode struct {
 // TOOD: Use ins and outs
 func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
 	if node.inNode != nil {
-		if err := AssertNNodeIO(ins, "in", 1, 1); err != nil {
+		if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
 			return fmt.Errorf("CompositeNode.Tick error: %w", err)
 		}
 	}
 
 	if node.outNode != nil {
-		if err := AssertNNodeIO(outs, "out", 1, 1); err != nil {
+		if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
 			return fmt.Errorf("CompositeNode.Tick error: %w", err)
 		}
 	}
