@@ -21,6 +21,7 @@ var (
 	_ AudioGraphNode = (*MixerNode)(nil)
 	_ AudioGraphNode = (*OpusEncoderNode)(nil)
 	_ AudioGraphNode = (*CompositeNode)(nil)
+	_ AudioGraphNode = (*ZeroSourceNode)(nil)
 )
 
 var (
@@ -315,7 +316,6 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) error {
 		}
 
 		mixedSample := mixSamples(samples)
-		fmt.Printf("%#v; mixedSample: %d\n", samples, mixedSample)
 		err := binary.Write(outs[0], binary.LittleEndian, mixedSample)
 		if err != nil {
 			return fmt.Errorf("MixerNode.Tick write error: %w", err)
@@ -596,4 +596,29 @@ func NewCompositeNode() *CompositeNode {
 		nodes:       make([]AudioGraphNode, 0),
 		connections: make([]*AudioGraphConnection, 0),
 	}
+}
+
+type ZeroSourceNode struct {
+	desiredBufLen uint64
+}
+
+func (node *ZeroSourceNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 0, 0); err != nil {
+		return fmt.Errorf("ZeroSourceNode.Tick error: %w", err)
+	}
+
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
+		return fmt.Errorf("ZeroSourceNode.Tick error: %w", err)
+	}
+
+	zero := [1]byte{0x00}
+	for range node.desiredBufLen {
+		outs[0].Write(zero[:])
+	}
+
+	return nil
+}
+
+func NewZeroSourceNode(desiredBufLen uint64) *ZeroSourceNode {
+	return &ZeroSourceNode{desiredBufLen: desiredBufLen}
 }

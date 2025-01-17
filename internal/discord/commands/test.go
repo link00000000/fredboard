@@ -30,34 +30,39 @@ func Test(session *discordgo.Session, interaction *discordgo.Interaction, log *l
 	}
 
 	// create sample1 fs source
-	source1EOF := make(chan struct{}, 1)
-	source1Node := graph.NewFSFileSourceNode()
-	source1Node.OpenFile("./test/testdata/sample1.pcms16le")
-	source1Node.OnEOF = func() { source1EOF <- struct{}{} }
+	fsSource1EOF := make(chan struct{}, 1)
+	fsSource1Node := graph.NewFSFileSourceNode()
+	fsSource1Node.OpenFile("./test/testdata/sample1.pcms16le")
+	fsSource1Node.OnEOF = func() { fsSource1EOF <- struct{}{} }
 	defer func() {
-		err := source1Node.CloseFile()
+		err := fsSource1Node.CloseFile()
 		if err != nil {
 			logger.ErrorWithErr("failed to close FSFileSourceNode source", err)
 		}
 	}()
 
-	logger.SetData("sourceNode1", &source1Node)
-	logger.Debug("set source 1")
+	logger.SetData("fsSourceNode1", &fsSource1Node)
+	logger.Debug("set fsSourceNode1")
 
 	// create sample2 fs source
-	source2EOF := make(chan struct{}, 1)
-	source2Node := graph.NewFSFileSourceNode()
-	source2Node.OpenFile("./test/testdata/sample2.pcms16le")
-	source2Node.OnEOF = func() { source2EOF <- struct{}{} }
+	fsSource2EOF := make(chan struct{}, 1)
+	fsSource2Node := graph.NewFSFileSourceNode()
+	fsSource2Node.OpenFile("./test/testdata/sample2.pcms16le")
+	fsSource2Node.OnEOF = func() { fsSource2EOF <- struct{}{} }
 	defer func() {
-		err := source2Node.CloseFile()
+		err := fsSource2Node.CloseFile()
 		if err != nil {
 			logger.ErrorWithErr("failed to close FSFileSourceNode source", err)
 		}
 	}()
 
-	logger.SetData("sourceNode2", &source2Node)
-	logger.Debug("set source 2")
+	logger.SetData("fsSourceNode2", &fsSource2Node)
+	logger.Debug("set fsSourceNode2")
+
+	// create zero source
+	zeroSourceNode := graph.NewZeroSourceNode(512)
+	logger.SetData("zeroSourceNode", &zeroSourceNode)
+	logger.Debug("set zeroSourceNode")
 
 	// find voice channel
 	vc, err := interactions.FindCreatorVoiceChannelId(session, interaction)
@@ -129,13 +134,15 @@ func Test(session *discordgo.Session, interaction *discordgo.Interaction, log *l
 	pcmDiscordSinkNode.SetInNode(transcodeNode)
 
 	audioGraph := graph.NewAudioGraph()
-	audioGraph.AddNode(source1Node)
-	audioGraph.AddNode(source2Node)
+	audioGraph.AddNode(fsSource1Node)
+	//audioGraph.AddNode(fsSource2Node)
+	//audioGraph.AddNode(zeroSourceNode)
 
 	mixerNode := graph.NewMixerNode()
 	audioGraph.AddNode(mixerNode)
-	audioGraph.CreateConnection(source1Node, mixerNode)
-	audioGraph.CreateConnection(source2Node, mixerNode)
+	audioGraph.CreateConnection(fsSource1Node, mixerNode)
+	//audioGraph.CreateConnection(fsSource2Node, mixerNode)
+	//audioGraph.CreateConnection(zeroSourceNode, mixerNode)
 
 	audioGraph.AddNode(pcmDiscordSinkNode)
 	audioGraph.CreateConnection(mixerNode, pcmDiscordSinkNode)
@@ -151,12 +158,12 @@ func Test(session *discordgo.Session, interaction *discordgo.Interaction, log *l
 loop:
 	for {
 		select {
-		case <-source1EOF:
+		case <-fsSource1EOF:
 			nCompletedSources += 1
 			if nCompletedSources == 2 {
 				break loop
 			}
-		case <-source2EOF:
+		case <-fsSource2EOF:
 			nCompletedSources += 1
 			if nCompletedSources == 2 {
 				break loop
