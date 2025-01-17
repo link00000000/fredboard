@@ -273,7 +273,7 @@ type MixerNode struct {
 }
 
 func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	if err := AssertNodeIOBounds(ins, NodeIOType_In, 2, 2); err != nil {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, NodeIOBound_Unbounded); err != nil {
 		return fmt.Errorf("MixerNode.Tick error: %w", err)
 	}
 
@@ -281,43 +281,61 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) error {
 		return fmt.Errorf("MixerNode.Tick error: %w", err)
 	}
 
+	eofs := make([]bool, len(ins))
+	samples := make([]int16, len(ins))
 	for {
-		var sampleA int16
-		sourceAEOF := false
-		err := binary.Read(ins[0], binary.LittleEndian, &sampleA)
-		if err != nil {
-			if err == io.EOF {
-				sampleA = 0x0000
-				sourceAEOF = true
-			} else {
-				return fmt.Errorf("MixerNode.Tick read error: %w", err)
+		allInsEof := true
+		for _, eof := range eofs {
+			if !eof {
+				allInsEof = false
 			}
 		}
 
-		var sampleB int16
-		sourceBEOF := false
-		err = binary.Read(ins[1], binary.LittleEndian, &sampleB)
-		if err != nil {
-			if err == io.EOF {
-				sampleB = 0x0000
-				sourceBEOF = true
-			} else {
-				return fmt.Errorf("MixerNode.Tick read error: %w", err)
-			}
-		}
-
-		if sourceAEOF && sourceBEOF {
+		if allInsEof {
 			break
 		}
 
-		mixedSample := int16(xmath.Clamp(int32(sampleA)+int32(sampleB), int32(math.MinInt16), int32(math.MaxInt16)))
-		err = binary.Write(outs[0], binary.LittleEndian, mixedSample)
+		for i := range ins {
+			if eofs[i] {
+				samples[i] = 0
+				continue
+			}
+
+			err := binary.Read(ins[i], binary.LittleEndian, &samples[i])
+
+			if err == io.EOF {
+				eofs[i] = true
+				samples[i] = 0
+				continue
+			}
+
+			if err != nil {
+				return fmt.Errorf("MixerNode.Tick read error: %w", err)
+			}
+		}
+
+		mixedSample := mixSamples(samples)
+		fmt.Printf("%#v; mixedSample: %d\n", samples, mixedSample)
+		err := binary.Write(outs[0], binary.LittleEndian, mixedSample)
 		if err != nil {
 			return fmt.Errorf("MixerNode.Tick write error: %w", err)
 		}
 	}
 
 	return nil
+}
+
+// Possibly update to prevent clipping. See https://stackoverflow.com/a/27000317
+// I don't know if that algorithm will work
+func mixSamples(samples []int16) int16 {
+	var mixedSample int16 = 0
+
+	for _, sample := range samples {
+		var temp int32 = int32(sample) + int32(mixedSample)
+		mixedSample = int16(xmath.Clamp(temp, int32(math.MinInt16), int32(math.MaxInt16)))
+	}
+
+	return mixedSample
 }
 
 func NewMixerNode() *MixerNode {
@@ -552,7 +570,7 @@ func (node *CompositeNode) tickInternalNode(n AudioGraphNode, ins []io.Reader, o
 
 			err := node.tickInternalNode(conn.from, ins, outs)
 			if err != nil {
-				return fmt.Errorf("CompositeNode.tickInternalNode errorr: %w", err)
+				return fmt.Errorf("CompositeNode.tickInternalNode error: %w", err)
 			}
 		}
 	}

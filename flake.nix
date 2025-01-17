@@ -28,6 +28,7 @@ inputs = {
             go
             golangci-lint
             gnumake
+            air
 
             # Runtime dependencies
             yt-dlp
