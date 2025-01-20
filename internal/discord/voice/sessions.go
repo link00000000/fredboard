@@ -1,8 +1,10 @@
 package voice
 
 import (
+	"sync"
+	"time"
+
 	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
-	"accidentallycoded.com/fredboard/v3/internal/events"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -10,16 +12,49 @@ import (
 var voiceSessions map[string]*VoiceSession = make(map[string]*VoiceSession)
 
 type VoiceSession struct {
-	voiceConn *discordgo.VoiceConnection
-	graph     *graph.AudioGraph
+	WaitGroup sync.WaitGroup
 
-	OnSourceStoppedDelegate events.EventEmitter[struct{ graph.AudioGraphNode }] // TODO: Use a different param type
+	voiceConn       *discordgo.VoiceConnection
+	audioGraph      *graph.AudioGraph
+	sourceMixerNode graph.AudioGraphNode
+	wgDone          chan struct{}
+}
+
+func (session *VoiceSession) TickGraphUntilComplete() {
+	go func() {
+		select {
+		case <-session.wgDone:
+			return
+		default:
+			session.audioGraph.Tick()
+			// TODO: Handle errors
+		}
+	}()
+
+	session.WaitGroup.Wait()
+	session.wgDone <- struct{}{}
+}
+
+func (session *VoiceSession) AddAudioSource(node graph.AudioGraphNode) {
+  session.
 }
 
 func NewVoiceSession(voiceConn *discordgo.VoiceConnection) *VoiceSession {
+	sourceMixerNode := graph.NewMixerNode()
+	opusEncoderNode := graph.NewOpusEncoderNode(48000, 2, time.Millisecond*20)
+	discordSinkNode := graph.NewDiscordSinkNode(voiceConn)
+
+	audioGraph := graph.NewAudioGraph()
+	audioGraph.AddNode(sourceMixerNode)
+	audioGraph.AddNode(opusEncoderNode)
+	audioGraph.AddNode(discordSinkNode)
+	audioGraph.CreateConnection(sourceMixerNode, opusEncoderNode)
+	audioGraph.CreateConnection(opusEncoderNode, discordSinkNode)
+
 	return &VoiceSession{
-		graph:     graph.NewAudioGraph(),
-		voiceConn: voiceConn,
+		audioGraph:      graph.NewAudioGraph(),
+		voiceConn:       voiceConn,
+		sourceMixerNode: sourceMixerNode,
 	}
 }
 

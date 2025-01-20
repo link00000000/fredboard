@@ -125,7 +125,7 @@ func Test(session *discordgo.Session, interaction *discordgo.Interaction, log *l
 
 	// create audio graph
 	transcodeNode := graph.NewOpusEncoderNode(48000, 1, time.Millisecond*20)
-	sinkNode := NewDiscordSinkNode(voiceConn)
+	sinkNode := graph.NewDiscordSinkNode(voiceConn)
 
 	pcmDiscordSinkNode := graph.NewCompositeNode()
 	pcmDiscordSinkNode.AddNode(transcodeNode)

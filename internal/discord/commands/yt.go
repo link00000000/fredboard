@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
+	"accidentallycoded.com/fredboard/v3/internal/discord/voice"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -95,7 +96,7 @@ func YTv2(session *discordgo.Session, interaction *discordgo.Interaction, log *l
 	// TODO: Handle voice connection disconnect
 
 	// 4. find or create voice session
-	//voiceSession := voice.FindOrCreateSession(voiceConn)
+	voiceSession := voice.FindOrCreateSession(voiceConn)
 
 	// TODO: Add discord sink to the audio graph
 

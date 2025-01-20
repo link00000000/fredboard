@@ -11,6 +11,7 @@ import (
 	"time"
 
 	xmath "accidentallycoded.com/fredboard/v3/internal/math"
+	"github.com/bwmarrin/discordgo"
 	"layeh.com/gopus"
 )
 
@@ -22,6 +23,7 @@ var (
 	_ AudioGraphNode = (*OpusEncoderNode)(nil)
 	_ AudioGraphNode = (*CompositeNode)(nil)
 	_ AudioGraphNode = (*ZeroSourceNode)(nil)
+	_ AudioGraphNode = (*DiscordSinkNode)(nil)
 )
 
 var (
@@ -621,4 +623,53 @@ func (node *ZeroSourceNode) Tick(ins []io.Reader, outs []io.Writer) error {
 
 func NewZeroSourceNode(desiredBufLen uint64) *ZeroSourceNode {
 	return &ZeroSourceNode{desiredBufLen: desiredBufLen}
+}
+
+type DiscordSinkNode struct {
+	conn *discordgo.VoiceConnection
+}
+
+func (node *DiscordSinkNode) PreTick() error {
+	return nil
+}
+
+func (node *DiscordSinkNode) PostTick() error {
+	return nil
+}
+
+func (node *DiscordSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
+		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
+	}
+
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 0, 0); err != nil {
+		return fmt.Errorf("DiscordSinkNode.Tick error: %w", err)
+	}
+
+	for {
+		var encodedFrameSize int16
+		err := binary.Read(ins[0], binary.LittleEndian, &encodedFrameSize)
+
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			break
+		}
+
+		if err != nil {
+			return fmt.Errorf("DiscordSinkNode.Tick read error: %w", err)
+		}
+
+		// TODO: Cache buffer usedf or p?
+		p, err := io.ReadAll(io.LimitReader(ins[0], int64(encodedFrameSize)))
+		if err != nil {
+			return fmt.Errorf("DiscordSinkNode.Tick read error: %w", err)
+		}
+
+		node.conn.OpusSend <- p
+	}
+
+	return nil
+}
+
+func NewDiscordSinkNode(conn *discordgo.VoiceConnection) *DiscordSinkNode {
+	return &DiscordSinkNode{conn: conn}
 }
