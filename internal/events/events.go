@@ -15,15 +15,21 @@ type EventEmitter[TDelegateParam any] struct {
 	nextHandleId int
 }
 
-func (emitter *EventEmitter[TDelegateParam]) Add(cb Delegate[TDelegateParam]) DelegateHandle {
+func (emitter *EventEmitter[TDelegateParam]) AddDelegate(delegate Delegate[TDelegateParam]) DelegateHandle {
 	handle := emitter.nextHandle()
-	emitter.delegates[handle] = cb
+	emitter.delegates[handle] = delegate
 
 	return handle
 }
 
-func (emitter *EventEmitter[TDelegateParam]) Remove(handle DelegateHandle) {
+func (emitter *EventEmitter[TDelegateParam]) RemoveDelegate(handle DelegateHandle) {
 	delete(emitter.delegates, handle)
+}
+
+func (emitter *EventEmitter[TDelegateParam]) AddChan(channel chan<- TDelegateParam) DelegateHandle {
+	return emitter.AddDelegate(func(param TDelegateParam) {
+		channel <- param
+	})
 }
 
 func (emitter *EventEmitter[TDelegateParam]) Broadcast(param TDelegateParam) {

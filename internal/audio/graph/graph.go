@@ -13,13 +13,21 @@ func (graph *AudioGraph) AddNode(n AudioGraphNode) error {
 	err := graph.internal.AddNode(n)
 
 	if err != nil {
-		return fmt.Errorf("AudioGraph.AddNode error: %w", err)
+		return fmt.Errorf("AudioGraphNode.AddNode() error while adding node to interal graph: %w", err)
 	}
 
 	return nil
 }
 
-// TODO: RemoveNode
+func (graph *AudioGraph) RemoveNode(node AudioGraphNode) error {
+	err := graph.internal.RemoveNode(node)
+
+	if err != nil {
+		return fmt.Errorf("AudioGraphNode.RemoveNode() error while removing node from interal graph: %w", err)
+	}
+
+	return nil
+}
 
 func (graph *AudioGraph) CreateConnection(from, to AudioGraphNode) error {
 	err := graph.internal.CreateConnection(from, to)
@@ -31,8 +39,8 @@ func (graph *AudioGraph) CreateConnection(from, to AudioGraphNode) error {
 	return nil
 }
 
-func (graph *AudioGraph) RemoveConnection(from, to AudioGraphNode) error {
-	err := graph.internal.RemoveConnection(from, to)
+func (graph *AudioGraph) DestroyConnection(from, to AudioGraphNode) error {
+	err := graph.internal.DestroyConnection(from, to)
 
 	if err != nil {
 		return fmt.Errorf("AudioGraph.RemoveConnection error: %w", err)

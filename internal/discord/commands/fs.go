@@ -162,13 +162,13 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	// create sink
 	transcodeNode := graph.NewOpusEncoderNode(48000, 1, time.Millisecond*20)
-	sinkNode := NewDiscordSinkNode(voiceConn)
+	sinkNode := graph.NewDiscordSinkNode(voiceConn)
 
 	pcmDiscordSinkNode := graph.NewCompositeNode()
 	pcmDiscordSinkNode.AddNode(transcodeNode)
 	pcmDiscordSinkNode.AddNode(sinkNode)
 	pcmDiscordSinkNode.CreateConnection(transcodeNode, sinkNode)
-	pcmDiscordSinkNode.SetInNode(transcodeNode)
+	pcmDiscordSinkNode.SetIOInNode(transcodeNode)
 
 	audioGraph := graph.NewAudioGraph()
 	audioGraph.AddNode(sourceNode)

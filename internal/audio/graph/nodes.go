@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	xmath "accidentallycoded.com/fredboard/v3/internal/math"
@@ -447,6 +448,7 @@ func NewOpusEncoderNode(sampleRate, nChannels int, frameDuration time.Duration) 
 type CompositeNode struct {
 	nodes       []AudioGraphNode
 	connections []*AudioGraphConnection
+	mutex       sync.Mutex // must be held to read or write to [nodes] or [connections]
 
 	inNode  AudioGraphNode
 	outNode AudioGraphNode
@@ -455,6 +457,9 @@ type CompositeNode struct {
 // TODO: Cancel with context
 // TOOD: Use ins and outs
 func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+
 	if node.inNode != nil {
 		if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
 			return fmt.Errorf("CompositeNode.Tick error: %w", err)
@@ -493,6 +498,9 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
 }
 
 func (node *CompositeNode) AddNode(n AudioGraphNode) error {
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+
 	if slices.Contains(node.nodes, n) {
 		return fmt.Errorf("invalid node: %w", ErrAlreadyExists)
 	}
@@ -502,29 +510,27 @@ func (node *CompositeNode) AddNode(n AudioGraphNode) error {
 	return nil
 }
 
-func (node *CompositeNode) SetInNode(n AudioGraphNode) error {
-	if !slices.Contains(node.nodes, n) {
+func (node *CompositeNode) RemoveNode(n AudioGraphNode) error {
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+
+	if slices.Contains(node.nodes, n) {
+		return fmt.Errorf("invalid node: %w", ErrAlreadyExists)
+	}
+
+	idx := slices.IndexFunc(node.nodes, func(m AudioGraphNode) bool { return m == n })
+	if idx == -1 {
 		return fmt.Errorf("invalid node: %w", ErrNotExist)
 	}
 
-	node.inNode = n
-
+	node.nodes = slices.Delete(node.nodes, idx, idx+1)
 	return nil
 }
-
-func (node *CompositeNode) SetOutNode(n AudioGraphNode) error {
-	if !slices.Contains(node.nodes, n) {
-		return fmt.Errorf("invalid node: %w", ErrNotExist)
-	}
-
-	node.outNode = n
-
-	return nil
-}
-
-// TODO: RemoveNode()
 
 func (node *CompositeNode) CreateConnection(from, to AudioGraphNode) error {
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+
 	// TODO: Make a fast version that does not do this check
 	idx := slices.IndexFunc(node.connections, func(conn *AudioGraphConnection) bool {
 		return conn.from == from && conn.to == to
@@ -539,7 +545,10 @@ func (node *CompositeNode) CreateConnection(from, to AudioGraphNode) error {
 	return nil
 }
 
-func (node *CompositeNode) RemoveConnection(from, to AudioGraphNode) error {
+func (node *CompositeNode) DestroyConnection(from, to AudioGraphNode) error {
+	node.mutex.Lock()
+	defer node.mutex.Unlock()
+
 	del := slices.DeleteFunc(node.connections, func(conn *AudioGraphConnection) bool {
 		return conn.from == from && conn.to == to
 	})
@@ -547,6 +556,26 @@ func (node *CompositeNode) RemoveConnection(from, to AudioGraphNode) error {
 	if len(del) == 0 {
 		return fmt.Errorf("connection is invalid: %w", ErrNotExist)
 	}
+
+	return nil
+}
+
+func (node *CompositeNode) SetIOInNode(n AudioGraphNode) error {
+	if !slices.Contains(node.nodes, n) {
+		return fmt.Errorf("invalid node: %w", ErrNotExist)
+	}
+
+	node.inNode = n
+
+	return nil
+}
+
+func (node *CompositeNode) SetIOOutNode(n AudioGraphNode) error {
+	if !slices.Contains(node.nodes, n) {
+		return fmt.Errorf("invalid node: %w", ErrNotExist)
+	}
+
+	node.outNode = n
 
 	return nil
 }
