@@ -1,53 +1,27 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
+	graph_extensions "accidentallycoded.com/fredboard/v3/internal/audio/graph/extensions"
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
 
-var ErrUnknownEncoding = errors.New("unknown encoding")
-
-type opusEncodingType byte
-
-const (
-	opusEncodingType_PCMS16LE opusEncodingType = iota
-	opusEncodingType_DCA0
-)
-
 type fsCommandOptions struct {
-	encoding opusEncodingType
-	path     string
+	path string
 }
 
 func getFsOpts(interaction *discordgo.Interaction) (*fsCommandOptions, error) {
-	encodingStr, err := interactions.GetRequiredStringOpt(interaction, "encoding")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get required option \"encoding\"", err)
-	}
-
-	var encoding opusEncodingType
-	switch strings.ToUpper(encodingStr) {
-	case "PCMS16LE":
-		encoding = opusEncodingType_PCMS16LE
-	case "DCA0":
-		encoding = opusEncodingType_DCA0
-	default:
-		return nil, ErrUnknownEncoding
-	}
-
 	path, err := interactions.GetRequiredStringOpt(interaction, "path")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get required option \"path\"", err)
 	}
 
-	return &fsCommandOptions{encoding, path}, nil
+	return &fsCommandOptions{path}, nil
 }
 
 func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
@@ -160,9 +134,9 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		logger.Debug("closed voice connection")
 	}()
 
-	// create sink
+	// create audio graph
 	transcodeNode := graph.NewOpusEncoderNode(48000, 1, time.Millisecond*20)
-	sinkNode := graph.NewDiscordSinkNode(voiceConn)
+	sinkNode := graph_extensions.NewDiscordSinkNode(voiceConn)
 
 	pcmDiscordSinkNode := graph.NewCompositeNode()
 	pcmDiscordSinkNode.AddNode(transcodeNode)

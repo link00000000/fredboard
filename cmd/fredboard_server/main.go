@@ -10,6 +10,7 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/discord"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"accidentallycoded.com/fredboard/v3/internal/web"
+	"github.com/joho/godotenv"
 )
 
 // These values are populated by the linker using -ldflags "-X main.version=x.x.x -X main.commit=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -22,6 +23,11 @@ func main() {
 	var logger = logging.NewLogger()
 	logger.AddHandler(logging.NewPrettyHandler(os.Stdout))
 	logger.SetPanicOnError(true)
+
+	err := godotenv.Load()
+	if err != nil {
+		logger.ErrorWithErr("failed to load .env file", err)
+	}
 
 	configLogger := logger.NewChildLogger()
 	defer configLogger.Close()

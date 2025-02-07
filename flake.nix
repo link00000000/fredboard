@@ -30,6 +30,10 @@ inputs = {
             gnumake
             air
 
+            # Compile-time dependencies
+            xorg.libX11
+            libGL
+            
             # Runtime dependencies
             yt-dlp
             ffmpeg

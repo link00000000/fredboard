@@ -2,10 +2,16 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug fredboard",
+      "name": "Debug fredboard_server",
       "type": "go",
       "request": "launch",
-      "program": "main.go"
+      "program": "${workspaceFolder}/cmd/fredboard_server/main.go"
+    },
+    {
+      "name": "Debug audiograph",
+      "type": "go",
+      "request": "launch",
+      "program": "${workspaceFolder}/cmd/audiograph/main.go"
     }
   ]
 }

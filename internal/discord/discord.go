@@ -60,8 +60,6 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 		go commands.FS(session, interaction, logger)
 	case "leave":
 		go commands.Leave(session, interaction, logger)
-	case "test":
-		go commands.Test(session, interaction, logger)
 	default:
 		logger.Warn("ignoring invalid command")
 	}
@@ -106,23 +104,12 @@ func (bot *Bot) Run(ctx context.Context) {
 					Description: "Path to file on filesystem to play",
 					Required:    true,
 				},
-				&discordgo.ApplicationCommandOption{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "encoding",
-					Description: "Encoding of the audio file. Either DCA0 or PCMS16LE",
-					Required:    true,
-				},
 			},
 		},
 		&discordgo.ApplicationCommand{
 			Type:        discordgo.ChatApplicationCommand,
 			Name:        "leave",
 			Description: "Stop playing and leave the voice channel",
-		},
-		&discordgo.ApplicationCommand{
-			Type:        discordgo.ChatApplicationCommand,
-			Name:        "test",
-			Description: "Run test",
 		},
 	})
 
