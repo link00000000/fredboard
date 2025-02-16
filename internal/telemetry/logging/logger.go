@@ -70,12 +70,12 @@ func getCaller() (*runtime.Frame, error) {
 type Level int
 
 const (
-	Debug = iota
-	Info
-	Warn
-	Error
-	Fatal
-	Panic
+	LevelDebug = iota
+	LevelInfo
+	LevelWarn
+	LevelError
+	LevelFatal
+	LevelPanic
 )
 
 type LoggerState int
@@ -85,28 +85,23 @@ const (
 	LoggerState_Closed
 )
 
-type OnLoggerCreatedEvent struct {
-	Time   time.Time
-	Caller *runtime.Frame
+type Record struct {
+	Time       time.Time
+	Level      Level
+	Message    string
+	Caller     *runtime.Frame
+	Attributes []Attribute
 }
 
-type OnLoggerClosedEvent struct {
-	Time   time.Time
-	Caller *runtime.Frame
-}
-
-type OnRecordEvent struct {
-	Time    time.Time
-	Level   Level
-	Message string
-	Error   error
-	Caller  *runtime.Frame
+type Attribute struct {
+	Key   string
+	Value any
 }
 
 type Handler interface {
-	OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent)
-	OnLoggerClosed(logger *Logger, event OnLoggerClosedEvent) error
-	OnRecord(logger *Logger, event OnRecordEvent) error
+	OnLoggerCreated(logger *Logger, time time.Time, caller *runtime.Frame)
+	OnLoggerClosed(logger *Logger, time time.Time, caller *runtime.Frame) error
+	HandleRecord(logger *Logger, record Record) error
 }
 
 type Logger struct {
@@ -116,7 +111,6 @@ type Logger struct {
 
 	state LoggerState
 
-	level        Level
 	panicOnError bool
 	handlers     []Handler
 	data         map[string]any
@@ -145,13 +139,9 @@ func (logger *Logger) NewChildLogger() *Logger {
 		panic(err)
 	}
 
-	event := OnLoggerCreatedEvent{
-		Time:   time.Now().UTC(),
-		Caller: caller,
-	}
-
+	now := time.Now().UTC()
 	for _, handler := range childLogger.Handlers() {
-		handler.OnLoggerCreated(childLogger, event)
+		handler.OnLoggerCreated(childLogger, now, caller)
 	}
 
 	return childLogger
@@ -180,16 +170,9 @@ func (logger *Logger) Close() error {
 		return err
 	}
 
-	event := OnLoggerClosedEvent{
-		Time:   time.Now().UTC(),
-		Caller: caller,
-	}
-
+	now := time.Now().UTC()
 	for _, handler := range logger.Handlers() {
-		err := handler.OnLoggerClosed(logger, event)
-		if err != nil {
-			errs = append(errs, err)
-		}
+		errs = append(errs, handler.OnLoggerClosed(logger, now, caller))
 	}
 
 	logger.state = LoggerState_Closed
@@ -215,14 +198,6 @@ func (logger *Logger) AddHandler(handler Handler) {
 	logger.RootLogger().handlers = append(logger.RootLogger().handlers, handler)
 }
 
-func (logger *Logger) Level() Level {
-	return logger.RootLogger().level
-}
-
-func (logger *Logger) SetLevel(level Level) {
-	logger.RootLogger().level = level
-}
-
 func (logger *Logger) PanicOnError() bool {
 	return logger.RootLogger().panicOnError
 }
@@ -235,147 +210,105 @@ func (logger *Logger) SetData(key string, value any) {
 	logger.data[key] = value
 }
 
-var ErrInsignificantLevel = errors.New("insignificant log level")
-
-func (logger *Logger) Log(message string, level Level, logError error) error {
-	if level < logger.level {
-		return ErrInsignificantLevel
-	}
-
+func (logger *Logger) Log(level Level, message string, args ...any) error {
 	caller, err := getCaller()
 
 	// Ignore ErrNoCaller and continue to log without the caller
-	if err != nil && err != ErrNoCaller {
+	if err != nil && !errors.Is(err, ErrNoCaller) {
 		return err
 	}
 
-	event := OnRecordEvent{
-		Time:    time.Now().UTC(),
-		Level:   level,
-		Message: message,
-		Error:   logError,
-		Caller:  caller,
+	record := Record{
+		Time:       time.Now().UTC(),
+		Level:      level,
+		Message:    message,
+		Caller:     caller,
+		Attributes: argsToAttrs(args),
 	}
 
 	errs := make([]error, 0)
 	for _, handler := range logger.Handlers() {
-		err := handler.OnRecord(logger, event)
-		if err != nil {
-			errs = append(errs, err)
+		errs = append(errs, handler.HandleRecord(logger, record))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (logger *Logger) Debug(message string, args ...any) (err error) {
+	err = logger.Log(LevelDebug, message, args...)
+	if err != nil && logger.PanicOnError() {
+		panic(err)
+	}
+
+	return err
+}
+
+func (logger *Logger) Info(message string, args ...any) (err error) {
+	err = logger.Log(LevelInfo, message, args...)
+	if err != nil && logger.PanicOnError() {
+		panic(err)
+	}
+
+	return err
+}
+
+func (logger *Logger) Warn(message string, args ...any) (err error) {
+	err = logger.Log(LevelWarn, message, args...)
+	if err != nil && logger.PanicOnError() {
+		panic(err)
+	}
+
+	return err
+}
+
+func (logger *Logger) Error(message string, args ...any) (err error) {
+	err = logger.Log(LevelError, message, args...)
+	if err != nil && logger.PanicOnError() {
+		panic(err)
+	}
+
+	return err
+}
+
+func (logger *Logger) Fatal(message string, args ...any) {
+	err := logger.Log(LevelFatal, message, args...)
+	if err != nil && logger.PanicOnError() {
+		panic(err)
+	}
+
+	os.Exit(1)
+}
+
+func (logger *Logger) Panic(message string, args ...any) {
+	err := logger.Log(LevelPanic, message, args...)
+	if err != nil && logger.PanicOnError() {
+		panic(err)
+	}
+
+	panic("an unrecoverable error has occurred")
+}
+
+func argsToAttrs(args []any) (attr []Attribute) {
+	remaining := args
+	attrs := make([]Attribute, 0)
+
+	for len(remaining) > 0 {
+		var attr Attribute
+		attr, remaining = nextAttrFromArgs(remaining)
+		attrs = append(attrs, attr)
+	}
+
+	return attrs
+}
+
+func nextAttrFromArgs(args []any) (attr Attribute, remaining []any) {
+	switch x := args[0].(type) {
+	case string:
+		if len(args) == 1 {
+			return Attribute{Key: "!BADKEY", Value: x}, nil
 		}
+		return Attribute{Key: x, Value: args[1]}, args[2:]
+	default:
+		return Attribute{Key: "!BADKEY", Value: x}, args[1:]
 	}
-
-	if len(errs) != 0 {
-		return errors.Join(errs...)
-	}
-
-	return nil
-}
-
-func (logger *Logger) Debug(message string) error {
-	xerr := logger.Log(message, Debug, nil)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) DebugWithErr(message string, err error) error {
-	xerr := logger.Log(message, Debug, err)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) Info(message string) error {
-	xerr := logger.Log(message, Info, nil)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) InfoWithErr(message string, err error) error {
-	xerr := logger.Log(message, Info, err)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) Warn(message string) error {
-	xerr := logger.Log(message, Warn, nil)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) WarnWithErr(message string, err error) error {
-	xerr := logger.Log(message, Warn, err)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) Error(message string) error {
-	xerr := logger.Log(message, Error, nil)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) ErrorWithErr(message string, err error) error {
-	xerr := logger.Log(message, Error, err)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	return xerr
-}
-
-func (logger *Logger) Fatal(message string) {
-	xerr := logger.Log(message, Fatal, nil)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	os.Exit(1)
-}
-
-func (logger *Logger) FatalWithErr(message string, err error) {
-	xerr := logger.Log(message, Fatal, err)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	os.Exit(1)
-}
-
-func (logger *Logger) Panic(message string) {
-	xerr := logger.Log(message, Panic, nil)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	panic("an unrecoverable error has occurred")
-}
-
-func (logger *Logger) PanicWithErr(message string, err error) {
-	xerr := logger.Log(message, Panic, err)
-	if logger.PanicOnError() && xerr != nil {
-		panic(xerr)
-	}
-
-	panic("an unrecoverable error has occurred")
 }

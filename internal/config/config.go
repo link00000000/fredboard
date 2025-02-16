@@ -77,21 +77,21 @@ func Init(logger *logging.Logger) {
 	Config.Discord.PublicKey, _ = os.LookupEnv("FREDBOARD_DISCORD_PUBLIC_KEY")
 	Config.Discord.Token, _ = os.LookupEnv("FREDBOARD_DISCORD_TOKEN")
 
-	Config.Logging.Level = logging.Info
+	Config.Logging.Level = logging.LevelInfo
 	if opt, ok := os.LookupEnv("FREDBOARD_LOG_LEVEL"); ok {
 		switch strings.ToUpper(opt) {
 		case "PANIC":
-			Config.Logging.Level = logging.Panic
+			Config.Logging.Level = logging.LevelPanic
 		case "FATAL":
-			Config.Logging.Level = logging.Fatal
+			Config.Logging.Level = logging.LevelFatal
 		case "ERROR":
-			Config.Logging.Level = logging.Error
+			Config.Logging.Level = logging.LevelError
 		case "WARN":
-			Config.Logging.Level = logging.Warn
+			Config.Logging.Level = logging.LevelWarn
 		case "INFO":
-			Config.Logging.Level = logging.Info
+			Config.Logging.Level = logging.LevelInfo
 		case "DEBUG":
-			Config.Logging.Level = logging.Debug
+			Config.Logging.Level = logging.LevelDebug
 		default:
 			initErrors = append(initErrors, NewOptionError("Logging.Level", "invalid option value, allowed values are PANIC, FATAL, ERROR, WARN, INFO, DEBUG"))
 		}

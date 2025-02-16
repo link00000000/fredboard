@@ -34,11 +34,11 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	// get command options
 	opts, err := getFsOpts(interaction)
 	if err != nil {
-		logger.ErrorWithErr("failed to get opts", err)
+		logger.Error("failed to get opts", "error", err)
 
 		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
@@ -54,7 +54,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 		err := interactions.RespondWithMessage(session, interaction, "FredBoard is already in a voice channel in this guild. Wait until FredBoard has left and try again.")
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
@@ -68,7 +68,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	defer func() {
 		err := sourceNode.CloseFile()
 		if err != nil {
-			logger.ErrorWithErr("failed to close FSFileSourceNode source", err)
+			logger.Error("failed to close FSFileSourceNode source", "error", err)
 		}
 	}()
 
@@ -79,22 +79,22 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	vc, err := interactions.FindCreatorVoiceChannelId(session, interaction)
 
 	if err == interactions.ErrVoiceChannelNotFound {
-		logger.DebugWithErr("interaction creator not in a voice channel", err)
+		logger.Debug("interaction creator not in a voice channel", "error", err)
 
 		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
 	}
 
 	if err != nil {
-		logger.ErrorWithErr("failed to find interaction creator's voice channel id", err)
+		logger.Error("failed to find interaction creator's voice channel id", "error", err)
 
 		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
@@ -111,11 +111,11 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	voiceConn, err := session.ChannelVoiceJoin(interaction.GuildID, vc, mute, deaf)
 
 	if err != nil {
-		logger.ErrorWithErr("failed to join voice channel", err)
+		logger.Error("failed to join voice channel", "error", err)
 
 		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
@@ -127,7 +127,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	defer func() {
 		err := voiceConn.Disconnect()
 		if err != nil {
-			logger.ErrorWithErr("failed to close voice connection", err)
+			logger.Error("failed to close voice connection", "error", err)
 			return
 		}
 
@@ -152,7 +152,7 @@ func FS(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	// notify user that everything is OK
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")
 	if err != nil {
-		logger.ErrorWithErr("failed to respond to interaction", err)
+		logger.Error("failed to respond to interaction", "error", err)
 	}
 	logger.Debug("notified user that everything is OK")
 
@@ -164,7 +164,7 @@ loop:
 		default:
 			err := audioGraph.Tick()
 			if err != nil {
-				logger.ErrorWithErr("error while ticking audio graph", err)
+				logger.Error("error while ticking audio graph", "error", err)
 				return
 			}
 		}

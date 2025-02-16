@@ -86,7 +86,7 @@ func (session *Session) RunTickGraphLoop() {
 		err := session.audioGraph.Tick()
 
 		if err != nil {
-			session.logger.ErrorWithErr("VoiceSession.RunTickGraphLoop() error ticking audio graph: %w", err)
+			session.logger.Error("VoiceSession.RunTickGraphLoop() error ticking audio graph: %w", "error", err)
 			session.Destroy()
 			return
 		}

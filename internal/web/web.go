@@ -31,7 +31,7 @@ func Run(ctx context.Context, address string, logger *logging.Logger) {
 		logger.Info("http server closed")
 
 		if err != http.ErrServerClosed {
-			logger.ErrorWithErr("http server error", err)
+			logger.Error("http server error", "error", err)
 		}
 	}()
 
@@ -42,6 +42,6 @@ func Run(ctx context.Context, address string, logger *logging.Logger) {
 	logger.Info("http server shutdown")
 
 	if err != nil {
-		logger.ErrorWithErr("error while stopping http server", err)
+		logger.Error("error while stopping http server", "error", err)
 	}
 }

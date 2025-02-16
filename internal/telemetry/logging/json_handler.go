@@ -3,6 +3,7 @@ package logging
 import (
 	"encoding/json"
 	"io"
+	"runtime"
 	"time"
 )
 
@@ -66,20 +67,21 @@ func NewJsonLoggerRecordMessage() JsonHandlerMessage[JsonHandlerRecord] {
 
 type JsonHandler struct {
 	writer io.Writer
+	level  Level
 }
 
-func NewJsonHandler(writer io.Writer) JsonHandler {
-	return JsonHandler{writer: writer}
+func NewJsonHandler(writer io.Writer, level Level) JsonHandler {
+	return JsonHandler{writer: writer, level: level}
 }
 
 // Implements [logging.Handler]
-func (handler JsonHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) {
+func (handler JsonHandler) OnLoggerCreated(logger *Logger, timestamp time.Time, caller *runtime.Frame) {
 	loggerCreated := NewJsonLoggerCreatedMessage()
-	loggerCreated.Data.Time = event.Time
+	loggerCreated.Data.Time = timestamp
 
 	loggerCreated.Data.Caller = JsonHandlerCaller{}
-	loggerCreated.Data.Caller.File = event.Caller.File
-	loggerCreated.Data.Caller.Line = event.Caller.Line
+	loggerCreated.Data.Caller.File = caller.File
+	loggerCreated.Data.Caller.Line = caller.Line
 
 	loggerCreated.Data.Logger.Id = logger.id.String()
 	loggerCreated.Data.Logger.Root = logger.RootLogger().id.String()
@@ -99,18 +101,18 @@ func (handler JsonHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreated
 		panic(err)
 	}
 
-	// Handle error?
+	// TODO: Handle error?
 	handler.writer.Write(append(data, byte('\n')))
 }
 
 // Implements [logging.Handler]
-func (handler JsonHandler) OnLoggerClosed(logger *Logger, event OnLoggerClosedEvent) error {
+func (handler JsonHandler) OnLoggerClosed(logger *Logger, timestamp time.Time, caller *runtime.Frame) error {
 	loggerClosed := NewJsonLoggerClosedMessage()
-	loggerClosed.Data.Time = event.Time
+	loggerClosed.Data.Time = timestamp
 
 	loggerClosed.Data.Caller = JsonHandlerCaller{}
-	loggerClosed.Data.Caller.File = event.Caller.File
-	loggerClosed.Data.Caller.Line = event.Caller.Line
+	loggerClosed.Data.Caller.File = caller.File
+	loggerClosed.Data.Caller.Line = caller.Line
 
 	loggerClosed.Data.Logger.Id = logger.id.String()
 	loggerClosed.Data.Logger.Root = logger.RootLogger().id.String()
@@ -139,50 +141,49 @@ func (handler JsonHandler) OnLoggerClosed(logger *Logger, event OnLoggerClosedEv
 }
 
 // Implements [logging.Handler]
-func (handler JsonHandler) OnRecord(logger *Logger, event OnRecordEvent) error {
-	record := NewJsonLoggerRecordMessage()
-	record.Data.Time = event.Time
-
-	switch event.Level {
-	case Debug:
-		record.Data.Level = "debug"
-	case Info:
-		record.Data.Level = "info"
-	case Warn:
-		record.Data.Level = "warn"
-	case Error:
-		record.Data.Level = "error"
-	case Fatal:
-		record.Data.Level = "fatal"
-	case Panic:
-		record.Data.Level = "panic"
+func (handler JsonHandler) HandleRecord(logger *Logger, record Record) error {
+	if record.Level < handler.level {
+		return nil
 	}
 
-	record.Data.Message = event.Message
+	message := NewJsonLoggerRecordMessage()
+	message.Data.Time = record.Time
 
-	if event.Error != nil {
-		msg := event.Error.Error()
-		record.Data.Error = &msg
+	switch record.Level {
+	case LevelDebug:
+		message.Data.Level = "debug"
+	case LevelInfo:
+		message.Data.Level = "info"
+	case LevelWarn:
+		message.Data.Level = "warn"
+	case LevelError:
+		message.Data.Level = "error"
+	case LevelFatal:
+		message.Data.Level = "fatal"
+	case LevelPanic:
+		message.Data.Level = "panic"
 	}
 
-	record.Data.Caller = JsonHandlerCaller{}
-	record.Data.Caller.File = event.Caller.File
-	record.Data.Caller.Line = event.Caller.Line
+	message.Data.Message = record.Message
 
-	record.Data.Logger.Id = logger.id.String()
-	record.Data.Logger.Root = logger.RootLogger().id.String()
+	message.Data.Caller = JsonHandlerCaller{}
+	message.Data.Caller.File = record.Caller.File
+	message.Data.Caller.Line = record.Caller.Line
+
+	message.Data.Logger.Id = logger.id.String()
+	message.Data.Logger.Root = logger.RootLogger().id.String()
 
 	if logger.parent != nil {
 		str := logger.parent.id.String()
-		record.Data.Logger.Parent = &str
+		message.Data.Logger.Parent = &str
 	}
 
-	record.Data.Logger.Children = make([]string, len(logger.children))
+	message.Data.Logger.Children = make([]string, len(logger.children))
 	for i, c := range logger.children {
-		record.Data.Logger.Children[i] = c.id.String()
+		message.Data.Logger.Children[i] = c.id.String()
 	}
 
-	data, err := json.Marshal(record)
+	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}

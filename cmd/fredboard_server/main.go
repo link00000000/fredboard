@@ -21,12 +21,12 @@ var (
 
 func main() {
 	var logger = logging.NewLogger()
-	logger.AddHandler(logging.NewPrettyHandler(os.Stdout))
+	logger.AddHandler(logging.NewPrettyHandler(os.Stdout, logging.LevelDebug))
 	logger.SetPanicOnError(true)
 
 	err := godotenv.Load()
 	if err != nil {
-		logger.ErrorWithErr("failed to load .env file", err)
+		logger.Error("failed to load .env file", "error", err)
 	}
 
 	configLogger := logger.NewChildLogger()
@@ -34,7 +34,7 @@ func main() {
 
 	config.Init(configLogger)
 	if ok, err := config.IsValid(); !ok {
-		logger.FatalWithErr("invalid config", err)
+		logger.Fatal("invalid config", "error", err)
 	}
 
 	logger.SetLevel(config.Config.Logging.Level)
@@ -42,22 +42,22 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		childLogger := logger.NewChildLogger()
 		defer childLogger.Close()
-
-		wg.Add(1)
-		defer wg.Done()
 
 		web.Run(ctx, config.Config.Web.Address, childLogger)
 	}()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		childLogger := logger.NewChildLogger()
 		defer childLogger.Close()
-
-		wg.Add(1)
-		defer wg.Done()
 
 		bot := discord.NewBot(config.Config.Discord.AppId, config.Config.Discord.Token, childLogger)
 		bot.Run(ctx)

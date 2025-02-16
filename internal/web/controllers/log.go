@@ -41,14 +41,14 @@ func (controller *logsController) handleIndex(w http.ResponseWriter, r *http.Req
 	templ, err := template.ParseFS(content.ContentFS, "templates/logs/index.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		logger.ErrorWithErr("failed to read template", err)
+		logger.Error("failed to read template", "error", err)
 		return
 	}
 
 	err = templ.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		logger.ErrorWithErr("failed to execute template", err)
+		logger.Error("failed to execute template", "error", err)
 		return
 	}
 }

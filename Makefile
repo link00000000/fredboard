@@ -13,6 +13,10 @@ debug : debug-fredboard
 .PHONY: all
 all : fredboard audiograph
 
+.PHONY: clean
+clean :
+	@rm -rf bin/
+
 #----------------------
 # Fredboard Server
 #----------------------
@@ -39,7 +43,7 @@ CMD_AUDIOGRAPH = ./cmd/audiograph/
 
 .PHONY: audiograph
 audiograph : $(wildcard **/*.go)
-	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/audiograph-server $(CMD_AUDIOGRAPH)
+	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/audiograph $(CMD_AUDIOGRAPH)
 
 .PHONY: run-audiograph
 run-audiograph :
@@ -48,3 +52,21 @@ run-audiograph :
 .PHONY: debug-audiograph
 debug-audiograph :
 	dotenv -- dlv debug $(CMD_AUDIOGRAPH)
+
+#----------------------
+# Youtube Downloader
+#----------------------
+
+CMD_YOUTUBE_DOWNLOADER = ./cmd/youtube_downloader/
+
+.PHONY: youtube-downloader
+youtube-downloader : $(wildcard **/*.go)
+	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/youtube-downloader $(CMD_YOUTUBE_DOWNLOADER)
+
+.PHONY: run-youtube-downloader
+run-youtube-downloader :
+	go run $(CMD_YOUTUBE_DOWNLOADER)
+
+.PHONY: debug-youtube-downloader
+debug-youtube-downloader :
+	dlv debug $(CMD_YOUTUBE_DOWNLOADER)

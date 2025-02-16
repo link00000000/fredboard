@@ -20,7 +20,7 @@ func Leave(session *discordgo.Session, interaction *discordgo.Interaction, log *
 
 		err := interactions.RespondWithMessage(session, interaction, "FredBoard is not connected to any voice channels")
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
@@ -28,16 +28,16 @@ func Leave(session *discordgo.Session, interaction *discordgo.Interaction, log *
 
 	err := voice.StopSourceAndRemoveVoiceConn(interaction.GuildID)
 	if err != nil {
-		logger.ErrorWithErr("Leave() received an error while calling voice.StopSourceAndRemoveVoiceConn()", err)
+		logger.Error("Leave() received an error while calling voice.StopSourceAndRemoveVoiceConn()", "error", err)
 	}
 
 	err = voiceConn.Disconnect()
 	if err != nil {
-		logger.ErrorWithErr("failed to disconnect", err)
+		logger.Error("failed to disconnect", "error", err)
 
 		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
 		if err != nil {
-			logger.ErrorWithErr("failed to respond to interaction", err)
+			logger.Error("failed to respond to interaction", "error", err)
 		}
 
 		return
@@ -45,6 +45,6 @@ func Leave(session *discordgo.Session, interaction *discordgo.Interaction, log *
 
 	err = interactions.RespondWithMessage(session, interaction, "FredBoard left.")
 	if err != nil {
-		logger.ErrorWithErr("failed to respond to interaction", err)
+		logger.Error("failed to respond to interaction", "error", err)
 	}
 }

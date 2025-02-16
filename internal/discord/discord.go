@@ -68,7 +68,7 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 func (bot *Bot) Run(ctx context.Context) {
 	session, err := discordgo.New("Bot " + bot.token)
 	if err != nil {
-		bot.logger.FatalWithErr("failed to create discord session", err)
+		bot.logger.Fatal("failed to create discord session", "error", err)
 	}
 
 	bot.logger.SetData("session", &session)
@@ -114,7 +114,7 @@ func (bot *Bot) Run(ctx context.Context) {
 	})
 
 	if err != nil {
-		bot.logger.FatalWithErr("failed to register new commands", err)
+		bot.logger.Fatal("failed to register new commands", "error", err)
 	}
 
 	cmdLogger := bot.logger.NewChildLogger()
@@ -128,7 +128,7 @@ func (bot *Bot) Run(ctx context.Context) {
 
 	err = session.Open()
 	if err != nil {
-		bot.logger.FatalWithErr("failed to open discord session", err)
+		bot.logger.Fatal("failed to open discord session", "error", err)
 	}
 
 	defer bot.logger.Info("discord bot shutdown")
@@ -136,7 +136,7 @@ func (bot *Bot) Run(ctx context.Context) {
 	defer func() {
 		err := session.Close()
 		if err != nil {
-			bot.logger.ErrorWithErr("failed to close discord session", err)
+			bot.logger.Fatal("failed to close discord session", "error", err)
 			return
 		}
 

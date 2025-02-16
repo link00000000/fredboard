@@ -14,7 +14,7 @@ type ReaderLogger struct {
 // Implements [io.Reader]
 func (rl *ReaderLogger) Read(p []byte) (n int, err error) {
 	n, err = rl.reader.Read(p)
-	rl.logger.Log(fmt.Sprintf("%s\n", p), rl.level, nil)
+	rl.logger.Log(rl.level, fmt.Sprintf("%s\n", p))
 
 	return
 }
@@ -32,7 +32,7 @@ type WriterLogger struct {
 // Implements [io.Writer]
 func (wl *WriterLogger) Write(p []byte) (n int, err error) {
 	n, err = wl.writer.Write(p)
-	wl.logger.Log(fmt.Sprintf("%s\n", p), wl.level, nil)
+	wl.logger.Log(wl.level, fmt.Sprintf("%s\n", p))
 
 	return
 }

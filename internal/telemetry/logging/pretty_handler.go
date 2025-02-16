@@ -1,13 +1,12 @@
 package logging
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
+	"time"
 
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging/ansi"
 	"golang.org/x/term"
@@ -28,10 +27,11 @@ func init() {
 
 type PrettyHandler struct {
 	writer io.Writer
+	level  Level
 }
 
-func NewPrettyHandler(writer io.Writer) PrettyHandler {
-	return PrettyHandler{writer: writer}
+func NewPrettyHandler(writer io.Writer, level Level) PrettyHandler {
+	return PrettyHandler{writer: writer, level: level}
 }
 
 func (handler PrettyHandler) useColor() bool {
@@ -45,16 +45,20 @@ func (handler PrettyHandler) useColor() bool {
 }
 
 // Implements [logging.Handler]
-func (handler PrettyHandler) OnLoggerCreated(logger *Logger, event OnLoggerCreatedEvent) {
+func (handler PrettyHandler) OnLoggerCreated(logger *Logger, timestamp time.Time, caller *runtime.Frame) {
 }
 
 // Implements [logging.Handler]
-func (handler PrettyHandler) OnLoggerClosed(logger *Logger, event OnLoggerClosedEvent) error {
+func (handler PrettyHandler) OnLoggerClosed(logger *Logger, timestamp time.Time, caller *runtime.Frame) error {
 	return nil
 }
 
 // Implements [logging.Handler]
-func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error {
+func (handler PrettyHandler) HandleRecord(logger *Logger, record Record) error {
+	if record.Level < handler.level {
+		return nil
+	}
+
 	var str ansi.AnsiStringBuilder
 	if handler.useColor() {
 		str.SetEscapeMode(ansi.EscapeMode_Enable)
@@ -62,71 +66,63 @@ func (handler PrettyHandler) OnRecord(logger *Logger, event OnRecordEvent) error
 		str.SetEscapeMode(ansi.EscapeMode_Disable)
 	}
 
-	str.Write(event.Time.Format("2006/01/02 15:04:05"), " ")
+	str.Write(record.Time.Format("2006/01/02 15:04:05"), " ")
 
-	switch event.Level {
-	case Debug:
+	switch record.Level {
+	case LevelDebug:
 		str.Write(ansi.FgMagenta, "DBG", ansi.Reset)
-	case Info:
+	case LevelInfo:
 		str.Write(ansi.FgBlue, "INF", ansi.Reset)
-	case Warn:
+	case LevelWarn:
 		str.Write(ansi.FgYellow, "WRN", ansi.Reset)
-	case Error:
+	case LevelError:
 		str.Write(ansi.FgRed, "ERR", ansi.Reset)
-	case Fatal:
+	case LevelFatal:
 		str.Write(ansi.FgBlack, ansi.BgRed, "FTL", ansi.Reset)
-	case Panic:
+	case LevelPanic:
 		str.Write(ansi.FgBlack, ansi.BgRed, "!!!", ansi.Reset)
 	}
 
 	str.WriteString(" ")
 
 	var callerRelativePath *string
-	if event.Caller != nil {
-		if relativePath, err := filepath.Rel(projectRoot, event.Caller.File); err == nil {
+	if record.Caller != nil {
+		if relativePath, err := filepath.Rel(projectRoot, record.Caller.File); err == nil {
 			callerRelativePath = &relativePath
 		}
 	}
 
 	if callerRelativePath != nil {
-		str.Write(ansi.FgBrightBlack, fmt.Sprintf("<%s:%d> ", *callerRelativePath, event.Caller.Line), ansi.Reset)
+		str.Write(ansi.FgBrightBlack, fmt.Sprintf("<%s:%d> ", *callerRelativePath, record.Caller.Line), ansi.Reset)
 	} else {
 		str.Write(ansi.FgBrightBlack, "<UNKNOWN CALLER> ", ansi.Reset)
 	}
 
-	str.WriteString(event.Message)
+	str.WriteString(record.Message)
 
 	str.WriteString("\n")
 
-	if event.Error != nil {
-		if len(logger.data) != 0 {
-			str.WriteString(globalPadding)
-			str.WriteString("├─ ")
-		} else {
-			str.WriteString(globalPadding)
-			str.WriteString("└─ ")
-		}
+	printAttrsRec(&str, record.Attributes, globalPadding)
 
-		str.Write(ansi.FgRed, event.Error.Error(), ansi.Reset, "\n")
-	}
-
-	dataJson, err := json.Marshal(logger.data)
-	if err != nil && (strings.Contains(err.Error(), "unsupported type") || strings.Contains(err.Error(), "unsupported value")) {
-		// Fallback to non-recursive printing
-		printData(&str, logger.data, globalPadding)
-	} else if err != nil {
-		return err
-	} else {
-		var dataMap map[string]any
-		err = json.Unmarshal([]byte(dataJson), &dataMap)
-		if err != nil {
+	/*
+		dataJson, err := json.Marshal(logger.data)
+		if err != nil && (strings.Contains(err.Error(), "unsupported type") || strings.Contains(err.Error(), "unsupported value")) {
+			// Fallback to non-recursive printing
+			printData(&str, logger.data, globalPadding)
+		} else if err != nil {
 			return err
+		} else {
+			var dataMap map[string]any
+			err = json.Unmarshal([]byte(dataJson), &dataMap)
+			if err != nil {
+				return err
+			}
+
+			printDataRec(&str, dataMap, globalPadding)
 		}
+	*/
 
-		printDataRec(&str, dataMap, globalPadding)
-	}
-
-	_, err = fmt.Fprintf(handler.writer, str.String())
+	_, err := fmt.Fprintf(handler.writer, str.String())
 	return err
 }
 
@@ -174,5 +170,33 @@ func printDataRec(str *ansi.AnsiStringBuilder, data map[string]any, padding stri
 		}
 
 		i++
+	}
+}
+
+func printAttrsRec(str *ansi.AnsiStringBuilder, attrs []Attribute, padding string) {
+	for i, attr := range attrs {
+		str.WriteString(padding)
+
+		isLast := i == len(attrs)-1
+		if !isLast {
+			str.WriteString("├─ ")
+		} else {
+			str.WriteString("└─ ")
+		}
+
+		switch v := attr.Value.(type) {
+		case []Attribute:
+			str.Write(ansi.FgBrightBlack, attr.Key, ansi.Reset, "\n")
+
+			if !isLast {
+				printAttrsRec(str, v, padding+"│   ")
+			} else {
+				printAttrsRec(str, v, padding+"    ")
+			}
+		case error:
+			str.Write(ansi.FgBrightBlack, attr.Key, ansi.Reset, ": ", fmt.Sprintf("%#v \"%s\"", v, v.Error()), "\n")
+		default:
+			str.Write(ansi.FgBrightBlack, attr.Key, ansi.Reset, ": ", fmt.Sprintf("%#v", v), "\n")
+		}
 	}
 }

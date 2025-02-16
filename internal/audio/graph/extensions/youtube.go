@@ -183,7 +183,7 @@ func (node *YouTubeSourceNode) newYtdlpProc(url string, quality YouTubeStreamQua
 			}
 
 			if err != nil {
-				node.logger.ErrorWithErr("YouTubeSourceNode.newYtdlpProc() failed to read from stderr pipe", err)
+				node.logger.Error("YouTubeSourceNode.newYtdlpProc() failed to read from stderr pipe", "error", err)
 				return
 			}
 
@@ -234,7 +234,7 @@ func (node *YouTubeSourceNode) newFfmpegProc() (*process, error) {
 			}
 
 			if err != nil {
-				node.logger.ErrorWithErr("YouTubeSourceNode.newFfmpegProc() failed to read from stderr pipe", err)
+				node.logger.Error("YouTubeSourceNode.newFfmpegProc() failed to read from stderr pipe", "error", err)
 				return
 			}
 
