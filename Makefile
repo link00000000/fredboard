@@ -29,11 +29,11 @@ fredboard : $(wildcard **/*.go)
 
 .PHONY: run-fredboard
 run-fredboard :
-	dotenv -- go run $(CMD_FREDBOARD)
+	go run $(CMD_FREDBOARD)
 
 .PHONY: debug-fredboard
 debug-fredboard :
-	dotenv -- dlv debug $(CMD_FREDBOARD)
+	dlv debug $(CMD_FREDBOARD)
 
 #----------------------
 # Audio Graph
@@ -47,11 +47,11 @@ audiograph : $(wildcard **/*.go)
 
 .PHONY: run-audiograph
 run-audiograph :
-	dotenv -- go run $(CMD_AUDIOGRAPH)
+	go run $(CMD_AUDIOGRAPH)
 
 .PHONY: debug-audiograph
 debug-audiograph :
-	dotenv -- dlv debug $(CMD_AUDIOGRAPH)
+	dlv debug $(CMD_AUDIOGRAPH)
 
 #----------------------
 # Youtube Downloader

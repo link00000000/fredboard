@@ -70,7 +70,7 @@ func getCaller() (*runtime.Frame, error) {
 type Level int
 
 const (
-	LevelDebug = iota
+	LevelDebug Level = iota
 	LevelInfo
 	LevelWarn
 	LevelError

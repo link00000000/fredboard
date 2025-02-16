@@ -24,7 +24,8 @@ func NewLogsController(srv *server.Web) *logsController {
 	controller.mux.HandleFunc("/events", controller.handleEvents)
 	controller.mux.HandleFunc("/", controller.handleIndex)
 
-	srv.Logger.AddHandler(logging.NewJsonHandler(controller.eventBroadcaster))
+	// TODO: Handle levels
+	srv.Logger.AddHandler(logging.NewJsonHandler(controller.eventBroadcaster, logging.LevelDebug))
 
 	return controller
 }

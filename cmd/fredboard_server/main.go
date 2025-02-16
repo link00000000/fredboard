@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"sync"
@@ -10,7 +13,6 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/discord"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"accidentallycoded.com/fredboard/v3/internal/web"
-	"github.com/joho/godotenv"
 )
 
 // These values are populated by the linker using -ldflags "-X main.version=x.x.x -X main.commit=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -20,24 +22,48 @@ var (
 )
 
 func main() {
+	if err := config.Init(); err != nil {
+		fmt.Printf("failed to initialize config: %s", err.Error())
+		os.Exit(1)
+	}
+
+	if ok, errs := config.Validate(); !ok {
+		fmt.Printf("invalid config:\n%s", errors.Join(errs...))
+		os.Exit(1)
+	}
+
 	var logger = logging.NewLogger()
-	logger.AddHandler(logging.NewPrettyHandler(os.Stdout, logging.LevelDebug))
 	logger.SetPanicOnError(true)
 
-	err := godotenv.Load()
-	if err != nil {
-		logger.Error("failed to load .env file", "error", err)
+	settings := config.Get()
+	for _, handlerConfig := range settings.Loggers.Handlers {
+		var w io.Writer
+		if *handlerConfig.Output == "stdout" {
+			w = os.Stdout
+		} else if *handlerConfig.Output == "stderr" {
+			w = os.Stderr
+		} else {
+			f, err := os.Open(*handlerConfig.Output)
+
+			if err != nil {
+				fmt.Printf("failed to create logger: %s", err.Error())
+				os.Exit(1)
+			}
+
+			defer f.Close()
+			w = f
+		}
+
+		var handler logging.Handler
+		switch *handlerConfig.Type {
+		case config.LoggingHandlerType_Pretty:
+			handler = logging.NewPrettyHandler(w, *handlerConfig.Level)
+		case config.LoggingHandlerType_JSON:
+			handler = logging.NewJsonHandler(w, *handlerConfig.Level)
+		}
+
+		logger.AddHandler(handler)
 	}
-
-	configLogger := logger.NewChildLogger()
-	defer configLogger.Close()
-
-	config.Init(configLogger)
-	if ok, err := config.IsValid(); !ok {
-		logger.Fatal("invalid config", "error", err)
-	}
-
-	logger.SetLevel(config.Config.Logging.Level)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -49,7 +75,7 @@ func main() {
 		childLogger := logger.NewChildLogger()
 		defer childLogger.Close()
 
-		web.Run(ctx, config.Config.Web.Address, childLogger)
+		web.Run(ctx, *settings.Web.Address, childLogger)
 	}()
 
 	wg.Add(1)
@@ -59,7 +85,7 @@ func main() {
 		childLogger := logger.NewChildLogger()
 		defer childLogger.Close()
 
-		bot := discord.NewBot(config.Config.Discord.AppId, config.Config.Discord.Token, childLogger)
+		bot := discord.NewBot(*settings.Discord.AppId, *settings.Discord.Token, childLogger)
 		bot.Run(ctx)
 	}()
 

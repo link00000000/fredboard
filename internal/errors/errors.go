@@ -23,10 +23,16 @@ func NewErrorList(errs ...error) *ErrorList {
 	return list
 }
 
-func (list *ErrorList) Add(err error) {
-	if err != nil {
-		list.errs = append(list.errs, err)
+func (list *ErrorList) Add(errs ...error) {
+	for _, err := range errs {
+		if err != nil {
+			list.errs = append(list.errs, err)
+		}
 	}
+}
+
+func (list *ErrorList) Any() bool {
+	return len(list.errs) != 0
 }
 
 func (list *ErrorList) Slice() []error {

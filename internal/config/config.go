@@ -1,11 +1,12 @@
 package config
 
 import (
-	"errors"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
-	"strconv"
-	"strings"
 
+	"accidentallycoded.com/fredboard/v3/internal/errors"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -13,6 +14,13 @@ type OptionError struct {
 	Option  string
 	Message string
 }
+
+type LoggingHandlerType string
+
+const (
+	LoggingHandlerType_JSON   LoggingHandlerType = "json"
+	LoggingHandlerType_Pretty LoggingHandlerType = "pretty"
+)
 
 func NewOptionError(option string, message string) OptionError {
 	return OptionError{Option: option, Message: message}
@@ -22,108 +30,274 @@ func (e OptionError) Error() string {
 	return "error while configuring option " + e.Option + ": " + e.Message
 }
 
-var initErrors []error
+type AudioSettings struct {
+	NumChannels  *int `json:"numChannels"`
+	SampleRateHz *int `json:"sampleRateHz"`
+	BitrateKbps  *int `json:"bitrateKbps"`
+}
 
-var Config struct {
-	Audio struct {
-		NumChannels  int
-		SampleRateHz int
-		BitrateKbps  int
+func (s *AudioSettings) init() {
+	if s.NumChannels == nil {
+		v := 2
+		s.NumChannels = &v
 	}
-	Discord struct {
-		AppId     string
-		PublicKey string
-		Token     string
+
+	if s.SampleRateHz == nil {
+		v := 48000
+		s.SampleRateHz = &v
 	}
-	Logging struct {
-		Level logging.Level
-	}
-	Web struct {
-		Address string
+
+	if s.BitrateKbps == nil {
+		v := 64
+		s.BitrateKbps = &v
 	}
 }
 
-func Init(logger *logging.Logger) {
-	initErrors = make([]error, 0)
+// TODO: better validation that checks that the set values will work with eachother
+func (s *AudioSettings) validate() []error {
+	errs := errors.NewErrorList()
 
-	Config.Audio.NumChannels = 2
-	if opt, ok := os.LookupEnv("FREDBOARD_AUDIO_NUM_CHANNELS"); ok {
-		if i, err := strconv.Atoi(opt); err != nil {
-			initErrors = append(initErrors, NewOptionError("Audio.NumChannels", err.Error()))
-		} else {
-			Config.Audio.NumChannels = i
-		}
+	if *s.NumChannels < 2 {
+		errs.Add(NewOptionError("audio.numchannels", "invalid value. minimum of 2"))
 	}
 
-	Config.Audio.SampleRateHz = 48000
-	if opt, ok := os.LookupEnv("FREDBOARD_AUDIO_SAMPLE_RATE_HZ"); ok {
-		if i, err := strconv.Atoi(opt); err != nil {
-			initErrors = append(initErrors, NewOptionError("Audio.SampleRateHz", err.Error()))
-		} else {
-			Config.Audio.SampleRateHz = i
-		}
+	if *s.SampleRateHz < 1 {
+		errs.Add(NewOptionError("audio.samplerateHz", "invalid value. minimum of 1"))
 	}
 
-	Config.Audio.BitrateKbps = 64
-	if opt, ok := os.LookupEnv("FREDBOARD_AUDIO_BITRATE_KBPS"); ok {
-		if i, err := strconv.Atoi(opt); err != nil {
-			initErrors = append(initErrors, NewOptionError("Audio.BitrateKbps", err.Error()))
-		} else {
-			Config.Audio.BitrateKbps = i
-		}
+	if *s.BitrateKbps < 1 {
+		errs.Add(NewOptionError("audio.bitrateKbps", "invalid value. minimum of 1"))
 	}
 
-	Config.Discord.AppId, _ = os.LookupEnv("FREDBOARD_DISCORD_APP_ID")
-	Config.Discord.PublicKey, _ = os.LookupEnv("FREDBOARD_DISCORD_PUBLIC_KEY")
-	Config.Discord.Token, _ = os.LookupEnv("FREDBOARD_DISCORD_TOKEN")
+	return errs.Slice()
+}
 
-	Config.Logging.Level = logging.LevelInfo
-	if opt, ok := os.LookupEnv("FREDBOARD_LOG_LEVEL"); ok {
-		switch strings.ToUpper(opt) {
-		case "PANIC":
-			Config.Logging.Level = logging.LevelPanic
-		case "FATAL":
-			Config.Logging.Level = logging.LevelFatal
-		case "ERROR":
-			Config.Logging.Level = logging.LevelError
-		case "WARN":
-			Config.Logging.Level = logging.LevelWarn
-		case "INFO":
-			Config.Logging.Level = logging.LevelInfo
-		case "DEBUG":
-			Config.Logging.Level = logging.LevelDebug
+type DiscordSettings struct {
+	AppId     *string `json:"appId"`
+	PublicKey *string `json:"publicKey"`
+	Token     *string `json:"token"`
+}
+
+func (s *DiscordSettings) init() {
+}
+
+func (s *DiscordSettings) validate() []error {
+	errs := errors.NewErrorList()
+
+	if s.AppId == nil || *s.AppId == "" {
+		errs.Add(NewOptionError("discord.appid", "required option is not set"))
+	}
+
+	if s.PublicKey == nil || *s.PublicKey == "" {
+		errs.Add(NewOptionError("discord.publickey", "required option is not set"))
+	}
+
+	if s.Token == nil || *s.Token == "" {
+		errs.Add(NewOptionError("discord.token", "required option is not set"))
+	}
+
+	return errs.Slice()
+}
+
+type LoggerSettings struct {
+	Handlers []*LogHandlerSettings `json:"handlers"`
+}
+
+func (s *LoggerSettings) init() {
+	if len(s.Handlers) == 0 {
+		handler := LoggingHandlerType_Pretty
+		level := logging.LevelInfo
+		output := "stdout"
+
+		s.Handlers = append(s.Handlers, &LogHandlerSettings{
+			Type:   &handler,
+			Level:  &level,
+			Output: &output,
+		})
+
+		return
+	}
+
+	for _, handlerSettings := range s.Handlers {
+		handlerSettings.init()
+	}
+}
+
+func (s *LoggerSettings) validate() []error {
+	errs := errors.NewErrorList()
+
+	for _, loggerSettings := range s.Handlers {
+		if loggerSettings == nil {
+			errs.Add(NewOptionError("logging.handlers.[]", "contains a null"))
+			continue
+		}
+
+		errs.Add(loggerSettings.validate()...)
+	}
+
+	return errs.Slice()
+}
+
+type LogHandlerSettings struct {
+	Type   *LoggingHandlerType `json:"type"`
+	Level  *logging.Level      `json:"level"`
+	Output *string             `json:"output"`
+}
+
+func (s *LogHandlerSettings) init() {
+}
+
+func (s *LogHandlerSettings) validate() []error {
+	errs := errors.NewErrorList()
+
+	if s.Type == nil {
+		errs.Add(NewOptionError("logging.handlers.[].type", "handler is null"))
+	} else {
+		switch *s.Type {
+		case LoggingHandlerType_JSON, LoggingHandlerType_Pretty:
+			break
 		default:
-			initErrors = append(initErrors, NewOptionError("Logging.Level", "invalid option value, allowed values are PANIC, FATAL, ERROR, WARN, INFO, DEBUG"))
+			errs.Add(NewOptionError("logging.handlers.[].type", fmt.Sprintf("invalid handler type \"%s\"", string(*s.Type))))
 		}
 	}
 
-	Config.Web.Address = ":80"
-	if opt, ok := os.LookupEnv("FREDBOARD_WEB_ADDRESS"); ok {
-		Config.Web.Address = opt
+	if s.Level == nil {
+		errs.Add(NewOptionError("Logging.handlers.[].level", "level is null"))
+	} else {
+		switch *s.Level {
+		case logging.LevelDebug, logging.LevelInfo, logging.LevelWarn, logging.LevelError, logging.LevelFatal, logging.LevelPanic:
+			break
+		default:
+			errs.Add(NewOptionError("logging.handlers.[].level", fmt.Sprintf("invalid level \"%s\"", string(*s.Level))))
+		}
 	}
 
-	logger.SetData("config", &Config)
-	logger.Debug("loaded config")
+	return errs.Slice()
 }
 
-func IsValid() (bool, error) {
-	errs := initErrors[:]
+type WebSettings struct {
+	Address *string `json:"address"`
+}
 
-	if len(Config.Discord.AppId) == 0 {
-		errs = append(errs, NewOptionError("Discord.AppId", "required option not set"))
+func (s *WebSettings) init() {
+	if s.Address == nil {
+		v := ":8080"
+		s.Address = &v
+	}
+}
+
+func (s *WebSettings) validate() []error {
+	errs := errors.NewErrorList()
+
+	if s.Address == nil || *s.Address == "" {
+		errs.Add(NewOptionError("web.address", "required value is not set"))
 	}
 
-	if len(Config.Discord.PublicKey) == 0 {
-		errs = append(errs, NewOptionError("Discord.PublicKey", "required option not set"))
+	return errs.Slice()
+}
+
+type YtdlpSettings struct {
+	CookiesFile *string `json:"cookiesFile"`
+}
+
+func (s *YtdlpSettings) init() {
+}
+
+func (s *YtdlpSettings) validate() []error {
+	return []error{}
+}
+
+type Settings struct {
+	Audio   *AudioSettings   `json:"audio"`
+	Discord *DiscordSettings `json:"discord"`
+	Loggers *LoggerSettings  `json:"logging"`
+	Web     *WebSettings     `json:"web"`
+	Ytdlp   *YtdlpSettings   `json:"ytdlp"`
+}
+
+func (s *Settings) init() {
+	if s.Audio == nil {
+		s.Audio = &AudioSettings{}
+	}
+	s.Audio.init()
+
+	if s.Discord == nil {
+		s.Discord = &DiscordSettings{}
+	}
+	s.Discord.init()
+
+	if s.Loggers == nil {
+		s.Loggers = &LoggerSettings{}
+	}
+	s.Loggers.init()
+
+	if s.Web == nil {
+		s.Web = &WebSettings{}
+	}
+	s.Web.init()
+
+	if s.Ytdlp == nil {
+		s.Ytdlp = &YtdlpSettings{}
+	}
+	s.Ytdlp.init()
+}
+
+func (s *Settings) validate() []error {
+	errs := errors.NewErrorList()
+
+	errs.Add(s.Audio.validate()...)
+	errs.Add(s.Discord.validate()...)
+	errs.Add(s.Loggers.validate()...)
+	errs.Add(s.Web.validate()...)
+	errs.Add(s.Ytdlp.validate()...)
+
+	return errs.Slice()
+}
+
+var settings = Settings{}
+
+var initErrs errors.ErrorList
+
+func Init() error {
+	cwd, err := os.Getwd()
+
+	if err != nil {
+		return err
 	}
 
-	if len(Config.Discord.Token) == 0 {
-		errs = append(errs, NewOptionError("Discord.Token", "required option not set"))
+	configFilePath := fmt.Sprintf("%s/config.json", cwd)
+	if opt, ok := os.LookupEnv("FREDBOARD_CONFIG"); ok {
+		configFilePath = opt
 	}
 
-	if len(errs) > 0 {
-		return false, errors.Join(errs...)
+	f, err := os.Open(configFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open config file at %s: %w", configFilePath, err)
+	}
+	defer f.Close()
+
+	configFileContents, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("failed to read config file at %s: %w", configFilePath, err)
 	}
 
-	return true, nil
+	err = json.Unmarshal(configFileContents, &settings)
+	if err != nil {
+		return fmt.Errorf("failed to parse config file at %s: %w", configFilePath, err)
+	}
+
+	settings.init()
+
+	return nil
+}
+
+func Validate() (ok bool, err []error) {
+	errs := errors.NewErrorList(initErrs.Slice()...)
+	errs.Add(settings.validate()...)
+
+	return !errs.Any(), errs.Slice()
+}
+
+func Get() Settings {
+	return settings
 }
