@@ -1,8 +1,12 @@
 package errors
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 type ErrorList struct {
+	m    sync.Mutex
 	errs []error
 }
 
@@ -29,6 +33,13 @@ func (list *ErrorList) Add(errs ...error) {
 			list.errs = append(list.errs, err)
 		}
 	}
+}
+
+func (list *ErrorList) AddThreadSafe(errs ...error) {
+	list.m.Lock()
+	defer list.m.Unlock()
+
+	list.Add(errs...)
 }
 
 func (list *ErrorList) Any() bool {

@@ -6,6 +6,8 @@ import (
 	"io"
 )
 
+var _ io.ReadCloser = (*CancellableReader)(nil)
+
 type CancellableReader struct {
 	ctx  context.Context
 	data chan []byte
@@ -46,8 +48,16 @@ func (cr *CancellableReader) Read(p []byte) (n int, err error) {
 	}
 }
 
-func New(ctx context.Context, r io.Reader) *CancellableReader {
-	cr := &CancellableReader{
+func (cr *CancellableReader) Close() (err error) {
+	if closer, ok := cr.r.(io.Closer); ok {
+		return closer.Close()
+	}
+
+	return nil
+}
+
+func New(ctx context.Context, r io.Reader) (cr *CancellableReader) {
+	cr = &CancellableReader{
 		ctx:  ctx,
 		data: make(chan []byte),
 		r:    r,

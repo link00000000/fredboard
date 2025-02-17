@@ -29,11 +29,11 @@ fredboard : $(wildcard **/*.go)
 
 .PHONY: run-fredboard
 run-fredboard :
-	go run $(CMD_FREDBOARD)
+	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_FREDBOARD)
 
 .PHONY: debug-fredboard
 debug-fredboard :
-	dlv debug $(CMD_FREDBOARD)
+	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_FREDBOARD)
 
 #----------------------
 # Audio Graph
@@ -47,11 +47,11 @@ audiograph : $(wildcard **/*.go)
 
 .PHONY: run-audiograph
 run-audiograph :
-	go run $(CMD_AUDIOGRAPH)
+	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_AUDIOGRAPH)
 
 .PHONY: debug-audiograph
 debug-audiograph :
-	dlv debug $(CMD_AUDIOGRAPH)
+	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_AUDIOGRAPH)
 
 #----------------------
 # Youtube Downloader
@@ -65,8 +65,8 @@ youtube-downloader : $(wildcard **/*.go)
 
 .PHONY: run-youtube-downloader
 run-youtube-downloader :
-	go run $(CMD_YOUTUBE_DOWNLOADER)
+	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_YOUTUBE_DOWNLOADER)
 
 .PHONY: debug-youtube-downloader
 debug-youtube-downloader :
-	dlv debug $(CMD_YOUTUBE_DOWNLOADER)
+	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_YOUTUBE_DOWNLOADER)

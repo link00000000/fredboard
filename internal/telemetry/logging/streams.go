@@ -1,42 +1,20 @@
 package logging
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 )
 
-type ReaderLogger struct {
-	reader io.Reader
-	logger *Logger
-	level  Level
-}
+func (logger *Logger) LogReader(reader io.Reader, level Level, format string, args ...any) error {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return err
+		}
 
-// Implements [io.Reader]
-func (rl *ReaderLogger) Read(p []byte) (n int, err error) {
-	n, err = rl.reader.Read(p)
-	rl.logger.Log(rl.level, fmt.Sprintf("%s\n", p))
+		logger.Log(level, fmt.Sprintf(format, scanner.Text()), args...)
+	}
 
-	return
-}
-
-func LogReader(reader io.Reader, logger *Logger, level Level) io.Reader {
-	return &ReaderLogger{reader, logger, level}
-}
-
-type WriterLogger struct {
-	writer io.Writer
-	logger *Logger
-	level  Level
-}
-
-// Implements [io.Writer]
-func (wl *WriterLogger) Write(p []byte) (n int, err error) {
-	n, err = wl.writer.Write(p)
-	wl.logger.Log(wl.level, fmt.Sprintf("%s\n", p))
-
-	return
-}
-
-func LogWriter(writer io.Writer, logger *Logger, level Level) io.Writer {
-	return &WriterLogger{writer, logger, level}
+	return nil
 }
