@@ -16,6 +16,8 @@ import (
 )
 
 var (
+	_ AudioGraphNode = (*ReaderSourceNode)(nil)
+	_ AudioGraphNode = (*WriterSinkNode)(nil)
 	_ AudioGraphNode = (*FSFileSourceNode)(nil)
 	_ AudioGraphNode = (*FSFileSinkNode)(nil)
 	_ AudioGraphNode = (*GainNode)(nil)
@@ -94,6 +96,74 @@ func NewNodeIOBoundError(ioType NodeIOType, nMin, nMax NodeIOBound, nActual int)
 
 type AudioGraphNode interface {
 	Tick(ins []io.Reader, outs []io.Writer) error
+}
+
+type ReaderSourceNode struct {
+	r io.Reader
+}
+
+func (node *ReaderSourceNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 0, 0); err != nil {
+		return fmt.Errorf("ReaderSourceNode.Tick error: %w", err)
+	}
+
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 1, 1); err != nil {
+		return fmt.Errorf("ReaderSourceNode.Tick error: %w", err)
+	}
+
+	if node.r == nil {
+		return fmt.Errorf("ReaderSourceNode.Tick error: %w", errors.New("reader is nil"))
+	}
+
+	_, err := io.CopyN(outs[0], node.r, 0x8000)
+
+	if err == io.EOF {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("WriterSinkNode.Tick error: %w", err)
+	}
+
+	return nil
+}
+
+func NewReaderSourceNode(r io.Reader) *ReaderSourceNode {
+	return &ReaderSourceNode{r: r}
+}
+
+type WriterSinkNode struct {
+	w io.Writer
+}
+
+func (node *WriterSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
+	if err := AssertNodeIOBounds(ins, NodeIOType_In, 1, 1); err != nil {
+		return fmt.Errorf("WriterSinkNode.Tick error: %w", err)
+	}
+
+	if err := AssertNodeIOBounds(outs, NodeIOType_Out, 0, 0); err != nil {
+		return fmt.Errorf("WriterSinkNode.Tick error: %w", err)
+	}
+
+	if node.w == nil {
+		return fmt.Errorf("WriterSinkNode.Tick error: %w", errors.New("writer is nil"))
+	}
+
+	_, err := io.CopyN(node.w, ins[0], 0x8000)
+
+	if err == io.EOF {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("WriterSinkNode.Tick error: %w", err)
+	}
+
+	return nil
+}
+
+func NewWriterSinkNode(w io.Writer) *WriterSinkNode {
+	return &WriterSinkNode{w: w}
 }
 
 type FSFileSourceNode struct {
@@ -215,10 +285,6 @@ func (node *FSFileSinkNode) Tick(ins []io.Reader, outs []io.Writer) error {
 	}
 
 	_, err := io.Copy(node.fd, ins[0])
-
-	if err == io.EOF {
-		return nil
-	}
 
 	if err != nil {
 		return fmt.Errorf("FSFileSinkNode.Tick error: %w", err)

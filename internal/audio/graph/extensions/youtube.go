@@ -53,7 +53,7 @@ func (node *YouTubeSourceNode) OpenVideo(ytdlpConfig *ytdlp.Config, ffmpegConfig
 		return nil, nil, fmt.Errorf("error while creating stderr pipe for subprocess yt-dlp: %w", err)
 	}
 
-	ffmpegCmd, err := ffmpeg.NewEncodeCmd(ctx, ffmpegConfig, ffmpeg.Format_Ogg, 48000, 2)
+	ffmpegCmd, err := ffmpeg.NewEncodeCmd(ctx, ffmpegConfig, ffmpeg.Format_PCMSigned16BitLittleEndian, 48000, 2)
 	if err != nil {
 		node.logger.Warn("error while executing ffmpeg.NewEncodeCmd", "error", err)
 		return nil, nil, fmt.Errorf("error while executing ffmpeg.NewEncodeCmd: %w", err)

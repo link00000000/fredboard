@@ -46,13 +46,19 @@ func main() {
 		logger.Panic("failed to open youtube video", "error", err)
 	}
 
-	fileSinkNode := graph.NewFSFileSinkNode()
-	fileSinkNode.OpenFile("graph-output.ogg")
-	defer fileSinkNode.CloseFile()
+	/*
+		fileSinkNode := graph.NewFSFileSinkNode()
+		fileSinkNode.OpenFile("graph-output.pcms16le")
+		defer fileSinkNode.CloseFile()
+	*/
+
+	sinkNode := graph.NewWriterSinkNode(os.Stdout)
 
 	audioGraph.AddNode(ytSourceNode)
-	audioGraph.AddNode(fileSinkNode)
-	audioGraph.CreateConnection(ytSourceNode, fileSinkNode)
+	audioGraph.AddNode(sinkNode)
+	audioGraph.CreateConnection(ytSourceNode, sinkNode)
+	//audioGraph.AddNode(fileSinkNode)
+	//audioGraph.CreateConnection(ytSourceNode, fileSinkNode)
 
 loop:
 	for {
