@@ -88,7 +88,7 @@ func NewMetadataCmd(ctx context.Context, config *Config, url string) (cmd *exec.
 	return exec.CommandContext(ctx, exe, args...), nil
 }
 
-func NewVideoCmd(ctx context.Context, config *Config, url string) (cmd *exec.Cmd, err error) {
+func NewVideoCmd(ctx context.Context, config *Config, url string, quality YtdlpAudioQuality) (cmd *exec.Cmd, err error) {
 	if config == nil {
 		config = &defaultConfig
 	}
@@ -99,6 +99,7 @@ func NewVideoCmd(ctx context.Context, config *Config, url string) (cmd *exec.Cmd
 		"--restrict-filenames", // restrict filenames to only ASCII characters
 		"--abort-on-error",     // do not continue to download if there is an error
 		"-o", "-",              // output to stdout
+		"--format", string(quality),
 	}
 
 	if config.CookiesPath.IsSet() {

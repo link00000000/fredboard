@@ -4,9 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"runtime"
 	"time"
 
+	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
+	"accidentallycoded.com/fredboard/v3/internal/audio/graph/extensions"
 	internal_errors "accidentallycoded.com/fredboard/v3/internal/errors"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
@@ -15,6 +20,54 @@ import (
 )
 
 func main() {
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	runtime.SetMutexProfileFraction(16)
+	runtime.SetBlockProfileRate(16)
+
+	logger := logging.NewLogger()
+	logger.SetPanicOnError(true)
+	logger.AddHandler(logging.NewPrettyHandler(os.Stderr, logging.LevelDebug))
+	defer logger.Close()
+
+	audioGraph := graph.NewAudioGraph()
+
+	ytSourceNode := extensions.NewYouTubeSourceNode(logger)
+	ytDone, _, err := ytSourceNode.OpenVideo(&ytdlp.Config{
+		ExePath:     optional.Make("/nix/store/8bk9vw8bk10x3g0r60mp1yxinfbwx4gd-yt-dlp-2025.1.26/bin/yt-dlp"),
+		CookiesPath: optional.Make("/home/logan/Source/link00000000/fredboard/.env/cookies.txt"),
+	}, &ffmpeg.Config{
+		ExePath: optional.Make("/nix/store/hdgkfddym117iib1w67dxayr54kp7b1s-ffmpeg-7.1-bin/bin/ffmpeg"),
+	}, "https://www.youtube.com/watch?v=OkktfeAR-Rk", ytdlp.YtdlpAudioQuality_BestAudio)
+
+	if err != nil {
+		logger.Panic("failed to open youtube video", "error", err)
+	}
+
+	fileSinkNode := graph.NewFSFileSinkNode()
+	fileSinkNode.OpenFile("graph-output.ogg")
+	defer fileSinkNode.CloseFile()
+
+	audioGraph.AddNode(ytSourceNode)
+	audioGraph.AddNode(fileSinkNode)
+	audioGraph.CreateConnection(ytSourceNode, fileSinkNode)
+
+loop:
+	for {
+		select {
+		case <-ytDone:
+			break loop
+		default:
+			if err := audioGraph.Tick(); err != nil {
+				logger.Panic("error while ticking audio graph", "error", err)
+			}
+		}
+	}
+}
+
+func main2() {
 	logger := logging.NewLogger()
 	logger.SetPanicOnError(true)
 	logger.AddHandler(logging.NewPrettyHandler(os.Stderr, logging.LevelDebug))
@@ -40,7 +93,7 @@ func DownloadAudio(ctx context.Context, logger *logging.Logger, url string, w io
 	ytdlpCmd, err := ytdlp.NewVideoCmd(ctx, &ytdlp.Config{
 		ExePath:     optional.Make("/nix/store/8bk9vw8bk10x3g0r60mp1yxinfbwx4gd-yt-dlp-2025.1.26/bin/yt-dlp"),
 		CookiesPath: optional.Make("/home/logan/Source/link00000000/fredboard/.env/cookies.txt"),
-	}, url)
+	}, url, ytdlp.YtdlpAudioQuality_BestAudio)
 	if err != nil {
 		logger.Warn("error while executing ytdlp.NewVideoCmd", "error", err, "url", url)
 		return fmt.Errorf("error while executing ytdlp.NewVideoCmd: %w", err)

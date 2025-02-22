@@ -13,6 +13,7 @@ const (
 	ffmpegExecutableName = "ffmpeg"
 
 	Format_PCMSigned16BitLittleEndian = "s16le"
+	Format_Ogg                        = "ogg"
 )
 
 type Config struct {
