@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"sync"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/parallelgraph"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
@@ -19,28 +18,32 @@ func main() {
 	inBuf := bytes.NewBufferString("Hello, World!")
 	var outBuf bytes.Buffer
 
-	readerNode := parallelgraph.NewReaderNode(inBuf)
-	writerNode := parallelgraph.NewWriterNode(&outBuf)
+	readerNode := parallelgraph.NewReaderNode(logger, inBuf)
+	passthroughNodeOne := parallelgraph.NewPassthroughNode(logger)
+	passthroughNodeTwo := parallelgraph.NewPassthroughNode(logger)
+	writerNode := parallelgraph.NewWriterNode(logger, &outBuf)
 
-	graph := parallelgraph.NewGraph()
+	graph := parallelgraph.NewGraph(logger)
 	graph.AddNode(readerNode)
+	graph.AddNode(passthroughNodeOne)
+	graph.AddNode(passthroughNodeTwo)
 	graph.AddNode(writerNode)
-	graph.CreateConnection(readerNode, writerNode)
+	graph.CreateConnection(readerNode, passthroughNodeOne)
+	graph.CreateConnection(passthroughNodeOne, passthroughNodeTwo)
+	graph.CreateConnection(passthroughNodeTwo, writerNode)
 
-	var wg sync.WaitGroup
+	//ctx, cancel := context.WithCancel(context.Background())
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	readerNode.OnEOF.AddDelegate(func(struct{}) {
+		graph.FlushAndStop()
+	})
 
-		for err := range graph.Errors() {
-			logger.Error("error from audio graph", "error", err)
-		}
-	}()
+	logger.Info("starting graph", "input", string(inBuf.Bytes()))
+	graph.Start(context.Background())
 
-	logger.Debug("starting graph", "input", string(inBuf.Bytes()))
-	graph.Start(context.TODO())
-	wg.Wait()
+	for err := range graph.Errors() {
+		logger.Error("error from audio graph", "error", err)
+	}
 
-	logger.Debug("done", "output", string(outBuf.Bytes()))
+	logger.Info("done", "output", string(outBuf.Bytes()))
 }

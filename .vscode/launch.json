@@ -21,6 +21,13 @@
       "request": "launch",
       "program": "${workspaceFolder}/cmd/youtube_downloader/main.go",
       "outputMode": "remote"
+    },
+    {
+      "name": "Debug audiograph-parallel",
+      "type": "go",
+      "request": "launch",
+      "program": "${workspaceFolder}/cmd/audiograph_parallel/main.go",
+      "outputMode": "remote"
     }
   ]
 }

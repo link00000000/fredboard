@@ -5,14 +5,20 @@ import (
 	"fmt"
 	"io"
 
+	"accidentallycoded.com/fredboard/v3/internal/events"
 	internal_io "accidentallycoded.com/fredboard/v3/internal/io"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 var _ Node = (*ReaderNode)(nil)
 
 type ReaderNode struct {
-	r    io.Reader
-	errs chan error
+	logger     *logging.Logger
+	r          io.Reader
+	errs       chan error
+	isFlushing bool
+
+	OnEOF *events.EventEmitter[struct{}]
 }
 
 func (node *ReaderNode) Start(ctx context.Context, ins []io.Reader, outs []io.Writer) error {
@@ -25,11 +31,32 @@ func (node *ReaderNode) Start(ctx context.Context, ins []io.Reader, outs []io.Wr
 	}
 
 	go func() {
-		defer close(node.errs)
+		defer func() {
+			close(node.errs)
+			node.logger.Debug("closed Errors() channel")
+		}()
 
-		_, err := internal_io.CopyContext(ctx, outs[0], node.r)
-		if err != nil {
-			node.errs <- fmt.Errorf("error while copying from ReaderNode reader: %w", err)
+		for {
+			node.logger.Debug("start copying")
+			n, err := internal_io.CopyContext(ctx, outs[0], node.r)
+			node.logger.Debug("finished copying", "n", n, "error", err)
+
+			if err == io.EOF {
+				if node.isFlushing {
+					node.logger.Debug("flushed node", "node", node)
+					_, _ = internal_io.CopyContext(ctx, outs[0], node.r)
+					break
+				}
+
+				// TODO: Replace with something else that signifies that the node is flushed and done processing
+				node.OnEOF.Broadcast(struct{}{})
+				continue
+			}
+
+			if err != nil {
+				node.errs <- fmt.Errorf("error while copying from ReaderNode reader: %w", err)
+				return
+			}
 		}
 	}()
 
@@ -40,6 +67,10 @@ func (node *ReaderNode) Errors() <-chan error {
 	return node.errs
 }
 
-func NewReaderNode(r io.Reader) *ReaderNode {
-	return &ReaderNode{r: r, errs: make(chan error, 1)}
+func (node *ReaderNode) FlushAndStop() {
+	node.isFlushing = true
+}
+
+func NewReaderNode(logger *logging.Logger, r io.Reader) *ReaderNode {
+	return &ReaderNode{logger: logger, r: r, errs: make(chan error, 1), OnEOF: events.NewEventEmitter[struct{}]()}
 }

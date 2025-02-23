@@ -25,10 +25,6 @@ func CopyContext(ctx context.Context, dst io.Writer, src io.Reader) (n int64, er
 				}
 			}
 
-			if rerr == io.EOF {
-				return n, nil
-			}
-
 			if rerr != nil {
 				return n, rerr
 			}

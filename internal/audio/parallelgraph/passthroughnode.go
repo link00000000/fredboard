@@ -9,22 +9,21 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
-var _ Node = (*WriterNode)(nil)
+var _ Node = (*PassthroughNode)(nil)
 
-type WriterNode struct {
+type PassthroughNode struct {
 	logger     *logging.Logger
-	w          io.Writer
 	errs       chan error
 	isFlushing bool
 }
 
-func (node *WriterNode) Start(ctx context.Context, ins []io.Reader, outs []io.Writer) error {
+func (node *PassthroughNode) Start(ctx context.Context, ins []io.Reader, outs []io.Writer) error {
 	if len(ins) != 1 {
-		return newInvalidConnectionConfigErr(0, 1, len(ins))
+		return newInvalidConnectionConfigErr(1, 1, len(ins))
 	}
 
-	if len(outs) != 0 {
-		return newInvalidConnectionConfigErr(0, 0, len(outs))
+	if len(outs) != 1 {
+		return newInvalidConnectionConfigErr(1, 1, len(outs))
 	}
 
 	go func() {
@@ -35,13 +34,13 @@ func (node *WriterNode) Start(ctx context.Context, ins []io.Reader, outs []io.Wr
 
 		for {
 			node.logger.Debug("start copying")
-			n, err := internal_io.CopyContext(ctx, node.w, ins[0])
+			n, err := internal_io.CopyContext(ctx, outs[0], ins[0])
 			node.logger.Debug("finished copying", "n", n, "error", err)
 
 			if err == io.EOF {
 				if node.isFlushing {
-					_, _ = internal_io.CopyContext(ctx, node.w, ins[0])
 					node.logger.Debug("flushed node", "node", node)
+					_, _ = internal_io.CopyContext(ctx, outs[0], ins[0])
 					break
 				}
 
@@ -49,7 +48,7 @@ func (node *WriterNode) Start(ctx context.Context, ins []io.Reader, outs []io.Wr
 			}
 
 			if err != nil {
-				node.errs <- fmt.Errorf("error while copying to WriterNode writer: %w", err)
+				node.errs <- fmt.Errorf("error while copying passthrough node input to output: %w", err)
 				return
 			}
 		}
@@ -58,14 +57,14 @@ func (node *WriterNode) Start(ctx context.Context, ins []io.Reader, outs []io.Wr
 	return nil
 }
 
-func (node *WriterNode) Errors() <-chan error {
+func (node *PassthroughNode) Errors() <-chan error {
 	return node.errs
 }
 
-func (node *WriterNode) FlushAndStop() {
+func (node *PassthroughNode) FlushAndStop() {
 	node.isFlushing = true
 }
 
-func NewWriterNode(logger *logging.Logger, w io.Writer) *WriterNode {
-	return &WriterNode{logger: logger, w: w, errs: make(chan error, 1)}
+func NewPassthroughNode(logger *logging.Logger) *PassthroughNode {
+	return &PassthroughNode{logger: logger, errs: make(chan error, 1)}
 }
