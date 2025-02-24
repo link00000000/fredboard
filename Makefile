@@ -1,6 +1,8 @@
 BUILD_VERSION := $(FREDBOARD_BUILD_VERSION)
 BUILD_COMMIT := $(FREDBOARD_BUILD_COMMIT)
 
+export FREDBOARD_CONFIG := "./.env/config.json"
+
 .PHONY: default
 default : fredboard
 
@@ -29,29 +31,29 @@ fredboard : $(wildcard **/*.go)
 
 .PHONY: run-fredboard
 run-fredboard :
-	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_FREDBOARD)
+	@go run $(CMD_FREDBOARD)
 
 .PHONY: debug-fredboard
 debug-fredboard :
-	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_FREDBOARD)
+	dlv debug $(CMD_FREDBOARD)
 
 #----------------------
-# Audio Graph
+# Audio Graph GUI
 #----------------------
 
-CMD_AUDIOGRAPH = ./cmd/audiograph/
+CMD_AUDIOGRAPH_GUI = ./cmd/audiograph-gui/
 
-.PHONY: audiograph
-audiograph : $(wildcard **/*.go)
-	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/audiograph $(CMD_AUDIOGRAPH)
+.PHONY: audiograph-gui
+audiograph-gui : $(wildcard **/*.go)
+	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/audiograph $(CMD_AUDIOGRAPH_GUI)
 
-.PHONY: run-audiograph
-run-audiograph :
-	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_AUDIOGRAPH)
+.PHONY: run-audiograp-gui
+run-audiograph-gui :
+	@go run $(CMD_AUDIOGRAPH_GUI)
 
-.PHONY: debug-audiograph
-debug-audiograph :
-	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_AUDIOGRAPH)
+.PHONY: debug-audiograph-gui
+debug-audiograph-gui :
+	dlv debug $(CMD_AUDIOGRAPH_GUI)
 
 #----------------------
 # Youtube Downloader
@@ -65,11 +67,11 @@ youtube-downloader : $(wildcard **/*.go)
 
 .PHONY: run-youtube-downloader
 run-youtube-downloader :
-	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_YOUTUBE_DOWNLOADER)
+	@go run $(CMD_YOUTUBE_DOWNLOADER)
 
 .PHONY: debug-youtube-downloader
 debug-youtube-downloader :
-	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_YOUTUBE_DOWNLOADER)
+	dlv debug $(CMD_YOUTUBE_DOWNLOADER)
 
 #----------------------
 # Parallel Audio Graph
@@ -83,8 +85,8 @@ audiograph-parallel : $(wildcard **/*.go)
 
 .PHONY: run-audiograph-parallel
 run-audiograph-parallel :
-	@FREDBOARD_CONFIG=./.env/config.json go run $(CMD_AUDIOGRAPH_PARALLEL)
+	@go run $(CMD_AUDIOGRAPH_PARALLEL)
 
 .PHONY: debug-audiograph-parallel
 debug-audiograph-parallel :
-	FREDBOARD_CONFIG=./.env/config.json dlv debug $(CMD_AUDIOGRAPH_PARALLEL)
+	dlv debug $(CMD_AUDIOGRAPH_PARALLEL)

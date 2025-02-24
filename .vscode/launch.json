@@ -6,28 +6,40 @@
       "type": "go",
       "request": "launch",
       "program": "${workspaceFolder}/cmd/fredboard_server/main.go",
-      "outputMode": "remote"
+      "outputMode": "remote",
+      "env": {
+        "FREDBOARD_CONFIG": "./.env/config.json"
+      }
     },
     {
-      "name": "Debug audiograph",
+      "name": "Debug audiograph-gui",
       "type": "go",
       "request": "launch",
-      "program": "${workspaceFolder}/cmd/audiograph/main.go",
-      "outputMode": "remote"
+      "program": "${workspaceFolder}/cmd/audiograph-gui/main.go",
+      "outputMode": "remote",
+      "env": {
+        "FREDBOARD_CONFIG": "./.env/config.json"
+      }
     },
     {
       "name": "Debug youtube-downloader",
       "type": "go",
       "request": "launch",
       "program": "${workspaceFolder}/cmd/youtube_downloader/main.go",
-      "outputMode": "remote"
+      "outputMode": "remote",
+      "env": {
+        "FREDBOARD_CONFIG": "./.env/config.json"
+      }
     },
     {
       "name": "Debug audiograph-parallel",
       "type": "go",
       "request": "launch",
       "program": "${workspaceFolder}/cmd/audiograph_parallel/main.go",
-      "outputMode": "remote"
+      "outputMode": "remote",
+      "env": {
+        "FREDBOARD_CONFIG": "./.env/config.json"
+      }
     }
   ]
 }

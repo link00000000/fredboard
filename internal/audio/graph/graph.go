@@ -1,66 +1,38 @@
 package graph
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+
+	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
-type AudioGraph struct {
-	internal *CompositeNode
+type InvalidConnectionConfigErr error
+
+func newInvalidConnectionConfigErr(nMin, nMax, nActual int) InvalidConnectionConfigErr {
+	return fmt.Errorf("invalid audio graph connection configuration. node requires min=%d, max=%d, but got actual=%d", nMin, nMax, nActual)
 }
 
-func (graph *AudioGraph) AddNode(n AudioGraphNode) error {
-	err := graph.internal.AddNode(n)
-
-	if err != nil {
-		return fmt.Errorf("AudioGraphNode.AddNode() error while adding node to interal graph: %w", err)
-	}
-
-	return nil
+// a unit that processess all input channels are writes to all output channels.
+// once Start()ed, the node should not stop processing under any condition unless Stop() is called.
+type Node interface {
+	// process inputs and writing them to outputs
+	// this function should block
+	Tick(ins []io.Reader, outs []io.Writer) error
 }
 
-func (graph *AudioGraph) RemoveNode(node AudioGraphNode) error {
-	err := graph.internal.RemoveNode(node)
+type Connection struct {
+	bytes.Buffer
 
-	if err != nil {
-		return fmt.Errorf("AudioGraphNode.RemoveNode() error while removing node from interal graph: %w", err)
-	}
-
-	return nil
+	from Node
+	to   Node
 }
 
-func (graph *AudioGraph) CreateConnection(from, to AudioGraphNode) error {
-	err := graph.internal.CreateConnection(from, to)
-
-	if err != nil {
-		return fmt.Errorf("AudioGraph.CreateConnection error: %w", err)
-	}
-
-	return nil
+type Graph struct {
+	*CompositeNode
 }
 
-func (graph *AudioGraph) DestroyConnection(from, to AudioGraphNode) error {
-	err := graph.internal.DestroyConnection(from, to)
-
-	if err != nil {
-		return fmt.Errorf("AudioGraph.RemoveConnection error: %w", err)
-	}
-
-	return nil
-}
-
-func (graph *AudioGraph) Tick() error {
-	err := graph.internal.Tick([]io.Reader{}, []io.Writer{})
-
-	if err != nil {
-		return fmt.Errorf("AudioGraph.Tick error: %w", err)
-	}
-
-	return nil
-}
-
-func NewAudioGraph() *AudioGraph {
-	return &AudioGraph{
-		internal: NewCompositeNode(),
-	}
+func NewGraph(logger *logging.Logger) *Graph {
+	return &Graph{NewCompositeNode(logger)}
 }

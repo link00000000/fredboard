@@ -198,6 +198,7 @@ func (s *WebSettings) validate() []error {
 
 type YtdlpSettings struct {
 	CookiesFile *string `json:"cookiesFile"`
+	ExePath     *string `json:"exePath"`
 }
 
 func (s *YtdlpSettings) init() {
@@ -207,12 +208,24 @@ func (s *YtdlpSettings) validate() []error {
 	return []error{}
 }
 
+type FfmpegSettings struct {
+	ExePath *string `json:"exePath"`
+}
+
+func (s *FfmpegSettings) init() {
+}
+
+func (s *FfmpegSettings) validate() []error {
+	return []error{}
+}
+
 type Settings struct {
 	Audio   *AudioSettings   `json:"audio"`
 	Discord *DiscordSettings `json:"discord"`
 	Loggers *LoggerSettings  `json:"logging"`
 	Web     *WebSettings     `json:"web"`
 	Ytdlp   *YtdlpSettings   `json:"ytdlp"`
+	Ffmpeg  *FfmpegSettings  `json:"ffmpeg"`
 }
 
 func (s *Settings) init() {
@@ -240,6 +253,11 @@ func (s *Settings) init() {
 		s.Ytdlp = &YtdlpSettings{}
 	}
 	s.Ytdlp.init()
+
+	if s.Ffmpeg == nil {
+		s.Ffmpeg = &FfmpegSettings{}
+	}
+	s.Ffmpeg.init()
 }
 
 func (s *Settings) validate() []error {
@@ -250,6 +268,7 @@ func (s *Settings) validate() []error {
 	errs.Add(s.Loggers.validate()...)
 	errs.Add(s.Web.validate()...)
 	errs.Add(s.Ytdlp.validate()...)
+	errs.Add(s.Ffmpeg.validate()...)
 
 	return errs.Slice()
 }

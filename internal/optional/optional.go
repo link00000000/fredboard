@@ -34,3 +34,7 @@ func Empty[T any]() Optional[T] {
 func Make[T any](value T) Optional[T] {
 	return Optional[T]{value: &value, isValid: true}
 }
+
+func MakePtr[T any](value *T) Optional[T] {
+	return Optional[T]{value: value, isValid: value != nil}
+}
