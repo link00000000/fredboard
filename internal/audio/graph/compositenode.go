@@ -18,7 +18,7 @@ type CompositeNode struct {
 }
 
 func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
-	queue := make([]Node, len(node.childNodes), 0)
+	queue := make([]Node, 0)
 
 	var enqueue func(n Node)
 	enqueue = func(n Node) {
@@ -58,6 +58,22 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
 	return errors.Join(errs...)
 }
 
+func (node *CompositeNode) AddNode(n Node) {
+	// TODO: assert that n is a pointer
+	// TODO: assert that n is not already in the graph
+
+	node.childNodes = append(node.childNodes, n)
+}
+
+func (node *CompositeNode) CreateConnection(from, to Node) {
+	// TODO: assert that to and from are pointers
+	// TODO: assert that to and from are in the graph
+	// TODO: assert that the connection does not already exist
+	// TODO: assert that cycle isn't created
+
+	node.connections = append(node.connections, &Connection{from: from, to: to})
+}
+
 // finds all nodes that are not a 'from' in any connection
 func (node *CompositeNode) findLeafNodes() []Node {
 	leaves := make([]Node, 0)
@@ -85,4 +101,12 @@ func (node *CompositeNode) findParentsOf(child Node) []Node {
 	}
 
 	return parents
+}
+
+func NewCompositeNode(logger *logging.Logger) *CompositeNode {
+	return &CompositeNode{
+		logger:      logger,
+		childNodes:  make([]Node, 0),
+		connections: make([]*Connection, 0),
+	}
 }

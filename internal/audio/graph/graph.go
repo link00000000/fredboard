@@ -33,6 +33,10 @@ type Graph struct {
 	*CompositeNode
 }
 
+func (graph *Graph) Tick() error {
+	return graph.CompositeNode.Tick([]io.Reader{}, []io.Writer{})
+}
+
 func NewGraph(logger *logging.Logger) *Graph {
 	return &Graph{NewCompositeNode(logger)}
 }

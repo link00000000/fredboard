@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
 	"accidentallycoded.com/fredboard/v3/internal/config"
@@ -42,23 +41,25 @@ func init() {
 }
 
 func main() {
-	audioGraph := graph.NewAudioGraph()
+	audioGraph := graph.NewGraph(logger)
 
-	input := bytes.NewBufferString("Hello, world!")
+	input := bytes.NewBufferString("1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16")
 	var output bytes.Buffer
 
-	readerSource := graph.NewReaderSourceNode(input)
-	writerSink := graph.NewWriterSinkNode(&output)
-	audioGraph.AddNode(readerSource)
-	audioGraph.AddNode(writerSink)
-	audioGraph.CreateConnection(readerSource, writerSink)
+	readerNode := graph.NewReaderNode(logger, input, 2)
+	writerNode := graph.NewWriterNode(logger, &output)
 
+	audioGraph.AddNode(readerNode)
+	audioGraph.AddNode(writerNode)
+	audioGraph.CreateConnection(readerNode, writerNode)
+
+	logger.Info("starting audio graph", "data", input.String())
 	err := audioGraph.Tick()
+	err = audioGraph.Tick()
 	if err != nil {
 		panic(err)
 	}
-
-	runtime.Breakpoint()
+	logger.Info("finished audio graph", "data", output.String())
 }
 
 func initializeConfig() {
@@ -76,9 +77,6 @@ func initializeConfig() {
 func initializeLogger(settings config.Settings) *logging.Logger {
 	logger := logging.NewLogger()
 	logger.SetPanicOnError(true)
-
-	logger.AddHandler(logging.NewPrettyHandler(os.Stderr, logging.LevelDebug))
-	defer logger.Close()
 
 	for _, handlerConfig := range settings.Loggers.Handlers {
 		var w io.Writer
