@@ -45,6 +45,7 @@ inputs = {
             hexyl
             vlc
             graphviz
+            gopls
           ];
           hardeningDisable = [ "fortify" ]; # Required to prevent error when running `dlv test`
         };
