@@ -11,24 +11,32 @@ var _ Node = (*WriterNode)(nil)
 type WriterNode struct {
 	logger *logging.Logger
 
-	w io.Writer
+	w   io.Writer
+	err error
 }
 
-func (node *WriterNode) Tick(ins []io.Reader, outs []io.Writer) error {
+func (node *WriterNode) Tick(ins []io.Reader, outs []io.Writer) {
+	node.err = nil
+
 	if len(ins) != 1 {
-		return newInvalidConnectionConfigErr(0, 1, len(ins))
+		node.err = newInvalidConnectionConfigErr(0, 1, len(ins))
+		return
 	}
 
 	if len(outs) != 0 {
-		return newInvalidConnectionConfigErr(0, 0, len(outs))
+		node.err = newInvalidConnectionConfigErr(0, 0, len(outs))
+		return
 	}
 
-	n, err := io.Copy(node.w, ins[0])
-	node.logger.Debug("WriterNode copied data from input to writer", "n", n, "error", err)
+	var n int64
+	n, node.err = io.Copy(node.w, ins[0])
+	node.logger.Debug("WriterNode copied data from input to writer", "n", n, "error", node.err)
+}
 
-	return err
+func (node *WriterNode) Err() error {
+	return node.err
 }
 
 func NewWriterNode(logger *logging.Logger, w io.Writer) *WriterNode {
-	return &WriterNode{logger: logger, w: w}
+	return &WriterNode{logger: logger, w: w, err: nil}
 }

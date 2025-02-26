@@ -46,7 +46,7 @@ func main() {
 	input := bytes.NewBufferString("1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16")
 	var output bytes.Buffer
 
-	readerNode := graph.NewReaderNode(logger, input, 2)
+	readerNode := graph.NewReaderNode(logger, input, 3)
 	writerNode := graph.NewWriterNode(logger, &output)
 
 	audioGraph.AddNode(readerNode)
@@ -54,11 +54,19 @@ func main() {
 	audioGraph.CreateConnection(readerNode, writerNode)
 
 	logger.Info("starting audio graph", "data", input.String())
-	err := audioGraph.Tick()
-	err = audioGraph.Tick()
-	if err != nil {
-		panic(err)
+
+	for {
+		audioGraph.Tick()
+
+		if readerNode.Err() == io.EOF {
+			break
+		}
+
+		if err := audioGraph.Err(); err != nil {
+			panic(err)
+		}
 	}
+
 	logger.Info("finished audio graph", "data", output.String())
 }
 

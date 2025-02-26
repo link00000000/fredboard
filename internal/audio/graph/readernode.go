@@ -13,23 +13,31 @@ type ReaderNode struct {
 
 	r    io.Reader
 	size int64
+	err  error
 }
 
-func (node *ReaderNode) Tick(ins []io.Reader, outs []io.Writer) error {
+func (node *ReaderNode) Tick(ins []io.Reader, outs []io.Writer) {
+	node.err = nil
+
 	if len(ins) != 0 {
-		return newInvalidConnectionConfigErr(0, 0, len(ins))
+		node.err = newInvalidConnectionConfigErr(0, 0, len(ins))
+		return
 	}
 
 	if len(outs) != 1 {
-		return newInvalidConnectionConfigErr(0, 1, len(outs))
+		node.err = newInvalidConnectionConfigErr(0, 1, len(outs))
+		return
 	}
 
-	n, err := io.CopyN(outs[0], node.r, node.size)
-	node.logger.Debug("ReaderNode copied data from reader to output", "n", n, "error", err)
+	var n int64
+	n, node.err = io.CopyN(outs[0], node.r, node.size)
+	node.logger.Debug("ReaderNode copied data from reader to output", "n", n, "error", node.err)
+}
 
-	return err
+func (node *ReaderNode) Err() error {
+	return node.err
 }
 
 func NewReaderNode(logger *logging.Logger, r io.Reader, size int64) *ReaderNode {
-	return &ReaderNode{logger: logger, r: r, size: size}
+	return &ReaderNode{logger: logger, r: r, size: size, err: nil}
 }

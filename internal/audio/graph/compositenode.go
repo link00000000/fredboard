@@ -15,9 +15,12 @@ type CompositeNode struct {
 
 	childNodes  []Node
 	connections []*Connection
+	err         error
 }
 
-func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
+func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
+	node.err = nil
+
 	queue := make([]Node, 0)
 
 	var enqueue func(n Node)
@@ -52,10 +55,15 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) error {
 			}
 		}
 
-		errs = append(errs, n.Tick(ins, outs))
+		n.Tick(ins, outs)
+		errs = append(errs, n.Err())
 	}
 
-	return errors.Join(errs...)
+	node.err = errors.Join(errs...)
+}
+
+func (node *CompositeNode) Err() error {
+	return node.err
 }
 
 func (node *CompositeNode) AddNode(n Node) {
@@ -108,5 +116,6 @@ func NewCompositeNode(logger *logging.Logger) *CompositeNode {
 		logger:      logger,
 		childNodes:  make([]Node, 0),
 		connections: make([]*Connection, 0),
+		err:         nil,
 	}
 }
