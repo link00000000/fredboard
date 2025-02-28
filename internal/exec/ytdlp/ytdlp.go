@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 
 	"accidentallycoded.com/fredboard/v3/internal/optional"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 type YtdlpAudioQuality string
@@ -98,8 +100,10 @@ func NewVideoCmd(ctx context.Context, config *Config, url string, quality YtdlpA
 		"--quiet", "--verbose", // continue to log but log to stderr instead of stdout
 		"--restrict-filenames", // restrict filenames to only ASCII characters
 		"--abort-on-error",     // do not continue to download if there is an error
-		"-o", "-",              // output to stdout
+		"--extract-audio",
+		"--audio-format", "wav", // force output to wav for further processing
 		"--format", string(quality),
+		"-o", "-",              // output to stdout
 	}
 
 	if config.CookiesPath.IsSet() {
@@ -112,4 +116,47 @@ func NewVideoCmd(ctx context.Context, config *Config, url string, quality YtdlpA
 	}
 
 	return exec.CommandContext(ctx, exe, args...), nil
+}
+
+type videoReader struct {
+	cmd    *exec.Cmd
+	ctx    context.Context
+	cancel context.CancelFunc
+	stdout io.ReadCloser
+}
+
+func (r *videoReader) Read(p []byte) (n int, err error) {
+	return r.stdout.Read(p)
+}
+
+func (r *videoReader) Close() error {
+	r.cancel()
+	return nil
+}
+
+func NewVideoReader(logger *logging.Logger, config *Config, url string, quality YtdlpAudioQuality) (io.ReadCloser, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &videoReader{ctx: ctx, cancel: cancel}
+
+	cmd, err := NewVideoCmd(ctx, config, url, quality)
+	if err != nil {
+		return nil, err
+	}
+	r.cmd = cmd
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	r.stdout = stdout
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	go logger.LogReader(stderr, logging.LevelDebug, "[ytdlp stderr]: %s")
+
+	err = cmd.Start()
+	return r, err
 }

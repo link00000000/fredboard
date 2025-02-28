@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -43,17 +42,32 @@ func init() {
 func main() {
 	audioGraph := graph.NewGraph(logger)
 
-	input := bytes.NewBufferString("1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-1-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16")
-	var output bytes.Buffer
+	videoReader, err := ytdlp.NewVideoReader(
+		logger,
+		ytdlpConfig,
+		"https://www.youtube.com/watch?v=F1oKhsy8wGw",
+		ytdlp.YtdlpAudioQuality_BestAudio,
+	)
 
-	readerNode := graph.NewReaderNode(logger, input, 3)
-	writerNode := graph.NewWriterNode(logger, &output)
+	if err != nil {
+		panic(err)
+	}
+
+	outputFile, err := os.Create("output.wav")
+	if err != nil {
+		panic(err)
+	}
+
+	defer outputFile.Close()
+
+	readerNode := graph.NewReaderNode(logger, videoReader, 0x8000)
+	writerNode := graph.NewWriterNode(logger, outputFile)
 
 	audioGraph.AddNode(readerNode)
 	audioGraph.AddNode(writerNode)
 	audioGraph.CreateConnection(readerNode, writerNode)
 
-	logger.Info("starting audio graph", "data", input.String())
+	logger.Info("starting audio graph")
 
 	for {
 		audioGraph.Tick()
@@ -67,7 +81,7 @@ func main() {
 		}
 	}
 
-	logger.Info("finished audio graph", "data", output.String())
+	logger.Info("finished audio graph")
 }
 
 func initializeConfig() {

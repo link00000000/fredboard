@@ -1,6 +1,6 @@
 {
   description = "A Nix-flake-based Go 1.23 development environment";
-inputs = {
+  inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
