@@ -73,20 +73,3 @@ run-youtube-downloader :
 debug-youtube-downloader :
 	dlv debug $(CMD_YOUTUBE_DOWNLOADER)
 
-#----------------------
-# Parallel Audio Graph
-#----------------------
-
-CMD_AUDIOGRAPH_PARALLEL = ./cmd/audiograph_parallel/
-
-.PHONY: audiograph-parallel
-audiograph-parallel : $(wildcard **/*.go)
-	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/audiograph-parallel $(CMD_AUDIOGRAPH_PARALLEL)
-
-.PHONY: run-audiograph-parallel
-run-audiograph-parallel :
-	@go run $(CMD_AUDIOGRAPH_PARALLEL)
-
-.PHONY: debug-audiograph-parallel
-debug-audiograph-parallel :
-	dlv debug $(CMD_AUDIOGRAPH_PARALLEL)
