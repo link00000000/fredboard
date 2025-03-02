@@ -8,6 +8,7 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
 	"accidentallycoded.com/fredboard/v3/internal/config"
+	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
@@ -44,8 +45,7 @@ func init() {
 }
 
 func main() {
-	audioGraph := graph.NewGraph(logger)
-
+	// ytdlp ReaderNode
 	videoReader, err := ytdlp.NewVideoReader(
 		logger,
 		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
@@ -54,19 +54,39 @@ func main() {
 	)
 
 	if err != nil {
-		panic(err)
+		logger.Panic("failed to create video reader", "error", err)
 	}
 
-	outputFile, err := os.Create("output.wav")
+	// ffmpeg ReadWriterNode
+	transcoder, err := ffmpeg.NewTranscoder(
+		logger,
+		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
+		videoReader,
+		ffmpeg.Format_PCMSigned16BitLittleEndian,
+		config.Get().Audio.SampleRateHz,
+		config.Get().Audio.NumChannels,
+	)
+
 	if err != nil {
-		panic(err)
+		logger.Panic("failed to create ffmpeg transcoder", "error", err)
+	}
+
+	defer transcoder.Close()
+
+	readerNode := graph.NewReaderNode(logger, transcoder, 0x8000)
+
+	// file WriterNode
+	outputFile, err := os.Create("output.wav")
+
+	if err != nil {
+		logger.Panic("failed to create output file")
 	}
 
 	defer outputFile.Close()
 
-	readerNode := graph.NewReaderNode(logger, videoReader, 0x8000)
 	writerNode := graph.NewWriterNode(logger, outputFile)
 
+	audioGraph := graph.NewGraph(logger)
 	audioGraph.AddNode(readerNode)
 	audioGraph.AddNode(writerNode)
 	audioGraph.CreateConnection(readerNode, writerNode)

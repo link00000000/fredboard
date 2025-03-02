@@ -121,29 +121,33 @@ func (r *videoReader) Close() error {
 	return nil
 }
 
-func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (io.ReadCloser, error) {
+func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (*videoReader, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &videoReader{ctx: ctx, cancel: cancel}
 
 	cmd, err := NewVideoCmd(ctx, config, url, quality)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create VideoCmd: %w", err)
 	}
 	r.cmd = cmd
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to created stdout pipe: %w", err)
 	}
 	r.stdout = stdout
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
 	go logger.LogReader(stderr, logging.LevelDebug, "[ytdlp stderr]: %s")
 
 	err = cmd.Start()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start ytdlp cmd: %w", err)
+	}
+
 	return r, err
 }
