@@ -28,7 +28,7 @@
             go
             golangci-lint
             gnumake
-            air
+            go-tools
 
             # Compile-time dependencies
             xorg.libX11
