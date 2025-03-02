@@ -36,7 +36,7 @@ func main() {
 	logger.SetPanicOnError(true)
 
 	settings := config.Get()
-	for _, handlerConfig := range settings.Loggers.Handlers {
+	for _, handlerConfig := range settings.Logging.Handlers {
 		var w io.Writer
 		if *handlerConfig.Output == "stdout" {
 			w = os.Stdout

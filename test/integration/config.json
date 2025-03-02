@@ -1,0 +1,17 @@
+{
+  "discord": {
+    "appId": "*******************",
+    "publicKey": "****************************************************************",
+    "token": "************************************************************************"
+  },
+  "logging": {
+    "handlers": []
+  },
+  "ytdlp": {
+    "cookies": "../../.env/cookies.txt",
+    "exePath": "/nix/store/8bk9vw8bk10x3g0r60mp1yxinfbwx4gd-yt-dlp-2025.1.26/bin/yt-dlp"
+  },
+  "ffmpeg": {
+    "cookies": "/nix/store/hdgkfddym117iib1w67dxayr54kp7b1s-ffmpeg-7.1-bin/bin/ffmpeg"
+  }
+}

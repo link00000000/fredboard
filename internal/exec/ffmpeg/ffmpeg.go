@@ -21,7 +21,7 @@ type Config struct {
 }
 
 var defaultConfig Config = Config{
-	ExePath: optional.Empty[string](),
+	ExePath: optional.None[string](),
 }
 
 func Exe(config *Config) (exe string, err error) {

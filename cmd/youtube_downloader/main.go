@@ -1,42 +1,46 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
 	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
-	"accidentallycoded.com/fredboard/v3/internal/optional"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
 )
 
 const url = "https://www.youtube.com/watch?v=OkktfeAR-Rk"
 
-var (
-	logger *logging.Logger
-
-	ytdlpConfig  *ytdlp.Config
-	ffmpegConfig *ffmpeg.Config
-)
+var logger *logging.Logger
 
 func init() {
-	initializeConfig()
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get current working directory: %s", err.Error()))
+	}
+
+	configFile := path.Join(cwd, "config.json")
+
+	if envFredboardConfig, ok := os.LookupEnv("FREDBOARD_CONFIG"); ok {
+		configFile = envFredboardConfig
+	}
+
+	verrs, err := config.Init(config.ConfigInitOptions{Files: []string{configFile}})
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize config: %s", err.Error()))
+	}
+
+	if len(verrs) > 0 {
+		for _, verr := range verrs {
+			fmt.Printf("configuration validation failed: %s", verr.Error())
+		}
+	}
 
 	logger = initializeLogger(config.Get())
-
-	ytdlpConfig = &ytdlp.Config{
-		ExePath:     optional.MakePtr(config.Get().Ytdlp.ExePath),
-		CookiesPath: optional.MakePtr(config.Get().Ytdlp.CookiesFile),
-	}
-
-	ffmpegConfig = &ffmpeg.Config{
-		ExePath: optional.MakePtr(config.Get().Ffmpeg.ExePath),
-	}
 }
 
 func main() {
@@ -44,7 +48,7 @@ func main() {
 
 	videoReader, err := ytdlp.NewVideoReader(
 		logger,
-		ytdlpConfig,
+		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
 		"https://www.youtube.com/watch?v=F1oKhsy8wGw",
 		ytdlp.YtdlpAudioQuality_BestAudio,
 	)
@@ -84,49 +88,54 @@ func main() {
 	logger.Info("finished audio graph")
 }
 
-func initializeConfig() {
-	if err := config.Init(); err != nil {
-		fmt.Printf("failed to initialize config: %s", err.Error())
-		os.Exit(1)
-	}
-
-	if ok, errs := config.Validate(); !ok {
-		fmt.Printf("invalid config:\n%s", errors.Join(errs...))
-		os.Exit(1)
-	}
-}
-
-func initializeLogger(settings config.Settings) *logging.Logger {
+func initializeLogger(settings config.Config) *logging.Logger {
 	logger := logging.NewLogger()
 	logger.SetPanicOnError(true)
 
-	for _, handlerConfig := range settings.Loggers.Handlers {
+	for _, hCfg := range settings.Logging.Handlers {
+		var level logging.Level
+		switch hCfg.Level {
+		case config.LoggingHandlerLevel_Debug:
+			level = logging.LevelDebug
+		case config.LoggingHandlerLevel_Info:
+			level = logging.LevelInfo
+		case config.LoggingHandlerLevel_Warn:
+			level = logging.LevelWarn
+		case config.LoggingHandlerLevel_Error:
+			level = logging.LevelError
+		case config.LoggingHandlerLevel_Fatal:
+			level = logging.LevelFatal
+		case config.LoggingHandlerLevel_Panic:
+			level = logging.LevelPanic
+		default:
+			panic("invalid config.LoggingHandlerLevel")
+		}
+
 		var w io.Writer
-		if *handlerConfig.Output == "stdout" {
+		switch hCfg.Output {
+		case "stdout":
 			w = os.Stdout
-		} else if *handlerConfig.Output == "stderr" {
+		case "stderr":
 			w = os.Stderr
-		} else {
-			f, err := os.Open(*handlerConfig.Output)
+		default:
+			f, err := os.Open(hCfg.Output)
 
 			if err != nil {
 				fmt.Printf("failed to create logger: %s", err.Error())
 				os.Exit(1)
 			}
 
-			defer f.Close()
 			w = f
 		}
 
-		var handler logging.Handler
-		switch *handlerConfig.Type {
+		switch hCfg.Type {
 		case config.LoggingHandlerType_Pretty:
-			handler = logging.NewPrettyHandler(w, *handlerConfig.Level)
+			logger.AddHandler(logging.NewPrettyHandler(w, level))
 		case config.LoggingHandlerType_JSON:
-			handler = logging.NewJsonHandler(w, *handlerConfig.Level)
+			logger.AddHandler(logging.NewJsonHandler(w, level))
+		default:
+			panic("invalid config.LoggingHandlerLevel")
 		}
-
-		logger.AddHandler(handler)
 	}
 
 	return logger

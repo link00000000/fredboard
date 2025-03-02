@@ -28,11 +28,6 @@ type Config struct {
 	CookiesPath optional.Optional[string]
 }
 
-var defaultConfig Config = Config{
-	ExePath:     optional.Empty[string](),
-	CookiesPath: optional.Empty[string](),
-}
-
 type Metadata struct {
 	Type        string `json:"_type"`
 	Title       string `json:"title"`
@@ -52,7 +47,7 @@ type Metadata struct {
 	} `json:"entries"`
 }
 
-func Exe(config *Config) (exe string, err error) {
+func Exe(config Config) (exe string, err error) {
 	if config.ExePath.IsSet() {
 		return config.ExePath.Get(), nil
 	}
@@ -65,11 +60,7 @@ func Exe(config *Config) (exe string, err error) {
 	return "", err
 }
 
-func NewMetadataCmd(ctx context.Context, config *Config, url string) (cmd *exec.Cmd, err error) {
-	if config == nil {
-		config = &defaultConfig
-	}
-
+func NewMetadataCmd(ctx context.Context, config Config, url string) (cmd *exec.Cmd, err error) {
 	args := []string{
 		url,
 		"--quiet", "--verbose", // continue to log but log to stderr instead of stdout
@@ -90,11 +81,7 @@ func NewMetadataCmd(ctx context.Context, config *Config, url string) (cmd *exec.
 	return exec.CommandContext(ctx, exe, args...), nil
 }
 
-func NewVideoCmd(ctx context.Context, config *Config, url string, quality YtdlpAudioQuality) (cmd *exec.Cmd, err error) {
-	if config == nil {
-		config = &defaultConfig
-	}
-
+func NewVideoCmd(ctx context.Context, config Config, url string, quality YtdlpAudioQuality) (cmd *exec.Cmd, err error) {
 	args := []string{
 		url,
 		"--quiet", "--verbose", // continue to log but log to stderr instead of stdout
@@ -103,7 +90,7 @@ func NewVideoCmd(ctx context.Context, config *Config, url string, quality YtdlpA
 		"--extract-audio",
 		"--audio-format", "wav", // force output to wav for further processing
 		"--format", string(quality),
-		"-o", "-",              // output to stdout
+		"-o", "-", // output to stdout
 	}
 
 	if config.CookiesPath.IsSet() {
@@ -134,7 +121,7 @@ func (r *videoReader) Close() error {
 	return nil
 }
 
-func NewVideoReader(logger *logging.Logger, config *Config, url string, quality YtdlpAudioQuality) (io.ReadCloser, error) {
+func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (io.ReadCloser, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &videoReader{ctx: ctx, cancel: cancel}
 
