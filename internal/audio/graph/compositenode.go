@@ -73,6 +73,14 @@ func (node *CompositeNode) AddNode(n Node) {
 	node.childNodes = append(node.childNodes, n)
 }
 
+func (node *CompositeNode) RemoveNode(n Node) {
+	// TODO: assert that n is a pointer
+	// TODO: assert that n is in the graph
+	// TODO: remove all connections that contain this node
+
+	node.childNodes = slices.DeleteFunc(node.childNodes, func(nn Node) bool { return n == nn })
+}
+
 func (node *CompositeNode) CreateConnection(from, to Node) {
 	// TODO: assert that to and from are pointers
 	// TODO: assert that to and from are in the graph
@@ -80,6 +88,14 @@ func (node *CompositeNode) CreateConnection(from, to Node) {
 	// TODO: assert that cycle isn't created
 
 	node.connections = append(node.connections, &Connection{from: from, to: to})
+}
+
+func (node *CompositeNode) RemoveConnection(from, to Node) {
+	// TODO: assert that to and from are pointers
+	// TODO: assert that to and from are in the graph
+	// TODO: assert that the connection exists
+
+	node.connections = slices.DeleteFunc(node.connections, func(conn *Connection) bool { return conn.from == from && conn.to == to })
 }
 
 // finds all nodes that are not a 'from' in any connection

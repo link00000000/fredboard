@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,8 +46,8 @@ func init() {
 }
 
 func main() {
-	// ytdlp ReaderNode
-	videoReader, err := ytdlp.NewVideoReader(
+	// ytdlp videoReader1
+	videoReader1, err := ytdlp.NewVideoReader(
 		logger,
 		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
 		"https://www.youtube.com/watch?v=F1oKhsy8wGw",
@@ -57,11 +58,11 @@ func main() {
 		logger.Panic("failed to create video reader", "error", err)
 	}
 
-	// ffmpeg ReadWriterNode
-	transcoder, err := ffmpeg.NewTranscoder(
+	// ffmpeg transcoder1
+	transcoder1, err := ffmpeg.NewTranscoder(
 		logger,
 		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
-		videoReader,
+		videoReader1,
 		ffmpeg.Format_PCMSigned16BitLittleEndian,
 		config.Get().Audio.SampleRateHz,
 		config.Get().Audio.NumChannels,
@@ -71,9 +72,35 @@ func main() {
 		logger.Panic("failed to create ffmpeg transcoder", "error", err)
 	}
 
-	defer transcoder.Close()
+	defer transcoder1.Close()
 
-	readerNode := graph.NewReaderNode(logger, transcoder, 0x8000)
+	// ytdlp videoReader2
+	videoReader2, err := ytdlp.NewVideoReader(
+		logger,
+		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
+		"https://www.youtube.com/watch?v=6f_yfQgV1w8",
+		ytdlp.YtdlpAudioQuality_BestAudio,
+	)
+
+	if err != nil {
+		logger.Panic("failed to create video reader", "error", err)
+	}
+
+	// ffmpeg transcoder2
+	transcoder2, err := ffmpeg.NewTranscoder(
+		logger,
+		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
+		videoReader2,
+		ffmpeg.Format_PCMSigned16BitLittleEndian,
+		config.Get().Audio.SampleRateHz,
+		config.Get().Audio.NumChannels,
+	)
+
+	if err != nil {
+		logger.Panic("failed to create ffmpeg transcoder", "error", err)
+	}
+
+	defer transcoder2.Close()
 
 	// file WriterNode
 	outputFile, err := os.Create("output.wav")
@@ -84,24 +111,46 @@ func main() {
 
 	defer outputFile.Close()
 
+	readerNode1 := graph.NewReaderNode(logger, transcoder1, 0x8000)
+	readerNode2 := graph.NewReaderNode(logger, transcoder2, 0x8000)
+	mixerNode := graph.NewMixerNode(logger)
 	writerNode := graph.NewWriterNode(logger, outputFile)
 
 	audioGraph := graph.NewGraph(logger)
-	audioGraph.AddNode(readerNode)
+	audioGraph.AddNode(readerNode1)
+	audioGraph.AddNode(readerNode2)
+	audioGraph.AddNode(mixerNode)
 	audioGraph.AddNode(writerNode)
-	audioGraph.CreateConnection(readerNode, writerNode)
+	audioGraph.CreateConnection(readerNode1, mixerNode)
+	audioGraph.CreateConnection(readerNode2, mixerNode)
+	audioGraph.CreateConnection(mixerNode, writerNode)
 
 	logger.Info("starting audio graph")
 
+	reader1Done, reader2Done := false, false
 	for {
 		audioGraph.Tick()
 
-		if readerNode.Err() == io.EOF {
-			break
+		if err := audioGraph.Err(); err != nil {
+			if errors.Is(readerNode1.Err(), io.EOF) {
+				audioGraph.RemoveConnection(readerNode1, mixerNode)
+				audioGraph.RemoveNode(readerNode1)
+				reader1Done = true
+			}
+
+			if errors.Is(readerNode2.Err(), io.EOF) {
+				audioGraph.RemoveConnection(readerNode2, mixerNode)
+				audioGraph.RemoveNode(readerNode2)
+				reader2Done = true
+			}
+
+			if !errors.Is(err, io.EOF) {
+				logger.Panic("failed to tick audio graph", "error", err)
+			}
 		}
 
-		if err := audioGraph.Err(); err != nil {
-			panic(err)
+		if reader1Done && reader2Done {
+			break
 		}
 	}
 

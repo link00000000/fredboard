@@ -19,12 +19,12 @@ func (node *WriterNode) Tick(ins []io.Reader, outs []io.Writer) {
 	node.err = nil
 
 	if len(ins) != 1 {
-		node.err = newInvalidConnectionConfigErr(0, 1, len(ins))
+		node.err = newInvalidConnectionConfigErr(node, connectionType_In, 1, 1, len(ins))
 		return
 	}
 
 	if len(outs) != 0 {
-		node.err = newInvalidConnectionConfigErr(0, 0, len(outs))
+		node.err = newInvalidConnectionConfigErr(node, connectionType_Out, 0, 0, len(outs))
 		return
 	}
 
