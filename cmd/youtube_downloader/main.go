@@ -102,34 +102,64 @@ func main() {
 
 	defer transcoder2.Close()
 
-	// file WriterNode
-	outputFile, err := os.Create("output.wav")
+	// output1
+	outputFile1, err := os.Create("output1.raw")
 
 	if err != nil {
 		logger.Panic("failed to create output file")
 	}
 
-	defer outputFile.Close()
+	defer outputFile1.Close()
+
+	// output2
+	outputFile2, err := os.Create("output2.raw")
+
+	if err != nil {
+		logger.Panic("failed to create output file")
+	}
+
+	defer outputFile2.Close()
+
+	// output3
+	outputFile3, err := os.Create("output3.raw")
+
+	if err != nil {
+		logger.Panic("failed to create output file")
+	}
+
+	defer outputFile3.Close()
 
 	readerNode1 := graph.NewReaderNode(logger, transcoder1, 0x8000)
 	readerNode2 := graph.NewReaderNode(logger, transcoder2, 0x8000)
 	gainNode1 := graph.NewGainNode(logger, 0.4)
 	gainNode2 := graph.NewGainNode(logger, 4.0)
+	teeNode1 := graph.NewTeeNode(logger)
+	teeNode2 := graph.NewTeeNode(logger)
 	mixerNode := graph.NewMixerNode(logger)
-	writerNode := graph.NewWriterNode(logger, outputFile)
+	writerNode1 := graph.NewWriterNode(logger, outputFile1)
+	writerNode2 := graph.NewWriterNode(logger, outputFile2)
+	writerNode3 := graph.NewWriterNode(logger, outputFile3)
 
 	audioGraph := graph.NewGraph(logger)
 	audioGraph.AddNode(readerNode1)
 	audioGraph.AddNode(readerNode2)
 	audioGraph.AddNode(gainNode1)
 	audioGraph.AddNode(gainNode2)
+	audioGraph.AddNode(teeNode1)
+	audioGraph.AddNode(teeNode2)
 	audioGraph.AddNode(mixerNode)
-	audioGraph.AddNode(writerNode)
+	audioGraph.AddNode(writerNode1)
+	audioGraph.AddNode(writerNode2)
+	audioGraph.AddNode(writerNode3)
 	audioGraph.CreateConnection(readerNode1, gainNode1)
+	audioGraph.CreateConnection(gainNode1, teeNode1)
+	audioGraph.CreateConnection(teeNode1, writerNode1)
 	audioGraph.CreateConnection(readerNode2, gainNode2)
-	audioGraph.CreateConnection(gainNode1, mixerNode)
-	audioGraph.CreateConnection(gainNode2, mixerNode)
-	audioGraph.CreateConnection(mixerNode, writerNode)
+	audioGraph.CreateConnection(gainNode2, teeNode2)
+	audioGraph.CreateConnection(teeNode2, writerNode2)
+	audioGraph.CreateConnection(teeNode1, mixerNode)
+	audioGraph.CreateConnection(teeNode2, mixerNode)
+	audioGraph.CreateConnection(mixerNode, writerNode3)
 
 	logger.Info("starting audio graph")
 
