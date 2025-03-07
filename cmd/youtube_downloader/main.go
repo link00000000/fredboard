@@ -47,10 +47,10 @@ func init() {
 
 func main() {
 	// ytdlp videoReader1
-	videoReader1, err := ytdlp.NewVideoReader(
+	videoReader1, err, _ := ytdlp.NewVideoReader(
 		logger,
 		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
-		"https://www.youtube.com/watch?v=F1oKhsy8wGw",
+		"https://www.youtube.com/watch?v=0000F1oKhsy8wGw",
 		ytdlp.YtdlpAudioQuality_BestAudio,
 	)
 
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	// ffmpeg transcoder1
-	transcoder1, err := ffmpeg.NewTranscoder(
+	transcoder1, err, _ := ffmpeg.NewTranscoder(
 		logger,
 		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
 		videoReader1,
@@ -75,10 +75,10 @@ func main() {
 	defer transcoder1.Close()
 
 	// ytdlp videoReader2
-	videoReader2, err := ytdlp.NewVideoReader(
+	videoReader2, err, _ := ytdlp.NewVideoReader(
 		logger,
 		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
-		"https://www.youtube.com/watch?v=6f_yfQgV1w8",
+		"https://www.youtube.com/watch?v=00006f_yfQgV1w8",
 		ytdlp.YtdlpAudioQuality_BestAudio,
 	)
 
@@ -87,7 +87,7 @@ func main() {
 	}
 
 	// ffmpeg transcoder2
-	transcoder2, err := ffmpeg.NewTranscoder(
+	transcoder2, err, _ := ffmpeg.NewTranscoder(
 		logger,
 		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
 		videoReader2,
@@ -182,9 +182,9 @@ func main() {
 	for {
 		audioGraph.Tick()
 
-		if !readerNode1Done && !errors.Is(readerNode1.Err(), nil) {
+		if !readerNode1Done && readerNode1.Err() != nil {
 			if !errors.Is(readerNode1.Err(), io.EOF) {
-				logger.Error("error from readerNode1", "error", err)
+				logger.Error("error from readerNode1", "error", readerNode1.Err())
 			}
 
 			audioGraph.RemoveConnection(sourceGraph1, mixerNode)
@@ -192,9 +192,9 @@ func main() {
 			readerNode1Done = true
 		}
 
-		if !readerNode2Done && !errors.Is(readerNode2.Err(), nil) {
-			if !errors.Is(readerNode2.Err(), io.EOF) {
-				logger.Error("error from readerNode2", "error", err)
+		if !readerNode2Done && readerNode2.Err() != nil {
+			if !errors.Is(readerNode2.Err(), io.EOF) && !errors.Is(readerNode2.Err(), os.ErrClosed) {
+				logger.Error("error from readerNode2", "error", readerNode2.Err())
 			}
 
 			audioGraph.RemoveConnection(sourceGraph2, mixerNode)

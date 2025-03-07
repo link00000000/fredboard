@@ -8,6 +8,7 @@ import (
 	"os/exec"
 
 	"accidentallycoded.com/fredboard/v3/internal/optional"
+	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -47,7 +48,7 @@ type Metadata struct {
 	} `json:"entries"`
 }
 
-func Exe(config Config) (exe string, err error) {
+func exe(config Config) (exe string, err error) {
 	if config.ExePath.IsSet() {
 		return config.ExePath.Get(), nil
 	}
@@ -73,7 +74,7 @@ func NewMetadataCmd(ctx context.Context, config Config, url string) (cmd *exec.C
 		args = append(args, "--cookies", config.CookiesPath.Get())
 	}
 
-	exe, err := Exe(config)
+	exe, err := exe(config)
 	if err != nil {
 		return nil, fmt.Errorf("error while resolving yt-dlp executable path: %w", err)
 	}
@@ -97,7 +98,7 @@ func NewVideoCmd(ctx context.Context, config Config, url string, quality YtdlpAu
 		args = append(args, "--cookies", config.CookiesPath.Get())
 	}
 
-	exe, err := Exe(config)
+	exe, err := exe(config)
 	if err != nil {
 		return nil, err
 	}
@@ -106,15 +107,19 @@ func NewVideoCmd(ctx context.Context, config Config, url string, quality YtdlpAu
 }
 
 type videoReader struct {
-	cmd    *exec.Cmd
-	ctx    context.Context
 	cancel context.CancelFunc
 	stdout io.ReadCloser
-	stderr []byte
-	err    error
+	err    syncext.SyncData[error]
 }
 
-func (r *videoReader) Read(p []byte) (n int, err error) {
+func (r *videoReader) Read(p []byte) (int, error) {
+	r.err.Lock()
+	defer r.err.Unlock()
+
+	if r.err.Data != nil {
+		return 0, r.err.Data
+	}
+
 	return r.stdout.Read(p)
 }
 
@@ -123,46 +128,63 @@ func (r *videoReader) Close() error {
 	return nil
 }
 
-func (r *videoReader) Err() error {
-	return r.err
-}
-
-func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (*videoReader, error) {
+func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (*videoReader, error, <-chan *exec.ExitError) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &videoReader{ctx: ctx, cancel: cancel, stderr: make([]byte, 0)}
+	r := &videoReader{cancel: cancel}
 
 	cmd, err := NewVideoCmd(ctx, config, url, quality)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create VideoCmd: %w", err)
+		return nil, fmt.Errorf("failed to create VideoCmd: %w", err), nil
 	}
-	r.cmd = cmd
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to created stdout pipe: %w", err)
+		return nil, fmt.Errorf("failed to created stdout pipe: %w", err), nil
 	}
 	r.stdout = stdout
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err), nil
 	}
+
+	stderrBytes := syncext.SyncData[[]byte]{Data: make([]byte, 0)}
 
 	stderr1, pw := io.Pipe()
 	stderr2 := io.TeeReader(stderr, pw)
 	go logger.LogReader(stderr1, logging.LevelDebug, "[ytdlp stderr]: %s")
 	go func() {
-		var err error
-		r.stderr, err = io.ReadAll(stderr2)
+		stderrBytes.Lock()
+		stderrBytes.Data, err = io.ReadAll(stderr2)
+		stderrBytes.Unlock()
+
 		if err != nil {
-			r.err = fmt.Errorf("failed to buffer all of ytdlp stderr: %w", err)
+			r.err.Lock()
+			r.err.Data = errors.Join(r.err.Data, fmt.Errorf("failed to buffer all of ytdlp stderr: %w", err))
+			r.err.Unlock()
 		}
 	}()
 
 	err = cmd.Start()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start ytdlp cmd: %w", err)
+		return nil, fmt.Errorf("failed to start ytdlp cmd: %w", err), nil
 	}
 
-	return r, err
+	exit := make(chan *exec.ExitError, 1)
+
+	go func() {
+		defer close(exit)
+
+		err := cmd.Wait()
+		switch err := err.(type) {
+		case *exec.ExitError:
+			stderrBytes.Lock()
+			exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
+			stderrBytes.Unlock()
+		default:
+			panic(err)
+		}
+	}()
+
+	return r, err, exit
 }

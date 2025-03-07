@@ -8,6 +8,7 @@ import (
 	"os/exec"
 
 	"accidentallycoded.com/fredboard/v3/internal/optional"
+	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -22,7 +23,7 @@ type Config struct {
 	ExePath optional.Optional[string]
 }
 
-func Exe(config Config) (exe string, err error) {
+func exe(config Config) (exe string, err error) {
 	if config.ExePath.IsSet() {
 		return config.ExePath.Get(), nil
 	}
@@ -35,35 +36,20 @@ func Exe(config Config) (exe string, err error) {
 	return "", err
 }
 
-func NewEncodeCmd(ctx context.Context, config Config, format string, sampleRateHz, nAudioChannels int) (cmd *exec.Cmd, err error) {
-	args := []string{
-		"-hide_banner", // supress the copyright and build information
-		"-i", "pipe:0", // read from stdin
-		"-f", format,
-		"-ar", fmt.Sprintf("%d", sampleRateHz), // set the sample rate
-		"-ac", fmt.Sprintf("%d", nAudioChannels), // set the number of audio channels
-		"-y", // if outputting to a file and it exists, overrwite it
-		"pipe:1",
-	}
-
-	exe, err := Exe(config)
-	if err != nil {
-		return nil, fmt.Errorf("error while resolving ffmpeg executable path: %w", err)
-	}
-
-	return exec.CommandContext(ctx, exe, args...), nil
-}
-
 type transcoder struct {
-	cmd    *exec.Cmd
-	ctx    context.Context
 	cancel context.CancelFunc
 	stdout io.ReadCloser
-	stderr []byte
-	err    error
+	err    syncext.SyncData[error]
 }
 
 func (t *transcoder) Read(p []byte) (n int, err error) {
+	t.err.Lock()
+	defer t.err.Unlock()
+
+	if t.err.Data != nil {
+		return 0, t.err.Data
+	}
+
 	return t.stdout.Read(p)
 }
 
@@ -72,21 +58,18 @@ func (t *transcoder) Close() (err error) {
 	return nil
 }
 
-func (r *transcoder) Err() error {
-	return r.err
-}
-
 func NewTranscoder(
 	logger *logging.Logger,
 	config Config,
 	r io.Reader,
 	format string,
 	sampleRateHz, nAudioChannels int,
-) (*transcoder, error) {
+) (*transcoder, error, <-chan *exec.ExitError) {
 	ctx, cancel := context.WithCancel(context.Background())
-	t := &transcoder{ctx: ctx, cancel: cancel}
+	t := &transcoder{cancel: cancel}
 
 	args := []string{
+		"-unknonwlksdjf",
 		"-hide_banner", // supress the copyright and build information
 		"-i", "pipe:0", // read from stdin
 		"-f", format,
@@ -96,41 +79,80 @@ func NewTranscoder(
 		"pipe:1",
 	}
 
-	exe, err := Exe(config)
+	exe, err := exe(config)
 	if err != nil {
-		return nil, fmt.Errorf("error while resolving ffmpeg executable path: %w", err)
+		return nil, fmt.Errorf("error while resolving ffmpeg executable path: %w", err), nil
 	}
 
-	t.cmd = exec.CommandContext(ctx, exe, args...)
+	cmd := exec.CommandContext(ctx, exe, args...)
 
-	t.cmd.Stdin = r
-
-	stdout, err := t.cmd.StdoutPipe()
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to created stdout pipe: %w", err)
+		return nil, fmt.Errorf("failed to created stdin pipe: %w", err), nil
+	}
+
+	go func() {
+		n, err := io.Copy(stdin, r)
+		logger.Debug("copied bytes from reader to ffmpeg stdin", "n", n, "error", err)
+
+		if err != nil {
+			t.err.Lock()
+			t.err.Data = errors.Join(t.err.Data, err)
+			t.err.Unlock()
+		}
+
+		stdin.Close()
+	}()
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to created stdout pipe: %w", err), nil
 	}
 	t.stdout = stdout
 
-	stderr, err := t.cmd.StderrPipe()
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err), nil
 	}
+
+	stderrBytes := syncext.SyncData[[]byte]{Data: make([]byte, 0)}
 
 	stderr1, pw := io.Pipe()
 	stderr2 := io.TeeReader(stderr, pw)
 	go logger.LogReader(stderr1, logging.LevelDebug, "[ffmpeg stderr]: %s")
 	go func() {
 		var err error
-		t.stderr, err = io.ReadAll(stderr2)
+		stderrBytes.Lock()
+		stderrBytes.Data, err = io.ReadAll(stderr2)
+		stderrBytes.Unlock()
+
 		if err != nil {
-			t.err = fmt.Errorf("failed to buffer all of ffmpeg stderr: %w", err)
+			t.err.Lock()
+			t.err.Data = errors.Join(t.err.Data, fmt.Errorf("failed to buffer all of ffmpeg stderr: %w", err))
+			t.err.Unlock()
 		}
 	}()
 
-	err = t.cmd.Start()
+	err = cmd.Start()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start ffmpeg cmd: %w", err)
+		return nil, fmt.Errorf("failed to start ffmpeg cmd: %w", err), nil
 	}
 
-	return t, err
+	exit := make(chan *exec.ExitError, 1)
+
+	go func() {
+		defer close(exit)
+
+		err := cmd.Wait()
+		switch err := err.(type) {
+		case *exec.ExitError:
+			stderrBytes.Lock()
+			exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
+			stderrBytes.Unlock()
+		default:
+			panic(err)
+		}
+	}()
+
+	return t, err, exit
 }
