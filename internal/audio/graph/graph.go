@@ -51,11 +51,27 @@ type Connection struct {
 }
 
 type Graph struct {
-	*CompositeNode
+	compositeNode *CompositeNode
 }
 
 func (graph *Graph) Tick() {
-	graph.CompositeNode.Tick([]io.Reader{}, []io.Writer{})
+	graph.compositeNode.Tick([]io.Reader{}, []io.Writer{})
+}
+
+func (graph *Graph) AddNode(n Node) {
+	graph.compositeNode.AddNode(n)
+}
+
+func (graph *Graph) RemoveNode(n Node) {
+	graph.compositeNode.RemoveNode(n)
+}
+
+func (graph *Graph) CreateConnection(to, from Node) {
+	graph.compositeNode.CreateConnection(to, from)
+}
+
+func (graph *Graph) RemoveConnection(to, from Node) {
+	graph.compositeNode.RemoveConnection(to, from)
 }
 
 func NewGraph(logger *logging.Logger) *Graph {

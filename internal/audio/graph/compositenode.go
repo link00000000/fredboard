@@ -13,8 +13,9 @@ var _ Node = (*CompositeNode)(nil)
 type CompositeNode struct {
 	logger *logging.Logger
 
-	childNodes  []Node
-	connections []*Connection
+	childNodes    []Node
+	connections   []*Connection
+	input, output Node
 }
 
 func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
@@ -39,19 +40,28 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
 	}
 
 	for _, n := range queue {
-		ins := make([]io.Reader, 0)
-		outs := make([]io.Writer, 0)
+		nins := make([]io.Reader, 0)
+		nouts := make([]io.Writer, 0)
+
+		if n == node.input {
+			nins = append(nins, ins...)
+		}
+
+		if n == node.output {
+			nouts = append(nouts, outs...)
+		}
+
 		for _, conn := range node.connections {
 			if conn.to == n {
-				ins = append(ins, conn)
+				nins = append(nins, conn)
 			}
 
 			if conn.from == n {
-				outs = append(outs, conn)
+				nouts = append(nouts, conn)
 			}
 		}
 
-		n.Tick(ins, outs)
+		n.Tick(nins, nouts)
 	}
 }
 
@@ -99,6 +109,20 @@ func (node *CompositeNode) RemoveConnection(from, to Node) {
 	// TODO: assert that the connection exists
 
 	node.connections = slices.DeleteFunc(node.connections, func(conn *Connection) bool { return conn.from == from && conn.to == to })
+}
+
+func (node *CompositeNode) SetAsInput(n Node) {
+	// TODO: assert that n is a pointer
+	// TODO: assert that n is in the graph
+
+	node.input = n
+}
+
+func (node *CompositeNode) SetAsOutput(n Node) {
+	// TODO: assert that n is a pointer
+	// TODO: assert that n is in the graph
+
+	node.output = n
 }
 
 // finds all nodes that are not a 'from' in any connection

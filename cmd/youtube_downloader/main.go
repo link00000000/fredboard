@@ -130,35 +130,50 @@ func main() {
 	defer outputFile3.Close()
 
 	readerNode1 := graph.NewReaderNode(logger, transcoder1, 0x8000)
-	readerNode2 := graph.NewReaderNode(logger, transcoder2, 0x8000)
 	gainNode1 := graph.NewGainNode(logger, 0.4)
-	gainNode2 := graph.NewGainNode(logger, 4.0)
 	teeNode1 := graph.NewTeeNode(logger)
-	teeNode2 := graph.NewTeeNode(logger)
-	mixerNode := graph.NewMixerNode(logger)
 	writerNode1 := graph.NewWriterNode(logger, outputFile1)
+	sourceGraph1 := graph.NewCompositeNode(logger)
+
+	sourceGraph1.AddNode(readerNode1)
+	sourceGraph1.AddNode(gainNode1)
+	sourceGraph1.AddNode(teeNode1)
+	sourceGraph1.AddNode(writerNode1)
+
+	sourceGraph1.CreateConnection(readerNode1, gainNode1)
+	sourceGraph1.CreateConnection(gainNode1, teeNode1)
+	sourceGraph1.CreateConnection(teeNode1, writerNode1)
+
+	sourceGraph1.SetAsOutput(teeNode1)
+
+	readerNode2 := graph.NewReaderNode(logger, transcoder2, 0x8000)
+	gainNode2 := graph.NewGainNode(logger, 4.0)
+	teeNode2 := graph.NewTeeNode(logger)
 	writerNode2 := graph.NewWriterNode(logger, outputFile2)
+	sourceGraph2 := graph.NewCompositeNode(logger)
+
+	sourceGraph2.CreateConnection(readerNode2, gainNode2)
+	sourceGraph2.CreateConnection(gainNode2, teeNode2)
+	sourceGraph2.CreateConnection(teeNode2, writerNode2)
+
+	sourceGraph2.SetAsOutput(teeNode2)
+
+	sourceGraph2.AddNode(readerNode2)
+	sourceGraph2.AddNode(gainNode2)
+	sourceGraph2.AddNode(teeNode2)
+	sourceGraph2.AddNode(writerNode2)
+
+	mixerNode := graph.NewMixerNode(logger)
 	writerNode3 := graph.NewWriterNode(logger, outputFile3)
 
 	audioGraph := graph.NewGraph(logger)
-	audioGraph.AddNode(readerNode1)
-	audioGraph.AddNode(readerNode2)
-	audioGraph.AddNode(gainNode1)
-	audioGraph.AddNode(gainNode2)
-	audioGraph.AddNode(teeNode1)
-	audioGraph.AddNode(teeNode2)
+	audioGraph.AddNode(sourceGraph1)
+	audioGraph.AddNode(sourceGraph2)
 	audioGraph.AddNode(mixerNode)
-	audioGraph.AddNode(writerNode1)
-	audioGraph.AddNode(writerNode2)
 	audioGraph.AddNode(writerNode3)
-	audioGraph.CreateConnection(readerNode1, gainNode1)
-	audioGraph.CreateConnection(gainNode1, teeNode1)
-	audioGraph.CreateConnection(teeNode1, writerNode1)
-	audioGraph.CreateConnection(readerNode2, gainNode2)
-	audioGraph.CreateConnection(gainNode2, teeNode2)
-	audioGraph.CreateConnection(teeNode2, writerNode2)
-	audioGraph.CreateConnection(teeNode1, mixerNode)
-	audioGraph.CreateConnection(teeNode2, mixerNode)
+
+	audioGraph.CreateConnection(sourceGraph1, mixerNode)
+	audioGraph.CreateConnection(sourceGraph2, mixerNode)
 	audioGraph.CreateConnection(mixerNode, writerNode3)
 
 	logger.Info("starting audio graph")
@@ -167,19 +182,23 @@ func main() {
 	for {
 		audioGraph.Tick()
 
-		if !readerNode1Done {
-			if !errors.Is(readerNode1.Err(), io.EOF) && !errors.Is(readerNode1.Err(), nil) {
+		if !readerNode1Done && !errors.Is(readerNode1.Err(), nil) {
+			if !errors.Is(readerNode1.Err(), io.EOF) {
 				logger.Error("error from readerNode1", "error", err)
 			}
 
+			audioGraph.RemoveConnection(sourceGraph1, mixerNode)
+			audioGraph.RemoveNode(sourceGraph1)
 			readerNode1Done = true
 		}
 
-		if !readerNode2Done {
-			if !errors.Is(readerNode2.Err(), io.EOF) && !errors.Is(readerNode2.Err(), nil) {
+		if !readerNode2Done && !errors.Is(readerNode2.Err(), nil) {
+			if !errors.Is(readerNode2.Err(), io.EOF) {
 				logger.Error("error from readerNode2", "error", err)
 			}
 
+			audioGraph.RemoveConnection(sourceGraph2, mixerNode)
+			audioGraph.RemoveNode(sourceGraph2)
 			readerNode2Done = true
 		}
 
