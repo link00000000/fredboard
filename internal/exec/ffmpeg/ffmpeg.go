@@ -58,8 +58,9 @@ type transcoder struct {
 	cmd    *exec.Cmd
 	ctx    context.Context
 	cancel context.CancelFunc
-	stdin  io.WriteCloser
 	stdout io.ReadCloser
+	stderr []byte
+	err    error
 }
 
 func (t *transcoder) Read(p []byte) (n int, err error) {
@@ -69,6 +70,10 @@ func (t *transcoder) Read(p []byte) (n int, err error) {
 func (t *transcoder) Close() (err error) {
 	t.cancel()
 	return nil
+}
+
+func (r *transcoder) Err() error {
+	return r.err
 }
 
 func NewTranscoder(
@@ -111,7 +116,16 @@ func NewTranscoder(
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	go logger.LogReader(stderr, logging.LevelDebug, "[ffmpeg stderr]: %s")
+	stderr1, pw := io.Pipe()
+	stderr2 := io.TeeReader(stderr, pw)
+	go logger.LogReader(stderr1, logging.LevelDebug, "[ffmpeg stderr]: %s")
+	go func() {
+		var err error
+		t.stderr, err = io.ReadAll(stderr2)
+		if err != nil {
+			t.err = fmt.Errorf("failed to buffer all of ffmpeg stderr: %w", err)
+		}
+	}()
 
 	err = t.cmd.Start()
 	if err != nil {

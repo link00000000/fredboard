@@ -163,29 +163,27 @@ func main() {
 
 	logger.Info("starting audio graph")
 
-	reader1Done, reader2Done := false, false
+	readerNode1Done, readerNode2Done := false, false
 	for {
 		audioGraph.Tick()
 
-		if err := audioGraph.Err(); err != nil {
-			if errors.Is(readerNode1.Err(), io.EOF) {
-				audioGraph.RemoveConnection(readerNode1, mixerNode)
-				audioGraph.RemoveNode(readerNode1)
-				reader1Done = true
+		if !readerNode1Done {
+			if !errors.Is(readerNode1.Err(), io.EOF) && !errors.Is(readerNode1.Err(), nil) {
+				logger.Error("error from readerNode1", "error", err)
 			}
 
-			if errors.Is(readerNode2.Err(), io.EOF) {
-				audioGraph.RemoveConnection(readerNode2, mixerNode)
-				audioGraph.RemoveNode(readerNode2)
-				reader2Done = true
-			}
-
-			if !errors.Is(err, io.EOF) {
-				logger.Panic("failed to tick audio graph", "error", err)
-			}
+			readerNode1Done = true
 		}
 
-		if reader1Done && reader2Done {
+		if !readerNode2Done {
+			if !errors.Is(readerNode2.Err(), io.EOF) && !errors.Is(readerNode2.Err(), nil) {
+				logger.Error("error from readerNode2", "error", err)
+			}
+
+			readerNode2Done = true
+		}
+
+		if readerNode1Done && readerNode2Done {
 			break
 		}
 	}

@@ -1,8 +1,8 @@
 package graph
 
 import (
-	"errors"
 	"io"
+	"iter"
 	"slices"
 
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
@@ -15,12 +15,9 @@ type CompositeNode struct {
 
 	childNodes  []Node
 	connections []*Connection
-	err         error
 }
 
 func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
-	node.err = nil
-
 	queue := make([]Node, 0)
 
 	var enqueue func(n Node)
@@ -41,7 +38,6 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
 		enqueue(leaf)
 	}
 
-	errs := make([]error, 0)
 	for _, n := range queue {
 		ins := make([]io.Reader, 0)
 		outs := make([]io.Writer, 0)
@@ -56,14 +52,11 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
 		}
 
 		n.Tick(ins, outs)
-		errs = append(errs, n.Err())
 	}
-
-	node.err = errors.Join(errs...)
 }
 
 func (node *CompositeNode) Err() error {
-	return node.err
+	return nil
 }
 
 func (node *CompositeNode) AddNode(n Node) {
@@ -79,6 +72,16 @@ func (node *CompositeNode) RemoveNode(n Node) {
 	// TODO: remove all connections that contain this node
 
 	node.childNodes = slices.DeleteFunc(node.childNodes, func(nn Node) bool { return n == nn })
+}
+
+func (node *CompositeNode) Nodes() iter.Seq2[int, Node] {
+	return func(yield func(int, Node) bool) {
+		for i, n := range node.childNodes {
+			if !yield(i, n) {
+				return
+			}
+		}
+	}
 }
 
 func (node *CompositeNode) CreateConnection(from, to Node) {
@@ -132,6 +135,5 @@ func NewCompositeNode(logger *logging.Logger) *CompositeNode {
 		logger:      logger,
 		childNodes:  make([]Node, 0),
 		connections: make([]*Connection, 0),
-		err:         nil,
 	}
 }

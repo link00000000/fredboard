@@ -110,6 +110,8 @@ type videoReader struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	stdout io.ReadCloser
+	stderr []byte
+	err    error
 }
 
 func (r *videoReader) Read(p []byte) (n int, err error) {
@@ -121,9 +123,13 @@ func (r *videoReader) Close() error {
 	return nil
 }
 
+func (r *videoReader) Err() error {
+	return r.err
+}
+
 func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (*videoReader, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &videoReader{ctx: ctx, cancel: cancel}
+	r := &videoReader{ctx: ctx, cancel: cancel, stderr: make([]byte, 0)}
 
 	cmd, err := NewVideoCmd(ctx, config, url, quality)
 	if err != nil {
@@ -142,7 +148,16 @@ func NewVideoReader(logger *logging.Logger, config Config, url string, quality Y
 		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	go logger.LogReader(stderr, logging.LevelDebug, "[ytdlp stderr]: %s")
+	stderr1, pw := io.Pipe()
+	stderr2 := io.TeeReader(stderr, pw)
+	go logger.LogReader(stderr1, logging.LevelDebug, "[ytdlp stderr]: %s")
+	go func() {
+		var err error
+		r.stderr, err = io.ReadAll(stderr2)
+		if err != nil {
+			r.err = fmt.Errorf("failed to buffer all of ytdlp stderr: %w", err)
+		}
+	}()
 
 	err = cmd.Start()
 	if err != nil {
