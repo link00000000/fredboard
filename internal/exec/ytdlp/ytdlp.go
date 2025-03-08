@@ -176,13 +176,16 @@ func NewVideoReader(logger *logging.Logger, config Config, url string, quality Y
 		defer close(exit)
 
 		err := cmd.Wait()
-		switch err := err.(type) {
-		case *exec.ExitError:
-			stderrBytes.Lock()
-			exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
-			stderrBytes.Unlock()
-		default:
-			panic(err)
+
+		if err != nil {
+			switch err := err.(type) {
+			case *exec.ExitError:
+				stderrBytes.Lock()
+				exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
+				stderrBytes.Unlock()
+			default:
+				panic(err)
+			}
 		}
 	}()
 

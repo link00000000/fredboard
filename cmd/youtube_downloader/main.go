@@ -7,15 +7,13 @@ import (
 	"os"
 	"path"
 
-	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
+	"accidentallycoded.com/fredboard/v3/internal/audio"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
 )
-
-const url = "https://www.youtube.com/watch?v=OkktfeAR-Rk"
 
 var logger *logging.Logger
 
@@ -50,7 +48,7 @@ func main() {
 	videoReader1, err, _ := ytdlp.NewVideoReader(
 		logger,
 		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
-		"https://www.youtube.com/watch?v=0000F1oKhsy8wGw",
+		"https://www.youtube.com/watch?v=F1oKhsy8wGw",
 		ytdlp.YtdlpAudioQuality_BestAudio,
 	)
 
@@ -78,7 +76,7 @@ func main() {
 	videoReader2, err, _ := ytdlp.NewVideoReader(
 		logger,
 		ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile},
-		"https://www.youtube.com/watch?v=00006f_yfQgV1w8",
+		"https://www.youtube.com/watch?v=6f_yfQgV1w8",
 		ytdlp.YtdlpAudioQuality_BestAudio,
 	)
 
@@ -129,11 +127,11 @@ func main() {
 
 	defer outputFile3.Close()
 
-	readerNode1 := graph.NewReaderNode(logger, transcoder1, 0x8000)
-	gainNode1 := graph.NewGainNode(logger, 0.4)
-	teeNode1 := graph.NewTeeNode(logger)
-	writerNode1 := graph.NewWriterNode(logger, outputFile1)
-	sourceGraph1 := graph.NewCompositeNode(logger)
+	readerNode1 := audio.NewReaderNode(logger, transcoder1, 0x8000)
+	gainNode1 := audio.NewGainNode(logger, 0.4)
+	teeNode1 := audio.NewTeeNode(logger)
+	writerNode1 := audio.NewWriterNode(logger, outputFile1)
+	sourceGraph1 := audio.NewCompositeNode(logger)
 
 	sourceGraph1.AddNode(readerNode1)
 	sourceGraph1.AddNode(gainNode1)
@@ -146,11 +144,11 @@ func main() {
 
 	sourceGraph1.SetAsOutput(teeNode1)
 
-	readerNode2 := graph.NewReaderNode(logger, transcoder2, 0x8000)
-	gainNode2 := graph.NewGainNode(logger, 4.0)
-	teeNode2 := graph.NewTeeNode(logger)
-	writerNode2 := graph.NewWriterNode(logger, outputFile2)
-	sourceGraph2 := graph.NewCompositeNode(logger)
+	readerNode2 := audio.NewReaderNode(logger, transcoder2, 0x8000)
+	gainNode2 := audio.NewGainNode(logger, 4.0)
+	teeNode2 := audio.NewTeeNode(logger)
+	writerNode2 := audio.NewWriterNode(logger, outputFile2)
+	sourceGraph2 := audio.NewCompositeNode(logger)
 
 	sourceGraph2.CreateConnection(readerNode2, gainNode2)
 	sourceGraph2.CreateConnection(gainNode2, teeNode2)
@@ -163,10 +161,10 @@ func main() {
 	sourceGraph2.AddNode(teeNode2)
 	sourceGraph2.AddNode(writerNode2)
 
-	mixerNode := graph.NewMixerNode(logger)
-	writerNode3 := graph.NewWriterNode(logger, outputFile3)
+	mixerNode := audio.NewMixerNode(logger)
+	writerNode3 := audio.NewWriterNode(logger, outputFile3)
 
-	audioGraph := graph.NewGraph(logger)
+	audioGraph := audio.NewGraph(logger)
 	audioGraph.AddNode(sourceGraph1)
 	audioGraph.AddNode(sourceGraph2)
 	audioGraph.AddNode(mixerNode)

@@ -69,7 +69,6 @@ func NewTranscoder(
 	t := &transcoder{cancel: cancel}
 
 	args := []string{
-		"-unknonwlksdjf",
 		"-hide_banner", // supress the copyright and build information
 		"-i", "pipe:0", // read from stdin
 		"-f", format,
@@ -144,13 +143,16 @@ func NewTranscoder(
 		defer close(exit)
 
 		err := cmd.Wait()
-		switch err := err.(type) {
-		case *exec.ExitError:
-			stderrBytes.Lock()
-			exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
-			stderrBytes.Unlock()
-		default:
-			panic(err)
+
+		if err != nil {
+			switch err := err.(type) {
+			case *exec.ExitError:
+				stderrBytes.Lock()
+				exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
+				stderrBytes.Unlock()
+			default:
+				panic(err)
+			}
 		}
 	}()
 

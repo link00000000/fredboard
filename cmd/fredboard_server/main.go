@@ -2,17 +2,15 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"sync"
+	"path"
 
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/discord"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	"accidentallycoded.com/fredboard/v3/internal/web"
 )
 
 // These values are populated by the linker using -ldflags "-X main.version=x.x.x -X main.commit=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -21,73 +19,84 @@ var (
 	buildCommit  string
 )
 
-func main() {
-	if err := config.Init(); err != nil {
-		fmt.Printf("failed to initialize config: %s", err.Error())
-		os.Exit(1)
+var logger *logging.Logger
+
+func init() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get current working directory: %s", err.Error()))
 	}
 
-	if ok, errs := config.Validate(); !ok {
-		fmt.Printf("invalid config:\n%s", errors.Join(errs...))
-		os.Exit(1)
+	configFile := path.Join(cwd, "config.json")
+
+	if envFredboardConfig, ok := os.LookupEnv("FREDBOARD_CONFIG"); ok {
+		configFile = envFredboardConfig
 	}
 
-	var logger = logging.NewLogger()
+	verrs, err := config.Init(config.ConfigInitOptions{Files: []string{configFile}})
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize config: %s", err.Error()))
+	}
+
+	if len(verrs) > 0 {
+		for _, verr := range verrs {
+			fmt.Printf("configuration validation failed: %s", verr.Error())
+		}
+	}
+
+	logger := logging.NewLogger()
 	logger.SetPanicOnError(true)
 
-	settings := config.Get()
-	for _, handlerConfig := range settings.Logging.Handlers {
+	for _, hCfg := range config.Get().Logging.Handlers {
+		var level logging.Level
+		switch hCfg.Level {
+		case config.LoggingHandlerLevel_Debug:
+			level = logging.LevelDebug
+		case config.LoggingHandlerLevel_Info:
+			level = logging.LevelInfo
+		case config.LoggingHandlerLevel_Warn:
+			level = logging.LevelWarn
+		case config.LoggingHandlerLevel_Error:
+			level = logging.LevelError
+		case config.LoggingHandlerLevel_Fatal:
+			level = logging.LevelFatal
+		case config.LoggingHandlerLevel_Panic:
+			level = logging.LevelPanic
+		default:
+			panic("invalid config.LoggingHandlerLevel")
+		}
+
 		var w io.Writer
-		if *handlerConfig.Output == "stdout" {
+		switch hCfg.Output {
+		case "stdout":
 			w = os.Stdout
-		} else if *handlerConfig.Output == "stderr" {
+		case "stderr":
 			w = os.Stderr
-		} else {
-			f, err := os.Open(*handlerConfig.Output)
+		default:
+			f, err := os.Open(hCfg.Output)
 
 			if err != nil {
 				fmt.Printf("failed to create logger: %s", err.Error())
 				os.Exit(1)
 			}
 
-			defer f.Close()
 			w = f
 		}
 
-		var handler logging.Handler
-		switch *handlerConfig.Type {
+		switch hCfg.Type {
 		case config.LoggingHandlerType_Pretty:
-			handler = logging.NewPrettyHandler(w, *handlerConfig.Level)
+			logger.AddHandler(logging.NewPrettyHandler(w, level))
 		case config.LoggingHandlerType_JSON:
-			handler = logging.NewJsonHandler(w, *handlerConfig.Level)
+			logger.AddHandler(logging.NewJsonHandler(w, level))
+		default:
+			panic("invalid config.LoggingHandlerLevel")
 		}
-
-		logger.AddHandler(handler)
 	}
+}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		childLogger := logger.NewChildLogger()
-		defer childLogger.Close()
-
-		web.Run(ctx, *settings.Web.Address, childLogger)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		childLogger := logger.NewChildLogger()
-		defer childLogger.Close()
-
-		bot := discord.NewBot(*settings.Discord.AppId, *settings.Discord.Token, childLogger)
-		bot.Run(ctx)
-	}()
+func main() {
+	bot := discord.NewBot(config.Get().Discord.AppId, config.Get().Discord.Token, logger)
+	bot.Run(context.TODO())
 
 	logger.Info("press ^c to exit")
 
@@ -96,7 +105,4 @@ func main() {
 	<-intSig
 
 	logger.Info("received interrupt signal")
-	cancel()
-
-	wg.Wait()
 }
