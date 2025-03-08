@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"sync"
 
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/discord"
@@ -96,8 +97,16 @@ func init() {
 }
 
 func main() {
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithCancel(context.Background())
 	bot := discord.NewBot(config.Get().Discord.AppId, config.Get().Discord.Token, logger)
-	bot.Run(context.TODO())
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		bot.Run(ctx)
+	}()
 
 	logger.Info("press ^c to exit")
 
@@ -106,4 +115,7 @@ func main() {
 	<-intSig
 
 	logger.Info("received interrupt signal")
+
+	cancel()
+	wg.Wait()
 }
