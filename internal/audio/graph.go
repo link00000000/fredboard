@@ -66,12 +66,12 @@ func (graph *Graph) RemoveNode(n Node) {
 	graph.compositeNode.RemoveNode(n)
 }
 
-func (graph *Graph) CreateConnection(to, from Node) {
-	graph.compositeNode.CreateConnection(to, from)
+func (graph *Graph) CreateConnection(from, to Node) {
+	graph.compositeNode.CreateConnection(from, to)
 }
 
-func (graph *Graph) RemoveConnection(to, from Node) {
-	graph.compositeNode.RemoveConnection(to, from)
+func (graph *Graph) RemoveConnection(from, to Node) {
+	graph.compositeNode.RemoveConnection(from, to)
 }
 
 func NewGraph(logger *logging.Logger) *Graph {

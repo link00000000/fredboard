@@ -2,7 +2,6 @@ package commands
 
 import (
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
-	"accidentallycoded.com/fredboard/v3/internal/discord/voice"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -26,6 +25,10 @@ func Leave(session *discordgo.Session, interaction *discordgo.Interaction, log *
 		return
 	}
 
+	// TODO: Fix
+	panic("not implemented")
+
+	var voice interface{ StopSourceAndRemoveVoiceConn(string) error }
 	err := voice.StopSourceAndRemoveVoiceConn(interaction.GuildID)
 	if err != nil {
 		logger.Error("Leave() received an error while calling voice.StopSourceAndRemoveVoiceConn()", "error", err)

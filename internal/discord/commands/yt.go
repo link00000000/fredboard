@@ -2,11 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"time"
 
-	"accidentallycoded.com/fredboard/v3/internal/audio/graph"
-	graph_extensions "accidentallycoded.com/fredboard/v3/internal/audio/graph/extensions"
+	"accidentallycoded.com/fredboard/v3/internal/audiosession"
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
+	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -18,7 +17,7 @@ type ytCommandOptions struct {
 func getYtOpts(interaction *discordgo.Interaction) (*ytCommandOptions, error) {
 	url, err := interactions.GetRequiredStringOpt(interaction, "url")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get required option \"url\"", err)
+		return nil, fmt.Errorf("failed to get required option \"url\": %w", err)
 	}
 
 	return &ytCommandOptions{url}, nil
@@ -59,15 +58,6 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 		return
 	}
-
-	// create youtube source
-	sourceDoneChan := make(chan error, 1)
-	sourceNode := graph_extensions.NewYouTubeSourceNode(logger.NewChildLogger())
-	sourceNode.OpenVideo(opts.url, graph_extensions.YOUTUBESTREAMQUALITY_BEST)
-	sourceNode.OnDoneEvent.AddChan(sourceDoneChan)
-
-	logger.SetData("sourceNode", &sourceNode)
-	logger.Debug("set source")
 
 	// find voice channel
 	vc, err := interactions.FindCreatorVoiceChannelId(session, interaction)
@@ -118,55 +108,20 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	logger.SetData("voiceConn", &voiceConn)
 	logger.Debug("joined voice channel of interaction creator")
 
-	defer func() {
-		err := voiceConn.Disconnect()
-		if err != nil {
-			logger.Error("failed to close voice connection", "error", err)
-			return
-		}
-
-		logger.Debug("closed voice connection")
-	}()
-
 	// create audio graph
-	transcodeNode := graph.NewOpusEncoderNode(48000, 1, time.Millisecond*20)
-	sinkNode := graph_extensions.NewDiscordSinkNode(voiceConn)
+	audioSession := audiosession.New(logger)
+	audioSession.AddDiscordVoiceConnOutput(voiceConn)
+	audioSession.AddYtdlpInput(opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
+	audioSession.StartTicking()
 
-	pcmDiscordSinkNode := graph.NewCompositeNode()
-	pcmDiscordSinkNode.AddNode(transcodeNode)
-	pcmDiscordSinkNode.AddNode(sinkNode)
-	pcmDiscordSinkNode.CreateConnection(transcodeNode, sinkNode)
-	pcmDiscordSinkNode.SetIOInNode(transcodeNode)
+	// TODO: audioSession.OnAllSourcesStopped -> voiceConn.Disconnect() && audioSession.RemoveDiscordVoiceConnOutput(voiceConn)
 
-	audioGraph := graph.NewAudioGraph()
-	audioGraph.AddNode(sourceNode)
-	audioGraph.AddNode(pcmDiscordSinkNode)
-	audioGraph.CreateConnection(sourceNode, pcmDiscordSinkNode)
-
-	// notify user that everything is OK
+	// notify user that everything is ok
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")
 	if err != nil {
 		logger.Error("failed to respond to interaction", "error", err)
 	}
 
 	logger.Debug("notified user that everything is OK")
-
-	//loop:
-	for {
-		select {
-		/*case err := <-sourceDoneChan:
-		if err != nil {
-			logger.Error("YouTube source OnDoneEvent returned an error", "error", err)
-		}
-		break loop*/
-		default:
-			err := audioGraph.Tick()
-			if err != nil {
-				logger.Error("error while ticking audio graph", "error", err)
-				return
-			}
-		}
-	}
-
 	logger.Debug("done")
 }

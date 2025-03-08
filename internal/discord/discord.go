@@ -56,8 +56,6 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 	switch data := interaction.ApplicationCommandData(); data.Name {
 	case "yt":
 		go commands.YT(session, interaction, logger)
-	case "fs":
-		go commands.FS(session, interaction, logger)
 	case "leave":
 		go commands.Leave(session, interaction, logger)
 	default:
@@ -80,12 +78,12 @@ func (bot *Bot) Run(ctx context.Context) {
 
 	bot.logger.Debug("registering commands")
 	newCmds, err := session.ApplicationCommandBulkOverwrite(bot.appId, "", []*discordgo.ApplicationCommand{
-		&discordgo.ApplicationCommand{
+		{
 			Type:        discordgo.ChatApplicationCommand,
 			Name:        "yt",
 			Description: "Play a YouTube video",
 			Options: []*discordgo.ApplicationCommandOption{
-				&discordgo.ApplicationCommandOption{
+				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "url",
 					Description: "Url to the YouTube video to play",
@@ -93,20 +91,7 @@ func (bot *Bot) Run(ctx context.Context) {
 				},
 			},
 		},
-		&discordgo.ApplicationCommand{
-			Type:        discordgo.ChatApplicationCommand,
-			Name:        "fs",
-			Description: "Play a file from the file system",
-			Options: []*discordgo.ApplicationCommandOption{
-				&discordgo.ApplicationCommandOption{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "path",
-					Description: "Path to file on filesystem to play",
-					Required:    true,
-				},
-			},
-		},
-		&discordgo.ApplicationCommand{
+		{
 			Type:        discordgo.ChatApplicationCommand,
 			Name:        "leave",
 			Description: "Stop playing and leave the voice channel",

@@ -31,7 +31,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 	}
 
 	errs := make([]error, 0)
-	mixedStream := make([]int16, 0)
+	mixedStream := make([]int16, 0) // TODO: cache
 
 	for inIdx, in := range ins {
 		bytes, err := io.ReadAll(in)
@@ -45,7 +45,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 		stream := BytesToS16LE(bytes)
 
 		if len(stream) > len(mixedStream) {
-			node.logger.Debug("mixedStream buffer is too small. growing buffer")
+			node.logger.Debug("mixedStream buffer is too small. growing buffer", "oldcap", "newcap")
 
 			mixedStream = slices.Grow(mixedStream, len(stream)-len(mixedStream))
 			mixedStream = mixedStream[:cap(mixedStream)]
