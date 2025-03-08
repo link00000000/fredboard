@@ -40,6 +40,17 @@
       "env": {
         "FREDBOARD_CONFIG": "./.env/config.json"
       }
+    },
+    {
+      "name": "Test current file",
+      "type": "go",
+      "mode": "test",
+      "request": "launch",
+      "program": "${file}",
+      "outputMode": "remote",
+      "env": {
+        "FREDBOARD_CONFIG": "./.env/config.json"
+      }
     }
   ]
 }

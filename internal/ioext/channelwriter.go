@@ -1,23 +1,22 @@
 package ioext
 
-import (
-	"io"
-)
-
-type channelWriter struct {
-	c chan<- []byte
+type ChannelWriter[T any] struct {
+	c chan<- T
 }
 
-func (w *channelWriter) Write(p []byte) (n int, err error) {
-	w.c <- p
+func (w *ChannelWriter[T]) Write(p []T) (n int, err error) {
+	for _, q := range p {
+		w.c <- q
+	}
+
 	return len(p), err
 }
 
-func (w *channelWriter) Close() error {
+func (w *ChannelWriter[T]) Close() error {
 	close(w.c)
 	return nil
 }
 
-func NewChannelWriter(c chan<- []byte) io.WriteCloser {
-	return &channelWriter{c: c}
+func NewChannelWriter[T any](c chan<- T) *ChannelWriter[T] {
+	return &ChannelWriter[T]{c: c}
 }

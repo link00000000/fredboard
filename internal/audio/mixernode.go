@@ -7,6 +7,7 @@ import (
 	"math"
 	"slices"
 
+	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -42,7 +43,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 			continue
 		}
 
-		stream := BytesToS16LE(bytes)
+		stream := codecs.BytesToS16LE(bytes)
 
 		if len(stream) > len(mixedStream) {
 			node.logger.Debug("mixedStream buffer is too small. growing buffer", "oldcap", "newcap")
@@ -64,7 +65,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 		}
 	}
 
-	n, err := outs[0].Write(S16LEToBytes(mixedStream))
+	n, err := outs[0].Write(codecs.S16LEToBytes(mixedStream))
 	node.logger.Debug("MixerNode copied data from internal buffer to output", "n", n, "error", err)
 
 	if err != nil {

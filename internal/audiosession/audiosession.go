@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio"
+	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
@@ -83,15 +84,23 @@ type AudioSession struct {
 	closeChan  chan struct{}
 }
 
-func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) {
+func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) error {
 	s.Lock()
 	defer s.Unlock()
 
-	opusSendNode := audio.NewWriterNode(s.logger, ioext.NewChannelWriter(conn.OpusSend))
+	opusSendWriter := ioext.NewChannelWriter(conn.OpusSend)
+	opusEncoderWriter, err := codecs.NewOpusEncoderWriter(opusSendWriter, config.Get().Audio.NumChannels, config.Get().Audio.SampleRateHz, 960) // TODO: move 960 to config file
+	if err != nil {
+		return fmt.Errorf("failed to create opus encoder writer: %w", err)
+	}
+
+	opusSendNode := audio.NewWriterNode(s.logger, opusEncoderWriter)
 	s.audioGraph.AddNode(opusSendNode)
 	s.audioGraph.CreateConnection(s.rootMixer, opusSendNode)
 
 	s.outputs = append(s.outputs, &discordVoiceConn{subgraph: opusSendNode, conn: conn})
+
+	return nil
 }
 
 func (s *AudioSession) RemoveDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) {

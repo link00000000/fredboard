@@ -110,7 +110,20 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	// create audio graph
 	audioSession := audiosession.New(logger)
-	audioSession.AddDiscordVoiceConnOutput(voiceConn)
+	err = audioSession.AddDiscordVoiceConnOutput(voiceConn)
+	if err != nil {
+		logger.Error("failed to create discord voice conn output on audio session", "error", err)
+
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.Error("failed to respond to interaction", "error", err)
+		}
+
+		// TODO: destroy audio session
+
+		return
+	}
+
 	audioSession.AddYtdlpInput(opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
 	audioSession.StartTicking()
 

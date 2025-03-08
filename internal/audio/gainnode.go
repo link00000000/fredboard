@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 
+	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -38,7 +39,7 @@ func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) {
 		return
 	}
 
-	stream := BytesToS16LE(bytes)
+	stream := codecs.BytesToS16LE(bytes)
 
 	for i, sample := range stream {
 		f32 := float32(sample) * node.factor
@@ -52,7 +53,7 @@ func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) {
 		}
 	}
 
-	n, err := outs[0].Write(S16LEToBytes(stream))
+	n, err := outs[0].Write(codecs.S16LEToBytes(stream))
 	node.logger.Debug("GainNode copied data from internal buffer to output", "n", n, "error", err)
 
 	if err != nil {
