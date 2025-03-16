@@ -110,7 +110,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 
 	// create audio graph
 	audioSession := audiosession.New(logger)
-	err = audioSession.AddDiscordVoiceConnOutput(voiceConn)
+	audioSessionOutput, err := audioSession.AddDiscordVoiceConnOutput(voiceConn)
 	if err != nil {
 		logger.Error("failed to create discord voice conn output on audio session", "error", err)
 
@@ -124,10 +124,43 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		return
 	}
 
-	audioSession.AddYtdlpInput(opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
-	audioSession.StartTicking()
+	audioSessionInput, err := audioSession.AddYtdlpInput(opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
+	if err != nil {
+		logger.Error("failed to create discord voice conn output on audio session", "error", err)
 
-	// TODO: audioSession.OnAllSourcesStopped -> voiceConn.Disconnect() && audioSession.RemoveDiscordVoiceConnOutput(voiceConn)
+		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		if err != nil {
+			logger.Error("failed to respond to interaction", "error", err)
+		}
+
+		// TODO: destroy audio session
+
+		return
+	}
+
+	audioSessionInput.OnStoppedEvent().AddDelegate(func(struct{}) {
+		audioSession.RemoveInput(audioSessionInput)
+	})
+
+	audioSession.OnInputRemoved.AddDelegate(func(param audiosession.AudioSessionEvent_OnInputRemoved) {
+		if param.NInputsRemaining == 0 {
+			logger.Debug("removing discord voice conn due to all inputs to the audio session being removed", "voiceConn", voiceConn, "audioSession", audioSession)
+			audioSession.RemoveOutput(audioSessionOutput)
+		}
+	})
+
+	audioSession.OnOutputRemoved.AddDelegate(func(param audiosession.AudioSessionEvent_OnOutputRemoved) {
+		if param.OutputRemoved.Equals(audioSessionOutput) {
+			logger.Debug("closing discord voice conn due to associated audio session output being removed", "voiceConn", voiceConn, "audioSession", audioSession, "audioSessionOutput", audioSessionOutput)
+
+			err := voiceConn.Disconnect()
+			if err != nil {
+				logger.Error("an error ocurred while disconnecting discord voice conn", "voiceConn", voiceConn, "error", err)
+			}
+		}
+	})
+
+	go audioSession.StartTicking()
 
 	// notify user that everything is ok
 	err = interactions.RespondWithMessage(session, interaction, "Playing...")

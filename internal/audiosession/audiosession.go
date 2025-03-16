@@ -1,18 +1,12 @@
 package audiosession
 
 import (
-	"fmt"
 	"slices"
 	"sync"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio"
-	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
-	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
-	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
-	"accidentallycoded.com/fredboard/v3/internal/ioext"
+	"accidentallycoded.com/fredboard/v3/internal/events"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	"github.com/bwmarrin/discordgo"
 )
 
 var allAudioSessions []*AudioSession = make([]*AudioSession, 0)
@@ -22,160 +16,196 @@ type audioInputState byte
 const (
 	audioInputState_Running = iota
 	audioInputState_Paused
+	audioInputState_Stopped
 )
 
-type audioInput interface {
+type AudioSessionInput interface {
+	// returns the audio graph that is associated with this input
 	Subgraph() audio.Node
+
+	// returns the current state of the input and its playback
 	State() audioInputState
+
+	// pauses playback
 	Pause()
+
+	// resumes paused playback
 	Resume()
+
+	// stops playback (cannot be resumed)
 	Stop()
+
+	// returns an event emitter that will broadcast when the input is stopped
+	OnStoppedEvent() *events.EventEmitter[struct{}]
+
+	Equals(rhs AudioSessionInput) bool
+	asBase() *BaseAudioSessionInput
 }
 
-type ytdlpAudioInput struct {
-	subgraph audio.Node
-	state    audioInputState
+type BaseAudioSessionInput struct {
+	subgraph       audio.Node
+	state          audioInputState
+	onStoppedEvent *events.EventEmitter[struct{}]
 }
 
-func (i *ytdlpAudioInput) Subgraph() audio.Node {
+func (i BaseAudioSessionInput) Subgraph() audio.Node {
 	return i.subgraph
 }
 
-func (i *ytdlpAudioInput) State() audioInputState {
+func (i BaseAudioSessionInput) State() audioInputState {
 	return i.state
 }
 
-func (i *ytdlpAudioInput) Pause() {
-	// TODO
-	panic("unimplemeted")
+func (i *BaseAudioSessionInput) Pause() {
+	i.state = audioInputState_Paused
 }
 
-func (i *ytdlpAudioInput) Resume() {
-	// TODO
-	panic("unimplemeted")
+func (i *BaseAudioSessionInput) Resume() {
+	i.state = audioInputState_Running
 }
 
-func (i *ytdlpAudioInput) Stop() {
-	// TODO
-	panic("unimplemeted")
+func (i *BaseAudioSessionInput) Stop() {
+	i.state = audioInputState_Stopped
+	i.onStoppedEvent.Broadcast(struct{}{})
 }
 
-type audioOutput interface {
+func (i *BaseAudioSessionInput) OnStoppedEvent() *events.EventEmitter[struct{}] {
+	return i.onStoppedEvent
+}
+
+func (i *BaseAudioSessionInput) asBase() *BaseAudioSessionInput {
+	return i
+}
+
+func (i *BaseAudioSessionInput) Equals(rhs AudioSessionInput) bool {
+	return i == rhs.asBase()
+}
+
+type AudioSessionOutput interface {
 	Subgraph() audio.Node
+
+	Equals(rhs AudioSessionOutput) bool
+	asBase() *BaseAudioSessionOutput
 }
 
-type discordVoiceConn struct {
+type BaseAudioSessionOutput struct {
 	subgraph audio.Node
-	conn     *discordgo.VoiceConnection
 }
 
-func (conn *discordVoiceConn) Subgraph() audio.Node {
-	return conn.subgraph
+func (o BaseAudioSessionOutput) Subgraph() audio.Node {
+	return o.subgraph
+}
+
+func (o *BaseAudioSessionOutput) asBase() *BaseAudioSessionOutput {
+	return o
+}
+
+func (i *BaseAudioSessionOutput) Equals(rhs AudioSessionOutput) bool {
+	return i == rhs.asBase()
+}
+
+type AudioSessionEvent_OnInputRemoved struct {
+	InputRemoved     AudioSessionInput
+	NInputsRemaining int
+}
+
+type AudioSessionEvent_OnOutputRemoved struct {
+	OutputRemoved     AudioSessionOutput
+	NOutputsRemaining int
 }
 
 type AudioSession struct {
 	sync.Mutex
 
 	logger     *logging.Logger
-	inputs     []audioInput
-	outputs    []audioOutput
+	inputs     []AudioSessionInput
+	outputs    []AudioSessionOutput
 	rootMixer  *audio.MixerNode
 	audioGraph *audio.Graph
-	closeChan  chan struct{}
+
+	inputWg  sync.WaitGroup // how many producers are still producing data
+	outputWg sync.WaitGroup // how many consumers are still consuming data
+
+	OnInputRemoved  *events.EventEmitter[AudioSessionEvent_OnInputRemoved]
+	OnOutputRemoved *events.EventEmitter[AudioSessionEvent_OnOutputRemoved]
 }
 
-func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) error {
+func (s *AudioSession) AddInput(node audio.Node) *BaseAudioSessionInput {
 	s.Lock()
 	defer s.Unlock()
 
-	opusSendWriter := ioext.NewChannelWriter(conn.OpusSend)
-	opusEncoderWriter, err := codecs.NewOpusEncoderWriter(opusSendWriter, config.Get().Audio.NumChannels, config.Get().Audio.SampleRateHz, 960) // TODO: move 960 to config file
-	if err != nil {
-		return fmt.Errorf("failed to create opus encoder writer: %w", err)
-	}
+	s.audioGraph.AddNode(node)
+	s.audioGraph.CreateConnection(node, s.rootMixer)
 
-	opusSendNode := audio.NewWriterNode(s.logger, opusEncoderWriter)
-	s.audioGraph.AddNode(opusSendNode)
-	s.audioGraph.CreateConnection(s.rootMixer, opusSendNode)
+	s.inputWg.Add(1)
 
-	s.outputs = append(s.outputs, &discordVoiceConn{subgraph: opusSendNode, conn: conn})
-
-	return nil
-}
-
-func (s *AudioSession) RemoveDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) {
-	s.Lock()
-	defer s.Unlock()
-
-	idx := slices.IndexFunc(s.outputs, func(sg audioOutput) bool { vc, ok := sg.(*discordVoiceConn); return ok && vc.conn == conn })
-	subgraph := s.outputs[idx]
-	s.outputs = slices.Delete(s.outputs, idx, idx+1)
-
-	s.audioGraph.RemoveNode(subgraph.Subgraph())
-}
-
-func (s *AudioSession) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality) (audioInput, error) {
-	s.Lock()
-	defer s.Unlock()
-
-	videoReader, err, _ := ytdlp.NewVideoReader(s.logger, ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile}, url, quality)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create video reader: %w", err)
-	}
-
-	transcoder, err, _ := ffmpeg.NewTranscoder(
-		s.logger,
-		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
-		videoReader,
-		ffmpeg.Format_PCMSigned16BitLittleEndian,
-		config.Get().Audio.SampleRateHz,
-		config.Get().Audio.NumChannels,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transcoder: %w", err)
-	}
-
-	// TODO: Put 0x8000 in config
-	videoReaderNode := audio.NewReaderNode(s.logger, transcoder, 0x8000)
-
-	s.audioGraph.AddNode(videoReaderNode)
-	s.audioGraph.CreateConnection(videoReaderNode, s.rootMixer)
-
-	input := &ytdlpAudioInput{subgraph: videoReaderNode, state: audioInputState_Running}
+	input := &BaseAudioSessionInput{subgraph: node, state: audioInputState_Running, onStoppedEvent: events.NewEventEmitter[struct{}]()}
 	s.inputs = append(s.inputs, input)
 
-	return input, nil
+	return input
 }
 
-func (s *AudioSession) RemoveInput(input audioInput) {
+func (s *AudioSession) RemoveInput(input AudioSessionInput) {
+	func() {
+		s.Lock()
+		defer s.Unlock()
+
+		s.inputWg.Done()
+
+		s.inputs = slices.DeleteFunc(s.inputs, func(i AudioSessionInput) bool { return i.Equals(input) })
+		s.audioGraph.RemoveNode(input.Subgraph())
+	}()
+
+	s.OnInputRemoved.Broadcast(AudioSessionEvent_OnInputRemoved{InputRemoved: input, NInputsRemaining: len(s.inputs)})
+}
+
+func (s *AudioSession) AddOutput(node audio.Node) *BaseAudioSessionOutput {
 	s.Lock()
 	defer s.Unlock()
 
-	s.inputs = slices.DeleteFunc(s.inputs, func(i audioInput) bool { return i == input })
-	s.audioGraph.RemoveNode(input.Subgraph())
+	s.outputWg.Add(1)
+
+	s.audioGraph.AddNode(node)
+	s.audioGraph.CreateConnection(s.rootMixer, node)
+
+	output := &BaseAudioSessionOutput{subgraph: node}
+	s.outputs = append(s.outputs, output)
+
+	return output
+}
+
+func (s *AudioSession) RemoveOutput(output AudioSessionOutput) {
+	func() {
+		s.Lock()
+		defer s.Unlock()
+
+		s.outputWg.Done()
+
+		s.outputs = slices.DeleteFunc(s.outputs, func(o AudioSessionOutput) bool { return o.Equals(output) })
+		s.audioGraph.RemoveNode(output.Subgraph())
+	}()
+
+	s.OnOutputRemoved.Broadcast(AudioSessionEvent_OnOutputRemoved{OutputRemoved: output, NOutputsRemaining: len(s.outputs)})
 }
 
 func (s *AudioSession) StartTicking() {
-	go func() {
-		for {
-			select {
-			case <-s.closeChan:
-				fmt.Println("==========DONE TICKING=============")
-				return
-			default:
-				s.Lock()
-				// TODO: Check if there are any outputs. If there are not, destroy the graph
-				s.audioGraph.Tick()
-				s.Unlock()
-			}
-		}
-	}()
-}
+	processTick := func() /*continue*/ bool {
+		s.Lock()
+		defer s.Unlock()
 
-func (s *AudioSession) StopTicking() {
-	close(s.closeChan)
+		if len(s.inputs) == 0 && len(s.outputs) == 0 {
+			return false
+		}
+
+		s.audioGraph.Tick()
+		return true
+	}
+
+	for {
+		if !processTick() {
+			break
+		}
+	}
 }
 
 func New(logger *logging.Logger) *AudioSession {
@@ -186,11 +216,13 @@ func New(logger *logging.Logger) *AudioSession {
 
 	audioSession := AudioSession{
 		logger:     logger,
-		inputs:     make([]audioInput, 0),
-		outputs:    make([]audioOutput, 0),
+		inputs:     make([]AudioSessionInput, 0),
+		outputs:    make([]AudioSessionOutput, 0),
 		rootMixer:  rootMixer,
 		audioGraph: audio.NewGraph(logger),
-		closeChan:  make(chan struct{}),
+
+		OnInputRemoved:  events.NewEventEmitter[AudioSessionEvent_OnInputRemoved](),
+		OnOutputRemoved: events.NewEventEmitter[AudioSessionEvent_OnOutputRemoved](),
 	}
 
 	allAudioSessions = append(allAudioSessions, &audioSession)

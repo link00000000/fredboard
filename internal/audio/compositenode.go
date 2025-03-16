@@ -79,8 +79,8 @@ func (node *CompositeNode) AddNode(n Node) {
 func (node *CompositeNode) RemoveNode(n Node) {
 	// TODO: assert that n is a pointer
 	// TODO: assert that n is in the graph
-	// TODO: remove all connections that contain this node
 
+	node.connections = slices.DeleteFunc(node.connections, func(c *Connection) bool { return c.from == n || c.to == n })
 	node.childNodes = slices.DeleteFunc(node.childNodes, func(nn Node) bool { return n == nn })
 }
 
