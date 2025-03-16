@@ -144,6 +144,13 @@ type SessionEvent_OnOutputRemoved struct {
 	NOutputsRemaining int
 }
 
+type SessionState byte
+
+const (
+	SessionState_NotTicking = iota
+	SessionState_Ticking
+)
+
 type Session struct {
 	sync.Mutex
 
@@ -152,6 +159,7 @@ type Session struct {
 	outputs    []Output
 	rootMixer  *audio.MixerNode
 	audioGraph *audio.Graph
+	state      SessionState
 
 	OnInputRemoved  *events.EventEmitter[SessionEvent_OnInputRemoved]
 	OnOutputRemoved *events.EventEmitter[SessionEvent_OnOutputRemoved]
@@ -213,12 +221,16 @@ func (s *Session) Outputs() []Output {
 	return s.outputs[:]
 }
 
+func (s *Session) State() SessionState {
+	return s.state
+}
+
 func (s *Session) StartTicking() {
 	processTick := func() /*continue*/ bool {
 		s.Lock()
 		defer s.Unlock()
 
-		if len(s.inputs) == 0 && len(s.outputs) == 0 {
+		if len(s.inputs) == 0 {
 			return false
 		}
 
@@ -226,8 +238,21 @@ func (s *Session) StartTicking() {
 		return true
 	}
 
+	s.Lock()
+	if s.state == SessionState_Ticking {
+		s.Unlock()
+		return
+	}
+
+	s.state = SessionState_Ticking
+	s.Unlock()
+
 	for {
 		if !processTick() {
+			s.Lock()
+			s.state = SessionState_NotTicking
+			s.Unlock()
+
 			break
 		}
 	}
@@ -245,6 +270,7 @@ func New(logger *logging.Logger) *Session {
 		outputs:    make([]Output, 0),
 		rootMixer:  rootMixer,
 		audioGraph: audio.NewGraph(logger),
+		state:      SessionState_NotTicking,
 
 		OnInputRemoved:  events.NewEventEmitter[SessionEvent_OnInputRemoved](),
 		OnOutputRemoved: events.NewEventEmitter[SessionEvent_OnOutputRemoved](),

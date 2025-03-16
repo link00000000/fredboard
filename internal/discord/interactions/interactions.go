@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"accidentallycoded.com/fredboard/v3/internal/audiosession"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -89,6 +90,31 @@ func FindOrCreateVoiceConn(session *discordgo.Session, interaction *discordgo.In
 	conn, err = session.ChannelVoiceJoin(interaction.GuildID, cId, mute, deaf)
 
 	return conn, false, err
+}
+
+func FindOrCreateAudioSession(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction) (audioSession *audiosession.Session, output *audiosession.DiscordVoiceConnOutput, exists bool, err error) {
+	conn, exists, err := FindOrCreateVoiceConn(session, interaction)
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	if exists {
+		output, err = audiosession.FindDiscordVoiceConnOutput(conn)
+		if err != nil {
+			return nil, nil, true, err
+		}
+
+		return output.Session(), output, true, nil
+	}
+
+	audioSession = audiosession.New(logger)
+	output, err = audioSession.AddDiscordVoiceConnOutput(conn)
+	if err != nil {
+		return nil, nil, false, err
+		// TODO: destroy audio session
+	}
+
+	return audioSession, output, false, nil
 }
 
 // inform discord that the interaction has been acknowledged and will be responded to later

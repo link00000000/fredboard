@@ -15,19 +15,14 @@ var ErrOutputNotFound = errors.New("audio session output not found")
 
 type DiscordVoiceConnOutput struct {
 	*BaseOutput
-	conn *discordgo.VoiceConnection
+	Conn *discordgo.VoiceConnection
 }
 
 func (o *DiscordVoiceConnOutput) Subgraph() audio.Node {
 	return o.subgraph
 }
 
-func (o *DiscordVoiceConnOutput) HasConn(conn *discordgo.VoiceConnection) bool {
-	return o.conn == conn
-}
-
 func (s *Session) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (*DiscordVoiceConnOutput, error) {
-
 	opusSendWriter := ioext.NewChannelWriter(conn.OpusSend)
 	opusEncoderWriter, err := codecs.NewOpusEncoderWriter(opusSendWriter, config.Get().Audio.NumChannels, config.Get().Audio.SampleRateHz, 960) // TODO: move 960 to config file
 	if err != nil {
@@ -35,7 +30,7 @@ func (s *Session) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (*D
 	}
 
 	opusSendNode := audio.NewWriterNode(s.logger, opusEncoderWriter)
-	output := &DiscordVoiceConnOutput{BaseOutput: NewBaseOutput(s, opusSendNode), conn: conn}
+	output := &DiscordVoiceConnOutput{BaseOutput: NewBaseOutput(s, opusSendNode), Conn: conn}
 	s.AddOutput(output)
 
 	return output, nil
@@ -48,7 +43,7 @@ func FindDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (*DiscordVoiceC
 	for _, s := range allSessions.Data {
 		for _, o := range s.Outputs() {
 			do, ok := o.(*DiscordVoiceConnOutput)
-			if ok && do.HasConn(conn) {
+			if ok && do.Conn == conn {
 				return do, nil
 			}
 		}
