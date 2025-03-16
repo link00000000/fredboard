@@ -10,24 +10,24 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
-var allAudioSessions = syncext.NewSyncData(make([]*AudioSession, 0))
+var allSessions = syncext.NewSyncData(make([]*Session, 0))
 
-type audioInputState byte
+type inputState byte
 
 const (
-	audioInputState_Running = iota
-	audioInputState_Paused
-	audioInputState_Stopped
+	inputState_Running = iota
+	inputState_Paused
+	inputState_Stopped
 )
 
-type AudioSessionInput interface {
-	Session() *AudioSession
+type Input interface {
+	Session() *Session
 
 	// returns the audio graph that is associated with this input
 	Subgraph() audio.Node
 
 	// returns the current state of the input and its playback
-	State() audioInputState
+	State() inputState
 
 	// pauses playback
 	Pause()
@@ -41,123 +41,123 @@ type AudioSessionInput interface {
 	// returns an event emitter that will broadcast when the input is stopped
 	OnStoppedEvent() *events.EventEmitter[struct{}]
 
-	Equals(rhs AudioSessionInput) bool
-	asBase() *BaseAudioSessionInput
+	Equals(rhs Input) bool
+	asBase() *BaseInput
 }
 
-type BaseAudioSessionInput struct {
-	session        *AudioSession
+type BaseInput struct {
+	session        *Session
 	subgraph       audio.Node
-	state          audioInputState
+	state          inputState
 	onStoppedEvent *events.EventEmitter[struct{}]
 }
 
-func (i BaseAudioSessionInput) Session() *AudioSession {
+func (i BaseInput) Session() *Session {
 	return i.session
 }
 
-func (i BaseAudioSessionInput) Subgraph() audio.Node {
+func (i BaseInput) Subgraph() audio.Node {
 	return i.subgraph
 }
 
-func (i BaseAudioSessionInput) State() audioInputState {
+func (i BaseInput) State() inputState {
 	return i.state
 }
 
-func (i *BaseAudioSessionInput) Pause() {
-	i.state = audioInputState_Paused
+func (i *BaseInput) Pause() {
+	i.state = inputState_Paused
 }
 
-func (i *BaseAudioSessionInput) Resume() {
-	i.state = audioInputState_Running
+func (i *BaseInput) Resume() {
+	i.state = inputState_Running
 }
 
-func (i *BaseAudioSessionInput) Stop() {
-	i.state = audioInputState_Stopped
+func (i *BaseInput) Stop() {
+	i.state = inputState_Stopped
 	i.onStoppedEvent.Broadcast(struct{}{})
 }
 
-func (i *BaseAudioSessionInput) OnStoppedEvent() *events.EventEmitter[struct{}] {
+func (i *BaseInput) OnStoppedEvent() *events.EventEmitter[struct{}] {
 	return i.onStoppedEvent
 }
 
-func (i *BaseAudioSessionInput) asBase() *BaseAudioSessionInput {
+func (i *BaseInput) asBase() *BaseInput {
 	return i
 }
 
-func (i *BaseAudioSessionInput) Equals(rhs AudioSessionInput) bool {
+func (i *BaseInput) Equals(rhs Input) bool {
 	return i == rhs.asBase()
 }
 
-func NewBaseAudioSessionInput(session *AudioSession, subgraph audio.Node) *BaseAudioSessionInput {
-	return &BaseAudioSessionInput{
+func NewBaseInput(session *Session, subgraph audio.Node) *BaseInput {
+	return &BaseInput{
 		session:        session,
 		subgraph:       subgraph,
-		state:          audioInputState_Running,
+		state:          inputState_Running,
 		onStoppedEvent: events.NewEventEmitter[struct{}](),
 	}
 }
 
-type AudioSessionOutput interface {
-	Session() *AudioSession
+type Output interface {
+	Session() *Session
 	Subgraph() audio.Node
 
-	Equals(rhs AudioSessionOutput) bool
-	asBase() *BaseAudioSessionOutput
+	Equals(rhs Output) bool
+	asBase() *BaseOutput
 }
 
-type BaseAudioSessionOutput struct {
-	session  *AudioSession
+type BaseOutput struct {
+	session  *Session
 	subgraph audio.Node
 }
 
-func (o BaseAudioSessionOutput) Session() *AudioSession {
+func (o BaseOutput) Session() *Session {
 	return o.session
 }
 
-func (o BaseAudioSessionOutput) Subgraph() audio.Node {
+func (o BaseOutput) Subgraph() audio.Node {
 	return o.subgraph
 }
 
-func (o *BaseAudioSessionOutput) asBase() *BaseAudioSessionOutput {
+func (o *BaseOutput) asBase() *BaseOutput {
 	return o
 }
 
-func (i *BaseAudioSessionOutput) Equals(rhs AudioSessionOutput) bool {
+func (i *BaseOutput) Equals(rhs Output) bool {
 	return i == rhs.asBase()
 }
 
-func NewBaseAudioSessionOutput(session *AudioSession, subgraph audio.Node) *BaseAudioSessionOutput {
-	return &BaseAudioSessionOutput{
+func NewBaseOutput(session *Session, subgraph audio.Node) *BaseOutput {
+	return &BaseOutput{
 		session:  session,
 		subgraph: subgraph,
 	}
 }
 
-type AudioSessionEvent_OnInputRemoved struct {
-	InputRemoved     AudioSessionInput
+type SessionEvent_OnInputRemoved struct {
+	InputRemoved     Input
 	NInputsRemaining int
 }
 
-type AudioSessionEvent_OnOutputRemoved struct {
-	OutputRemoved     AudioSessionOutput
+type SessionEvent_OnOutputRemoved struct {
+	OutputRemoved     Output
 	NOutputsRemaining int
 }
 
-type AudioSession struct {
+type Session struct {
 	sync.Mutex
 
 	logger     *logging.Logger
-	inputs     []AudioSessionInput
-	outputs    []AudioSessionOutput
+	inputs     []Input
+	outputs    []Output
 	rootMixer  *audio.MixerNode
 	audioGraph *audio.Graph
 
-	OnInputRemoved  *events.EventEmitter[AudioSessionEvent_OnInputRemoved]
-	OnOutputRemoved *events.EventEmitter[AudioSessionEvent_OnOutputRemoved]
+	OnInputRemoved  *events.EventEmitter[SessionEvent_OnInputRemoved]
+	OnOutputRemoved *events.EventEmitter[SessionEvent_OnOutputRemoved]
 }
 
-func (s *AudioSession) AddInput(input AudioSessionInput) {
+func (s *Session) AddInput(input Input) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -166,26 +166,26 @@ func (s *AudioSession) AddInput(input AudioSessionInput) {
 	s.inputs = append(s.inputs, input)
 }
 
-func (s *AudioSession) RemoveInput(input AudioSessionInput) {
+func (s *Session) RemoveInput(input Input) {
 	func() {
 		s.Lock()
 		defer s.Unlock()
 
-		s.inputs = slices.DeleteFunc(s.inputs, func(i AudioSessionInput) bool { return i.Equals(input) })
+		s.inputs = slices.DeleteFunc(s.inputs, func(i Input) bool { return i.Equals(input) })
 		s.audioGraph.RemoveNode(input.Subgraph())
 	}()
 
-	s.OnInputRemoved.Broadcast(AudioSessionEvent_OnInputRemoved{InputRemoved: input, NInputsRemaining: len(s.inputs)})
+	s.OnInputRemoved.Broadcast(SessionEvent_OnInputRemoved{InputRemoved: input, NInputsRemaining: len(s.inputs)})
 }
 
-func (s *AudioSession) Inputs() []AudioSessionInput {
+func (s *Session) Inputs() []Input {
 	s.Lock()
 	defer s.Unlock()
 
 	return s.inputs[:]
 }
 
-func (s *AudioSession) AddOutput(output AudioSessionOutput) {
+func (s *Session) AddOutput(output Output) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -194,26 +194,26 @@ func (s *AudioSession) AddOutput(output AudioSessionOutput) {
 	s.outputs = append(s.outputs, output)
 }
 
-func (s *AudioSession) RemoveOutput(output AudioSessionOutput) {
+func (s *Session) RemoveOutput(output Output) {
 	func() {
 		s.Lock()
 		defer s.Unlock()
 
-		s.outputs = slices.DeleteFunc(s.outputs, func(o AudioSessionOutput) bool { return o.Equals(output) })
+		s.outputs = slices.DeleteFunc(s.outputs, func(o Output) bool { return o.Equals(output) })
 		s.audioGraph.RemoveNode(output.Subgraph())
 	}()
 
-	s.OnOutputRemoved.Broadcast(AudioSessionEvent_OnOutputRemoved{OutputRemoved: output, NOutputsRemaining: len(s.outputs)})
+	s.OnOutputRemoved.Broadcast(SessionEvent_OnOutputRemoved{OutputRemoved: output, NOutputsRemaining: len(s.outputs)})
 }
 
-func (s *AudioSession) Outputs() []AudioSessionOutput {
+func (s *Session) Outputs() []Output {
 	s.Lock()
 	defer s.Unlock()
 
 	return s.outputs[:]
 }
 
-func (s *AudioSession) StartTicking() {
+func (s *Session) StartTicking() {
 	processTick := func() /*continue*/ bool {
 		s.Lock()
 		defer s.Unlock()
@@ -233,28 +233,28 @@ func (s *AudioSession) StartTicking() {
 	}
 }
 
-func New(logger *logging.Logger) *AudioSession {
+func New(logger *logging.Logger) *Session {
 	rootMixer := audio.NewMixerNode(logger)
 
 	audioGraph := audio.NewGraph(logger)
 	audioGraph.AddNode(rootMixer)
 
-	audioSession := AudioSession{
+	audioSession := Session{
 		logger:     logger,
-		inputs:     make([]AudioSessionInput, 0),
-		outputs:    make([]AudioSessionOutput, 0),
+		inputs:     make([]Input, 0),
+		outputs:    make([]Output, 0),
 		rootMixer:  rootMixer,
 		audioGraph: audio.NewGraph(logger),
 
-		OnInputRemoved:  events.NewEventEmitter[AudioSessionEvent_OnInputRemoved](),
-		OnOutputRemoved: events.NewEventEmitter[AudioSessionEvent_OnOutputRemoved](),
+		OnInputRemoved:  events.NewEventEmitter[SessionEvent_OnInputRemoved](),
+		OnOutputRemoved: events.NewEventEmitter[SessionEvent_OnOutputRemoved](),
 	}
 
 	func() {
-		allAudioSessions.Lock()
-		defer allAudioSessions.Unlock()
+		allSessions.Lock()
+		defer allSessions.Unlock()
 
-		allAudioSessions.Data = append(allAudioSessions.Data, &audioSession)
+		allSessions.Data = append(allSessions.Data, &audioSession)
 	}()
 
 	return &audioSession

@@ -9,26 +9,26 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
 )
 
-type ytdlpAudioSessionInput struct {
-	*BaseAudioSessionInput
+type YtdlpInput struct {
+	*BaseInput
 }
 
-func (i *ytdlpAudioSessionInput) Pause() {
-	i.BaseAudioSessionInput.Pause()
+func (i *YtdlpInput) Pause() {
+	i.BaseInput.Pause()
 
 	// TODO
 	panic("unimplemeted")
 }
 
-func (i *ytdlpAudioSessionInput) Resume() {
-	i.BaseAudioSessionInput.Resume()
+func (i *YtdlpInput) Resume() {
+	i.BaseInput.Resume()
 
 	// TODO
 	panic("unimplemeted")
 }
 
 // add a ytdlp input that will automatically be stopped when EOF is reached
-func (s *AudioSession) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality) (AudioSessionInput, error) {
+func (s *Session) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality) (Input, error) {
 	videoReader, err, videoReaderExitChan := ytdlp.NewVideoReader(s.logger, ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile}, url, quality)
 
 	if err != nil {
@@ -51,7 +51,7 @@ func (s *AudioSession) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality
 	// TODO: Put 0x8000 in config
 	videoReaderNode := audio.NewReaderNode(s.logger, transcoder, 0x8000)
 
-	input := &ytdlpAudioSessionInput{BaseAudioSessionInput: NewBaseAudioSessionInput(s, videoReaderNode)}
+	input := &YtdlpInput{BaseInput: NewBaseInput(s, videoReaderNode)}
 	s.AddInput(input)
 
 	go func() {

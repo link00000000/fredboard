@@ -13,36 +13,20 @@ import (
 
 var ErrOutputNotFound = errors.New("audio session output not found")
 
-func FindDiscordVoiceConnAudioSessionOutput(conn *discordgo.VoiceConnection) (*DiscordVoiceConnAudioSessionOutput, error) {
-	allAudioSessions.Lock()
-	defer allAudioSessions.Unlock()
-
-	for _, s := range allAudioSessions.Data {
-		for _, o := range s.Outputs() {
-			do, ok := o.(*DiscordVoiceConnAudioSessionOutput)
-			if ok && do.HasConn(conn) {
-				return do, nil
-			}
-		}
-	}
-
-	return nil, ErrOutputNotFound
-}
-
-type DiscordVoiceConnAudioSessionOutput struct {
-	*BaseAudioSessionOutput
+type DiscordVoiceConnOutput struct {
+	*BaseOutput
 	conn *discordgo.VoiceConnection
 }
 
-func (o *DiscordVoiceConnAudioSessionOutput) Subgraph() audio.Node {
+func (o *DiscordVoiceConnOutput) Subgraph() audio.Node {
 	return o.subgraph
 }
 
-func (o *DiscordVoiceConnAudioSessionOutput) HasConn(conn *discordgo.VoiceConnection) bool {
+func (o *DiscordVoiceConnOutput) HasConn(conn *discordgo.VoiceConnection) bool {
 	return o.conn == conn
 }
 
-func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (AudioSessionOutput, error) {
+func (s *Session) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (*DiscordVoiceConnOutput, error) {
 
 	opusSendWriter := ioext.NewChannelWriter(conn.OpusSend)
 	opusEncoderWriter, err := codecs.NewOpusEncoderWriter(opusSendWriter, config.Get().Audio.NumChannels, config.Get().Audio.SampleRateHz, 960) // TODO: move 960 to config file
@@ -51,8 +35,24 @@ func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection
 	}
 
 	opusSendNode := audio.NewWriterNode(s.logger, opusEncoderWriter)
-	output := &DiscordVoiceConnAudioSessionOutput{BaseAudioSessionOutput: NewBaseAudioSessionOutput(s, opusSendNode), conn: conn}
+	output := &DiscordVoiceConnOutput{BaseOutput: NewBaseOutput(s, opusSendNode), conn: conn}
 	s.AddOutput(output)
 
 	return output, nil
+}
+
+func FindDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (*DiscordVoiceConnOutput, error) {
+	allSessions.Lock()
+	defer allSessions.Unlock()
+
+	for _, s := range allSessions.Data {
+		for _, o := range s.Outputs() {
+			do, ok := o.(*DiscordVoiceConnOutput)
+			if ok && do.HasConn(conn) {
+				return do, nil
+			}
+		}
+	}
+
+	return nil, ErrOutputNotFound
 }

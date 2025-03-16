@@ -142,14 +142,14 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		audioSession.RemoveInput(audioSessionInput)
 	})
 
-	audioSession.OnInputRemoved.AddDelegate(func(param audiosession.AudioSessionEvent_OnInputRemoved) {
+	audioSession.OnInputRemoved.AddDelegate(func(param audiosession.SessionEvent_OnInputRemoved) {
 		if param.NInputsRemaining == 0 {
 			logger.Debug("removing discord voice conn due to all inputs to the audio session being removed", "voiceConn", voiceConn, "audioSession", audioSession)
 			audioSession.RemoveOutput(audioSessionOutput)
 		}
 	})
 
-	audioSession.OnOutputRemoved.AddDelegate(func(param audiosession.AudioSessionEvent_OnOutputRemoved) {
+	audioSession.OnOutputRemoved.AddDelegate(func(param audiosession.SessionEvent_OnOutputRemoved) {
 		if param.OutputRemoved.Equals(audioSessionOutput) {
 			logger.Debug("closing discord voice conn due to associated audio session output being removed", "voiceConn", voiceConn, "audioSession", audioSession, "audioSessionOutput", audioSessionOutput)
 

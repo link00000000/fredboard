@@ -25,10 +25,12 @@ func Join(logger *logging.Logger, session *discordgo.Session, interaction *disco
 		return
 	}
 
+	// TODO: ensure that audio session does not already exist for conn (it shouldnt exist, but it should still be asserted)
+
 	audioSession := audiosession.New(logger)
 	output, err := audioSession.AddDiscordVoiceConnOutput(conn)
 
-	audioSession.OnOutputRemoved.AddDelegate(func(param audiosession.AudioSessionEvent_OnOutputRemoved) {
+	audioSession.OnOutputRemoved.AddDelegate(func(param audiosession.SessionEvent_OnOutputRemoved) {
 		if param.OutputRemoved == output {
 			err := conn.Disconnect()
 			if err != nil {

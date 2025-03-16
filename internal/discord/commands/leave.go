@@ -25,7 +25,7 @@ func Leave(logger *logging.Logger, session *discordgo.Session, interaction *disc
 		return
 	}
 
-	output, err := audiosession.FindDiscordVoiceConnAudioSessionOutput(conn)
+	output, err := audiosession.FindDiscordVoiceConnOutput(conn)
 	if err != nil {
 		logger.Error("failed to execute Leave command due to error while finding the associated audio session output", "interaction", interaction, "conn", conn, "error", err)
 		interactions.RespondWithError(logger, session, interaction, err)
