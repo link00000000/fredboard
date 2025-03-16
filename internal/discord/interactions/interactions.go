@@ -138,7 +138,7 @@ func Acknowledge_NoLog(session *discordgo.Session, interaction *discordgo.Intera
 	return err
 }
 
-// respond to an interaction with a formatted error
+// respond to an acknowledged interaction with a formatted error
 func RespondWithError(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction, inErr error) error {
 	logger.Debug("responding to discord interaction with error", "session", session, "interaction", interaction, "inErr", inErr)
 
@@ -150,7 +150,7 @@ func RespondWithError(logger *logging.Logger, session *discordgo.Session, intera
 	return inErr
 }
 
-// respond to an interaction with a formatted error and a custom message
+// respond to an acknowledged interaction with a formatted error and a custom message
 func RespondWithErrorMessage(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction, message string, inErr error) error {
 	logger.Debug("responding to discord interaction with error", "session", session, "interaction", interaction, "message", message, "inErr", inErr)
 
@@ -162,21 +162,18 @@ func RespondWithErrorMessage(logger *logging.Logger, session *discordgo.Session,
 	return inErr
 }
 
-// respond to an interaction with a formatted error and a custom message
+// respond to an acknowledged interaction with a formatted error and a custom message
 func RespondWithErrorMessage_NoLog(session *discordgo.Session, interaction *discordgo.Interaction, message string, inErr error) error {
-	err := session.InteractionRespond(interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds: []*discordgo.MessageEmbed{
-				{Title: message, Description: inErr.Error(), Color: 0xeb3b40, Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")},
-			},
+	_, err := session.InteractionResponseEdit(interaction, &discordgo.WebhookEdit{
+		Embeds: &[]*discordgo.MessageEmbed{
+			{Title: message, Description: inErr.Error(), Color: 0xeb3b40, Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")},
 		},
 	})
 
 	return err
 }
 
-// respond to an interaction with a plain string
+// respond to an acknowledged interaction with a plain string
 func RespondWithMessage(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction, message string) error {
 	logger.Debug("responding to discord interaction with message", "session", session, "interaction", interaction, "message", message)
 
@@ -188,11 +185,10 @@ func RespondWithMessage(logger *logging.Logger, session *discordgo.Session, inte
 	return err
 }
 
-// respond to an interaction with a plain string
+// respond to an acknowledged interaction with a plain string
 func RespondWithMessage_NoLog(session *discordgo.Session, interaction *discordgo.Interaction, message string) error {
-	err := session.InteractionRespond(interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{Content: message},
+	_, err := session.InteractionResponseEdit(interaction, &discordgo.WebhookEdit{
+		Content: &message,
 	})
 
 	return err
