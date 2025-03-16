@@ -6,10 +6,11 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/internal/audio"
 	"accidentallycoded.com/fredboard/v3/internal/events"
+	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
-var allAudioSessions []*AudioSession = make([]*AudioSession, 0)
+var allAudioSessions = syncext.NewSyncData(make([]*AudioSession, 0))
 
 type audioInputState byte
 
@@ -20,6 +21,8 @@ const (
 )
 
 type AudioSessionInput interface {
+	Session() *AudioSession
+
 	// returns the audio graph that is associated with this input
 	Subgraph() audio.Node
 
@@ -43,9 +46,14 @@ type AudioSessionInput interface {
 }
 
 type BaseAudioSessionInput struct {
+	session        *AudioSession
 	subgraph       audio.Node
 	state          audioInputState
 	onStoppedEvent *events.EventEmitter[struct{}]
+}
+
+func (i BaseAudioSessionInput) Session() *AudioSession {
+	return i.session
 }
 
 func (i BaseAudioSessionInput) Subgraph() audio.Node {
@@ -81,7 +89,17 @@ func (i *BaseAudioSessionInput) Equals(rhs AudioSessionInput) bool {
 	return i == rhs.asBase()
 }
 
+func NewBaseAudioSessionInput(session *AudioSession, subgraph audio.Node) *BaseAudioSessionInput {
+	return &BaseAudioSessionInput{
+		session:        session,
+		subgraph:       subgraph,
+		state:          audioInputState_Running,
+		onStoppedEvent: events.NewEventEmitter[struct{}](),
+	}
+}
+
 type AudioSessionOutput interface {
+	Session() *AudioSession
 	Subgraph() audio.Node
 
 	Equals(rhs AudioSessionOutput) bool
@@ -89,7 +107,12 @@ type AudioSessionOutput interface {
 }
 
 type BaseAudioSessionOutput struct {
+	session  *AudioSession
 	subgraph audio.Node
+}
+
+func (o BaseAudioSessionOutput) Session() *AudioSession {
+	return o.session
 }
 
 func (o BaseAudioSessionOutput) Subgraph() audio.Node {
@@ -102,6 +125,13 @@ func (o *BaseAudioSessionOutput) asBase() *BaseAudioSessionOutput {
 
 func (i *BaseAudioSessionOutput) Equals(rhs AudioSessionOutput) bool {
 	return i == rhs.asBase()
+}
+
+func NewBaseAudioSessionOutput(session *AudioSession, subgraph audio.Node) *BaseAudioSessionOutput {
+	return &BaseAudioSessionOutput{
+		session:  session,
+		subgraph: subgraph,
+	}
 }
 
 type AudioSessionEvent_OnInputRemoved struct {
@@ -123,34 +153,23 @@ type AudioSession struct {
 	rootMixer  *audio.MixerNode
 	audioGraph *audio.Graph
 
-	inputWg  sync.WaitGroup // how many producers are still producing data
-	outputWg sync.WaitGroup // how many consumers are still consuming data
-
 	OnInputRemoved  *events.EventEmitter[AudioSessionEvent_OnInputRemoved]
 	OnOutputRemoved *events.EventEmitter[AudioSessionEvent_OnOutputRemoved]
 }
 
-func (s *AudioSession) AddInput(node audio.Node) *BaseAudioSessionInput {
+func (s *AudioSession) AddInput(input AudioSessionInput) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.audioGraph.AddNode(node)
-	s.audioGraph.CreateConnection(node, s.rootMixer)
-
-	s.inputWg.Add(1)
-
-	input := &BaseAudioSessionInput{subgraph: node, state: audioInputState_Running, onStoppedEvent: events.NewEventEmitter[struct{}]()}
+	s.audioGraph.AddNode(input.Subgraph())
+	s.audioGraph.CreateConnection(input.Subgraph(), s.rootMixer)
 	s.inputs = append(s.inputs, input)
-
-	return input
 }
 
 func (s *AudioSession) RemoveInput(input AudioSessionInput) {
 	func() {
 		s.Lock()
 		defer s.Unlock()
-
-		s.inputWg.Done()
 
 		s.inputs = slices.DeleteFunc(s.inputs, func(i AudioSessionInput) bool { return i.Equals(input) })
 		s.audioGraph.RemoveNode(input.Subgraph())
@@ -159,19 +178,20 @@ func (s *AudioSession) RemoveInput(input AudioSessionInput) {
 	s.OnInputRemoved.Broadcast(AudioSessionEvent_OnInputRemoved{InputRemoved: input, NInputsRemaining: len(s.inputs)})
 }
 
-func (s *AudioSession) AddOutput(node audio.Node) *BaseAudioSessionOutput {
+func (s *AudioSession) Inputs() []AudioSessionInput {
 	s.Lock()
 	defer s.Unlock()
 
-	s.outputWg.Add(1)
+	return s.inputs[:]
+}
 
-	s.audioGraph.AddNode(node)
-	s.audioGraph.CreateConnection(s.rootMixer, node)
+func (s *AudioSession) AddOutput(output AudioSessionOutput) {
+	s.Lock()
+	defer s.Unlock()
 
-	output := &BaseAudioSessionOutput{subgraph: node}
+	s.audioGraph.AddNode(output.Subgraph())
+	s.audioGraph.CreateConnection(s.rootMixer, output.Subgraph())
 	s.outputs = append(s.outputs, output)
-
-	return output
 }
 
 func (s *AudioSession) RemoveOutput(output AudioSessionOutput) {
@@ -179,13 +199,18 @@ func (s *AudioSession) RemoveOutput(output AudioSessionOutput) {
 		s.Lock()
 		defer s.Unlock()
 
-		s.outputWg.Done()
-
 		s.outputs = slices.DeleteFunc(s.outputs, func(o AudioSessionOutput) bool { return o.Equals(output) })
 		s.audioGraph.RemoveNode(output.Subgraph())
 	}()
 
 	s.OnOutputRemoved.Broadcast(AudioSessionEvent_OnOutputRemoved{OutputRemoved: output, NOutputsRemaining: len(s.outputs)})
+}
+
+func (s *AudioSession) Outputs() []AudioSessionOutput {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.outputs[:]
 }
 
 func (s *AudioSession) StartTicking() {
@@ -225,7 +250,12 @@ func New(logger *logging.Logger) *AudioSession {
 		OnOutputRemoved: events.NewEventEmitter[AudioSessionEvent_OnOutputRemoved](),
 	}
 
-	allAudioSessions = append(allAudioSessions, &audioSession)
+	func() {
+		allAudioSessions.Lock()
+		defer allAudioSessions.Unlock()
+
+		allAudioSessions.Data = append(allAudioSessions.Data, &audioSession)
+	}()
 
 	return &audioSession
 }

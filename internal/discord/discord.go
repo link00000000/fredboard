@@ -53,11 +53,14 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 	logger.SetData("session", &session)
 	logger.SetData("interaction", &interaction)
 
+	// TODO: recover from any panics
 	switch data := interaction.ApplicationCommandData(); data.Name {
 	case "yt":
 		go commands.YT(session, interaction, logger)
+	case "join":
+		go commands.Join(logger, session, interaction)
 	case "leave":
-		go commands.Leave(session, interaction, logger)
+		go commands.Leave(logger, session, interaction)
 	default:
 		logger.Warn("ignoring invalid command")
 	}
@@ -93,8 +96,13 @@ func (bot *Bot) Run(ctx context.Context) {
 		},
 		{
 			Type:        discordgo.ChatApplicationCommand,
+			Name:        "join",
+			Description: "Join the voice channel",
+		},
+		{
+			Type:        discordgo.ChatApplicationCommand,
 			Name:        "leave",
-			Description: "Stop playing and leave the voice channel",
+			Description: "Leave the voice channel",
 		},
 	})
 

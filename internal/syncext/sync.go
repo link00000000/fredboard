@@ -16,3 +16,7 @@ func (m *SyncData[T]) Do(f func(*T)) {
 func (m *SyncData[T]) Set(value T) {
 	m.Do(func(mm *T) { *mm = value })
 }
+
+func NewSyncData[T any](data T) *SyncData[T] {
+	return &SyncData[T]{Data: data}
+}

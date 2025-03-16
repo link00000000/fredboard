@@ -50,7 +50,9 @@ func (s *AudioSession) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality
 
 	// TODO: Put 0x8000 in config
 	videoReaderNode := audio.NewReaderNode(s.logger, transcoder, 0x8000)
-	input := &ytdlpAudioSessionInput{BaseAudioSessionInput: s.AddInput(videoReaderNode)}
+
+	input := &ytdlpAudioSessionInput{BaseAudioSessionInput: NewBaseAudioSessionInput(s, videoReaderNode)}
+	s.AddInput(input)
 
 	go func() {
 		err := <-videoReaderExitChan

@@ -4,13 +4,17 @@ import (
 	"errors"
 	"time"
 
+	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
 
 var ErrOptNotFound = errors.New("option not found")
 var ErrInvalidOptType = errors.New("invalid option type")
 
-var ErrVoiceChannelNotFound = errors.New("voice channel not found")
+var ErrVoiceChannelNotFound = errors.New("discord voice channel not found")
+
+var ErrVoiceConnectionNotFound = errors.New("discord voice connection does not exist")
+var ErrVoiceConnectionAlreadyExists = errors.New("discord voice connection already exists")
 
 // get an option from an interaction
 //
@@ -62,29 +66,113 @@ func FindCreatorVoiceChannelId(session *discordgo.Session, interaction *discordg
 	return vc, nil
 }
 
+func FindVoiceConn(session *discordgo.Session, interaction *discordgo.Interaction) (*discordgo.VoiceConnection, error) {
+	if conn, ok := session.VoiceConnections[interaction.GuildID]; ok {
+		return conn, nil
+	}
+
+	return nil, ErrVoiceConnectionNotFound
+}
+
+func FindOrCreateVoiceConn(session *discordgo.Session, interaction *discordgo.Interaction) (*discordgo.VoiceConnection, error) {
+	if conn, ok := session.VoiceConnections[interaction.GuildID]; ok {
+		return conn, ErrVoiceConnectionAlreadyExists
+	}
+
+	cId, err := FindCreatorVoiceChannelId(session, interaction)
+
+	if err != nil {
+		return nil, err
+	}
+
+	const mute = false
+	const deaf = true
+	conn, err := session.ChannelVoiceJoin(interaction.GuildID, cId, mute, deaf)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
 // inform discord that the interaction has been acknowledged and will be responded to later
-func Acknowledge(session *discordgo.Session, interaction *discordgo.Interaction) error {
-	return session.InteractionRespond(interaction, &discordgo.InteractionResponse{
+func Acknowledge(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction) error {
+	logger.Debug("responding to discord interaction with acknowledgment", "session", session, "interaction", interaction)
+
+	err := Acknowledge_NoLog(session, interaction)
+	if err != nil {
+		logger.Error("failed to respond to discord interaction with acknowledgment", "session", session, "interaction", interaction, "error", err)
+	}
+
+	return err
+}
+
+// inform discord that the interaction has been acknowledged and will be responded to later
+func Acknowledge_NoLog(session *discordgo.Session, interaction *discordgo.Interaction) error {
+	err := session.InteractionRespond(interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
+
+	return err
 }
 
 // respond to an interaction with a formatted error
-func RespondWithError(session *discordgo.Session, interaction *discordgo.Interaction, message string, err error) error {
-	return session.InteractionRespond(interaction, &discordgo.InteractionResponse{
+func RespondWithError(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction, inErr error) error {
+	logger.Debug("responding to discord interaction with error", "session", session, "interaction", interaction, "inErr", inErr)
+
+	err := RespondWithErrorMessage_NoLog(session, interaction, "There was an unexpected errror", inErr)
+	if err != nil {
+		logger.Error("failed to respond to discord interaction with error", "session", session, "interaction", interaction, "inErr", inErr, "error", err)
+	}
+
+	return inErr
+}
+
+// respond to an interaction with a formatted error and a custom message
+func RespondWithErrorMessage(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction, message string, inErr error) error {
+	logger.Debug("responding to discord interaction with error", "session", session, "interaction", interaction, "message", message, "inErr", inErr)
+
+	err := RespondWithErrorMessage_NoLog(session, interaction, message, inErr)
+	if err != nil {
+		logger.Error("failed to respond to discord interaction with error", "session", session, "interaction", interaction, "message", message, "inErr", inErr, "error", err)
+	}
+
+	return inErr
+}
+
+// respond to an interaction with a formatted error and a custom message
+func RespondWithErrorMessage_NoLog(session *discordgo.Session, interaction *discordgo.Interaction, message string, inErr error) error {
+	err := session.InteractionRespond(interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Embeds: []*discordgo.MessageEmbed{
-				&discordgo.MessageEmbed{Title: message, Description: err.Error(), Color: 0xeb3b40, Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")},
+				{Title: message, Description: inErr.Error(), Color: 0xeb3b40, Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05Z07:00")},
 			},
 		},
 	})
+
+	return err
 }
 
 // respond to an interaction with a plain string
-func RespondWithMessage(session *discordgo.Session, interaction *discordgo.Interaction, message string) error {
-	return session.InteractionRespond(interaction, &discordgo.InteractionResponse{
+func RespondWithMessage(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction, message string) error {
+	logger.Debug("responding to discord interaction with message", "session", session, "interaction", interaction, "message", message)
+
+	err := RespondWithMessage_NoLog(session, interaction, message)
+	if err != nil {
+		logger.Error("failed to respond to discord interaction with message", "session", session, "interaction", interaction, "message", message, "error", err)
+	}
+
+	return err
+}
+
+// respond to an interaction with a plain string
+func RespondWithMessage_NoLog(session *discordgo.Session, interaction *discordgo.Interaction, message string) error {
+	err := session.InteractionRespond(interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{Content: message},
 	})
+
+	return err
 }

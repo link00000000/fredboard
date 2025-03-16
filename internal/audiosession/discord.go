@@ -1,6 +1,7 @@
 package audiosession
 
 import (
+	"errors"
 	"fmt"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio"
@@ -10,13 +11,35 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type discordVoiceConnAudioSessionOutput struct {
+var ErrOutputNotFound = errors.New("audio session output not found")
+
+func FindDiscordVoiceConnAudioSessionOutput(conn *discordgo.VoiceConnection) (*DiscordVoiceConnAudioSessionOutput, error) {
+	allAudioSessions.Lock()
+	defer allAudioSessions.Unlock()
+
+	for _, s := range allAudioSessions.Data {
+		for _, o := range s.Outputs() {
+			do, ok := o.(*DiscordVoiceConnAudioSessionOutput)
+			if ok && do.HasConn(conn) {
+				return do, nil
+			}
+		}
+	}
+
+	return nil, ErrOutputNotFound
+}
+
+type DiscordVoiceConnAudioSessionOutput struct {
 	*BaseAudioSessionOutput
 	conn *discordgo.VoiceConnection
 }
 
-func (conn *discordVoiceConnAudioSessionOutput) Subgraph() audio.Node {
-	return conn.subgraph
+func (o *DiscordVoiceConnAudioSessionOutput) Subgraph() audio.Node {
+	return o.subgraph
+}
+
+func (o *DiscordVoiceConnAudioSessionOutput) HasConn(conn *discordgo.VoiceConnection) bool {
+	return o.conn == conn
 }
 
 func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (AudioSessionOutput, error) {
@@ -28,7 +51,8 @@ func (s *AudioSession) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection
 	}
 
 	opusSendNode := audio.NewWriterNode(s.logger, opusEncoderWriter)
-	output := &discordVoiceConnAudioSessionOutput{BaseAudioSessionOutput: s.AddOutput(opusSendNode), conn: conn}
+	output := &DiscordVoiceConnAudioSessionOutput{BaseAudioSessionOutput: NewBaseAudioSessionOutput(s, opusSendNode), conn: conn}
+	s.AddOutput(output)
 
 	return output, nil
 }

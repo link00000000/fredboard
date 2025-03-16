@@ -35,7 +35,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	if err != nil {
 		logger.Error("failed to get opts", "error", err)
 
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		err := interactions.RespondWithErrorMessage_NoLog(session, interaction, "Unexpected error", err)
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -51,7 +51,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 		logger.SetData("existingVoiceConn", existingVoiceConn)
 		logger.Info("voice connection already active for guild, rejecting command")
 
-		err := interactions.RespondWithMessage(session, interaction, "FredBoard is already in a voice channel in this guild. Wait until FredBoard has left and try again.")
+		err := interactions.RespondWithMessage_NoLog(session, interaction, "FredBoard is already in a voice channel in this guild. Wait until FredBoard has left and try again.")
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -65,7 +65,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	if err == interactions.ErrVoiceChannelNotFound {
 		logger.Debug("interaction creator not in a voice channel", "error", err)
 
-		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
+		err := interactions.RespondWithMessage_NoLog(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -76,7 +76,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	if err != nil {
 		logger.Error("failed to find interaction creator's voice channel id", "error", err)
 
-		err := interactions.RespondWithMessage(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
+		err := interactions.RespondWithMessage_NoLog(session, interaction, "You must be in a voice channel to use this command. Join a voice channel and try again.")
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -97,7 +97,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	if err != nil {
 		logger.Error("failed to join voice channel", "error", err)
 
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		err := interactions.RespondWithErrorMessage_NoLog(session, interaction, "Unexpected error", err)
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -114,7 +114,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	if err != nil {
 		logger.Error("failed to create discord voice conn output on audio session", "error", err)
 
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		err := interactions.RespondWithErrorMessage_NoLog(session, interaction, "Unexpected error", err)
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -128,7 +128,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	if err != nil {
 		logger.Error("failed to create discord voice conn output on audio session", "error", err)
 
-		err := interactions.RespondWithError(session, interaction, "Unexpected error", err)
+		err := interactions.RespondWithErrorMessage_NoLog(session, interaction, "Unexpected error", err)
 		if err != nil {
 			logger.Error("failed to respond to interaction", "error", err)
 		}
@@ -163,7 +163,7 @@ func YT(session *discordgo.Session, interaction *discordgo.Interaction, log *log
 	go audioSession.StartTicking()
 
 	// notify user that everything is ok
-	err = interactions.RespondWithMessage(session, interaction, "Playing...")
+	err = interactions.RespondWithMessage_NoLog(session, interaction, "Playing...")
 	if err != nil {
 		logger.Error("failed to respond to interaction", "error", err)
 	}
