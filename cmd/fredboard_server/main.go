@@ -13,12 +13,7 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/discord"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
-)
-
-// These values are populated by the linker using -ldflags "-X main.version=x.x.x -X main.commit=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-var (
-	buildVersion string
-	buildCommit  string
+	"accidentallycoded.com/fredboard/v3/internal/version"
 )
 
 var logger *logging.Logger
@@ -97,6 +92,8 @@ func init() {
 }
 
 func main() {
+	logger.Info("starting FredBoard", "version", version.String())
+
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
