@@ -25,7 +25,11 @@ jobs:
       - name: 'Build Docker image'
         run: |
           docker build \
-            --build-arg FREDBOARD_SERVER_COMMIT=${{ github.sha }} \
+            --build-arg FREDBOARD_VERSION_MAJOR=3 \
+            --build-arg FREDBOARD_VERSION_MINOR=0 \
+            --build-arg FREDBOARD_VERSION_PATCH=0 \
+            --build-arg FREDBOARD_VERSION_COMMIT=${{ github.sha }} \
+            --build-arg FREDBOARD_VERSION_DATE=$(date --iso-8601=seconds) \
             --tag ghcr.io/link00000000/fredboard-server:latest \
             --tag ghcr.io/link00000000/fredboard-server:${{ github.sha }} \
             .
