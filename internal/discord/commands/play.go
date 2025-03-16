@@ -10,41 +10,41 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type ytCommandOptions struct {
+type playCommandOptions struct {
 	url string
 }
 
-func getYtOpts(interaction *discordgo.Interaction) (*ytCommandOptions, error) {
+func getPlayCommandOptions(interaction *discordgo.Interaction) (*playCommandOptions, error) {
 	url, err := interactions.GetRequiredStringOpt(interaction, "url")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get required option \"url\": %w", err)
 	}
 
-	return &ytCommandOptions{url}, nil
+	return &playCommandOptions{url}, nil
 }
 
-func Yt(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction) {
+func Play(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction) {
 	if interactions.Acknowledge(logger, session, interaction) != nil {
 		return
 	}
 
-	opts, err := getYtOpts(interaction)
+	opts, err := getPlayCommandOptions(interaction)
 	if err != nil {
-		logger.Error("failed to execute /Yt command due to failure while getting command options", "interaction", interaction, "error", err)
+		logger.Error("failed to execute /Play command due to failure while getting command options", "interaction", interaction, "error", err)
 		interactions.RespondWithError(logger, session, interaction, err)
 		return
 	}
 
 	audioSession, output, exists, err := interactions.FindOrCreateAudioSession(logger, session, interaction)
 	if err != nil {
-		logger.Error("failed to execute /Yt command due to failure while finding or creating audio session", "interaction", interaction, "error", err)
+		logger.Error("failed to execute /Play command due to failure while finding or creating audio session", "interaction", interaction, "error", err)
 		interactions.RespondWithError(logger, session, interaction, err)
 		return
 	}
 
 	input, err := audioSession.AddYtdlpInput(opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
 	if err != nil {
-		logger.Error("failed to execute /Yt command due error while adding ytdlp input to the audio session", "interaction", interaction, "audioSession", audioSession, "error", err)
+		logger.Error("failed to execute /Play command due error while adding ytdlp input to the audio session", "interaction", interaction, "audioSession", audioSession, "error", err)
 		interactions.RespondWithError(logger, session, interaction, err)
 		return
 
@@ -78,5 +78,5 @@ func Yt(logger *logging.Logger, session *discordgo.Session, interaction *discord
 	}
 
 	interactions.RespondWithMessage(logger, session, interaction, "Playing...")
-	logger.Debug("completed /Yt command", "interaction", interaction, "audioSession", audioSession, "input", input, "output", output)
+	logger.Debug("completed /Play command", "interaction", interaction, "audioSession", audioSession, "input", input, "output", output)
 }

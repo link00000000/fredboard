@@ -46,8 +46,8 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 
 	// TODO: recover from any panics
 	switch data := interaction.ApplicationCommandData(); data.Name {
-	case "yt":
-		go commands.Yt(logger, session, interaction)
+	case "play":
+		go commands.Play(logger, session, interaction)
 	case "join":
 		go commands.Join(logger, session, interaction)
 	case "leave":
@@ -73,13 +73,13 @@ func (bot *Bot) Run(ctx context.Context) {
 	newCmds, err := session.ApplicationCommandBulkOverwrite(bot.appId, "", []*discordgo.ApplicationCommand{
 		{
 			Type:        discordgo.ChatApplicationCommand,
-			Name:        "yt",
-			Description: "Play a YouTube video",
+			Name:        "play",
+			Description: "Play audio with a url",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "url",
-					Description: "Url to the YouTube video to play",
+					Description: "Url to the audio to play",
 					Required:    true,
 				},
 			},
