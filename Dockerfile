@@ -1,5 +1,8 @@
-ARG FREDBOARD_SERVER_VERSION=""
-ARG FREDBOARD_SERVER_COMMIT=""
+ARG FREDBOARD_VERSION_MAJOR=""
+ARG FREDBOARD_VERSION_MINOR=""
+ARG FREDBOARD_VERSION_PATCH=""
+ARG FREDBOARD_VERSION_COMMIT=""
+ARG FREDBOARD_VERSION_DATE=""
 
 FROM alpine:3.21 AS builder
 
@@ -22,6 +25,6 @@ FROM alpine:3.21
 RUN apk add --no-cache opus go ffmpeg yt-dlp
 
 RUN mkdir /app
-COPY --from=builder /build/result/fredboard-server /app/fredboard-server
+COPY --from=builder /build/bin/fredboard-server /app/fredboard-server
 
 CMD ["/app/fredboard-server"]
