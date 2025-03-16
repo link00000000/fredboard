@@ -78,5 +78,5 @@ func Play(logger *logging.Logger, session *discordgo.Session, interaction *disco
 	}
 
 	interactions.RespondWithMessage(logger, session, interaction, "Playing...")
-	logger.Debug("completed /Play command", "interaction", interaction, "audioSession", audioSession, "input", input, "output", output)
+	logger.Debug("completed /Yt command", "interaction", interaction, "audioSession", audioSession, "input", input, "output", output)
 }

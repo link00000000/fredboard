@@ -190,7 +190,10 @@ func (s *Session) Inputs() []Input {
 	s.Lock()
 	defer s.Unlock()
 
-	return s.inputs[:]
+	inputs := make([]Input, len(s.inputs))
+	copy(inputs, s.inputs)
+
+	return inputs
 }
 
 func (s *Session) AddOutput(output Output) {
@@ -218,7 +221,10 @@ func (s *Session) Outputs() []Output {
 	s.Lock()
 	defer s.Unlock()
 
-	return s.outputs[:]
+	outputs := make([]Output, len(s.outputs))
+	copy(outputs, s.outputs)
+
+	return outputs
 }
 
 func (s *Session) State() SessionState {
