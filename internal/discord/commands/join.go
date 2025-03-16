@@ -12,16 +12,16 @@ func Join(logger *logging.Logger, session *discordgo.Session, interaction *disco
 		return
 	}
 
-	conn, err := interactions.FindOrCreateVoiceConn(session, interaction)
-	if err == interactions.ErrVoiceConnectionAlreadyExists {
-		logger.Debug("rejecting Join command due to existing discord voice connection", "interaction", interaction, "conn", conn)
-		interactions.RespondWithMessage(logger, session, interaction, "FredBoard is already in a voice channel on this server.")
+	conn, exists, err := interactions.FindOrCreateVoiceConn(session, interaction)
+	if err != nil {
+		logger.Error("failed to execute /Join command due to failure while finding or creating voice connection", "interaction", interaction, "error", err)
+		interactions.RespondWithError(logger, session, interaction, err)
 		return
 	}
 
-	if err != nil {
-		logger.Error("failed to execute Join command due to an error while creating a new discord voice connection", "interaction", interaction, "error", err)
-		interactions.RespondWithError(logger, session, interaction, err)
+	if exists {
+		logger.Debug("rejecting /Join command due to existing discord voice connection", "interaction", interaction, "conn", conn)
+		interactions.RespondWithMessage(logger, session, interaction, "FredBoard is already in a voice channel on this server.")
 		return
 	}
 
@@ -29,6 +29,14 @@ func Join(logger *logging.Logger, session *discordgo.Session, interaction *disco
 
 	audioSession := audiosession.New(logger)
 	output, err := audioSession.AddDiscordVoiceConnOutput(conn)
+
+	if err != nil {
+		logger.Error("failed to execute /Join command due error while adding discord voice conn output to the audio session", "interaction", interaction, "conn", conn, "audioSession", audioSession, "error", err)
+		interactions.RespondWithError(logger, session, interaction, err)
+		return
+
+		// TODO: destroy audio session
+	}
 
 	audioSession.OnOutputRemoved.AddDelegate(func(param audiosession.SessionEvent_OnOutputRemoved) {
 		if param.OutputRemoved == output {
@@ -39,12 +47,6 @@ func Join(logger *logging.Logger, session *discordgo.Session, interaction *disco
 		}
 	})
 
-	if err != nil {
-		logger.Error("failed to execute Join command due error while adding discord voice conn to the audio session", "interaction", interaction, "conn", conn, "audioSession", audioSession, "error", err)
-		interactions.RespondWithError(logger, session, interaction, err)
-		return
-	}
-
 	interactions.RespondWithMessage(logger, session, interaction, "Joined")
-	logger.Debug("completed Join command", "interaction", interaction, "conn", conn, "audioSession", audioSession, "output", output)
+	logger.Debug("completed /Join command", "interaction", interaction, "conn", conn, "audioSession", audioSession, "output", output)
 }

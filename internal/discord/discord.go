@@ -23,10 +23,7 @@ func (bot *Bot) onReady(session *discordgo.Session, event *discordgo.Ready) {
 
 	defer logger.Close()
 
-	logger.SetData("session", &session)
-	logger.SetData("event", &event)
-
-	logger.Info("session opened")
+	logger.Info("session opened", "session", session, "event", event)
 }
 
 func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo.InteractionCreate) {
@@ -34,10 +31,7 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo
 
 	defer logger.Close()
 
-	logger.SetData("session", &session)
-	logger.SetData("event", &event)
-
-	logger.Debug("event received")
+	logger.Debug("event received", "session", session, "event", event)
 
 	switch event.Data.Type() {
 	case discordgo.InteractionApplicationCommand:
@@ -50,19 +44,16 @@ func (bot *Bot) onInteractionCreate(session *discordgo.Session, event *discordgo
 func onApplicationCommandInteraction(session *discordgo.Session, interaction *discordgo.Interaction, log *logging.Logger) {
 	logger := log.NewChildLogger()
 
-	logger.SetData("session", &session)
-	logger.SetData("interaction", &interaction)
-
 	// TODO: recover from any panics
 	switch data := interaction.ApplicationCommandData(); data.Name {
 	case "yt":
-		go commands.YT(session, interaction, logger)
+		go commands.Yt(logger, session, interaction)
 	case "join":
 		go commands.Join(logger, session, interaction)
 	case "leave":
 		go commands.Leave(logger, session, interaction)
 	default:
-		logger.Warn("ignoring invalid command")
+		logger.Warn("ignoring invalid command", "session", session, "interaction", interaction, "data", data)
 	}
 }
 
@@ -72,14 +63,13 @@ func (bot *Bot) Run(ctx context.Context) {
 		bot.logger.Fatal("failed to create discord session", "error", err)
 	}
 
-	bot.logger.SetData("session", &session)
-	bot.logger.Debug("created discord session")
+	bot.logger.Debug("created discord session", "session", session)
 
-	bot.logger.Debug("registering handlers")
+	bot.logger.Debug("registering handlers", "session", session)
 	session.AddHandler(bot.onReady)
 	session.AddHandler(bot.onInteractionCreate)
 
-	bot.logger.Debug("registering commands")
+	bot.logger.Debug("registering commands", "session", session)
 	newCmds, err := session.ApplicationCommandBulkOverwrite(bot.appId, "", []*discordgo.ApplicationCommand{
 		{
 			Type:        discordgo.ChatApplicationCommand,
@@ -107,35 +97,30 @@ func (bot *Bot) Run(ctx context.Context) {
 	})
 
 	if err != nil {
-		bot.logger.Fatal("failed to register new commands", "error", err)
+		bot.logger.Fatal("failed to register new commands", "session", session, "error", err)
 	}
-
-	cmdLogger := bot.logger.NewChildLogger()
 
 	for _, cmd := range newCmds {
-		cmdLogger.SetData("cmd", &cmd)
-		cmdLogger.Info("registered command")
+		bot.logger.Info("registered command", "session", session, "cmd", cmd)
 	}
-
-	cmdLogger.Close()
 
 	err = session.Open()
 	if err != nil {
-		bot.logger.Fatal("failed to open discord session", "error", err)
+		bot.logger.Fatal("failed to open discord session", "session", session, "error", err)
 	}
 
-	defer bot.logger.Info("discord bot shutdown")
+	defer bot.logger.Info("discord bot shutdown", "session", session)
 
 	defer func() {
 		err := session.Close()
 		if err != nil {
-			bot.logger.Fatal("failed to close discord session", "error", err)
+			bot.logger.Fatal("failed to close discord session", "session", session, "error", err)
 			return
 		}
 
-		bot.logger.Info("discord session closed")
+		bot.logger.Info("discord session closed", "session", session)
 	}()
 
 	<-ctx.Done()
-	bot.logger.Info("stopping discord bot")
+	bot.logger.Info("stopping discord bot", "session", session)
 }

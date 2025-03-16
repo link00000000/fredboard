@@ -113,7 +113,6 @@ type Logger struct {
 
 	panicOnError bool
 	handlers     []Handler
-	data         map[string]any
 }
 
 func NewLogger() *Logger {
@@ -122,7 +121,6 @@ func NewLogger() *Logger {
 		children: make([]*Logger, 0),
 		state:    LoggerState_Open,
 		handlers: make([]Handler, 0),
-		data:     make(map[string]any),
 	}
 }
 
@@ -204,10 +202,6 @@ func (logger *Logger) PanicOnError() bool {
 
 func (logger *Logger) SetPanicOnError(value bool) {
 	logger.RootLogger().panicOnError = value
-}
-
-func (logger *Logger) SetData(key string, value any) {
-	logger.data[key] = value
 }
 
 func (logger *Logger) Log(level Level, message string, args ...any) error {

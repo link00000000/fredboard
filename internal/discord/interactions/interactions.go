@@ -14,7 +14,6 @@ var ErrInvalidOptType = errors.New("invalid option type")
 var ErrVoiceChannelNotFound = errors.New("discord voice channel not found")
 
 var ErrVoiceConnectionNotFound = errors.New("discord voice connection does not exist")
-var ErrVoiceConnectionAlreadyExists = errors.New("discord voice connection already exists")
 
 // get an option from an interaction
 //
@@ -74,26 +73,22 @@ func FindVoiceConn(session *discordgo.Session, interaction *discordgo.Interactio
 	return nil, ErrVoiceConnectionNotFound
 }
 
-func FindOrCreateVoiceConn(session *discordgo.Session, interaction *discordgo.Interaction) (*discordgo.VoiceConnection, error) {
+func FindOrCreateVoiceConn(session *discordgo.Session, interaction *discordgo.Interaction) (conn *discordgo.VoiceConnection, exists bool, err error) {
 	if conn, ok := session.VoiceConnections[interaction.GuildID]; ok {
-		return conn, ErrVoiceConnectionAlreadyExists
+		return conn, true, nil
 	}
 
 	cId, err := FindCreatorVoiceChannelId(session, interaction)
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	const mute = false
 	const deaf = true
-	conn, err := session.ChannelVoiceJoin(interaction.GuildID, cId, mute, deaf)
+	conn, err = session.ChannelVoiceJoin(interaction.GuildID, cId, mute, deaf)
 
-	if err != nil {
-		return nil, err
-	}
-
-	return conn, nil
+	return conn, false, err
 }
 
 // inform discord that the interaction has been acknowledged and will be responded to later
