@@ -2,44 +2,25 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug fredboard_server",
+      "name": "Debug fredboard",
       "type": "go",
       "request": "launch",
-      "program": "${workspaceFolder}/cmd/fredboard_server/main.go",
+      "program": "${workspaceFolder}/cmd/fredboard/main.go",
       "outputMode": "remote",
       "env": {
         "FREDBOARD_CONFIG": "./.env/config.json"
       }
     },
     {
-      "name": "Debug audiograph-gui",
+      "name": "Debug fredboard (with GUI)",
       "type": "go",
       "request": "launch",
-      "program": "${workspaceFolder}/cmd/audiograph-gui/main.go",
+      "program": "${workspaceFolder}/cmd/fredboard/main.go",
       "outputMode": "remote",
       "env": {
         "FREDBOARD_CONFIG": "./.env/config.json"
-      }
-    },
-    {
-      "name": "Debug youtube-downloader",
-      "type": "go",
-      "request": "launch",
-      "program": "${workspaceFolder}/cmd/youtube_downloader/main.go",
-      "outputMode": "remote",
-      "env": {
-        "FREDBOARD_CONFIG": "./.env/config.json"
-      }
-    },
-    {
-      "name": "Debug audiograph-parallel",
-      "type": "go",
-      "request": "launch",
-      "program": "${workspaceFolder}/cmd/audiograph_parallel/main.go",
-      "outputMode": "remote",
-      "env": {
-        "FREDBOARD_CONFIG": "./.env/config.json"
-      }
+      },
+      "buildFlags": "-tags=gui"
     },
     {
       "name": "Test current file",

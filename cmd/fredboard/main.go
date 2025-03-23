@@ -11,6 +11,7 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/discord"
+	"accidentallycoded.com/fredboard/v3/internal/gui"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
 	"accidentallycoded.com/fredboard/v3/internal/version"
@@ -102,7 +103,23 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer logger.Debug("terminating discord bot thread")
+
+		logger.Debug("starting discord bot thread")
 		bot.Run(ctx)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer logger.Debug("terminating ui thread")
+
+		logger.Debug("starting ui thread")
+		err := gui.Run(ctx, logger)
+
+		if err != nil {
+			logger.Panic("error occurred while running ui", "error", err)
+		}
 	}()
 
 	logger.Info("press ^c to exit")
