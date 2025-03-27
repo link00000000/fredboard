@@ -107,6 +107,8 @@ func main() {
 
 		logger.Debug("starting discord bot thread")
 		bot.Run(ctx)
+
+		cancel()
 	}()
 
 	wg.Add(1)
@@ -120,16 +122,22 @@ func main() {
 		if err != nil {
 			logger.Panic("error occurred while running ui", "error", err)
 		}
+
+		cancel()
 	}()
 
 	logger.Info("press ^c to exit")
 
 	intSig := make(chan os.Signal, 1)
 	signal.Notify(intSig, os.Interrupt)
-	<-intSig
 
-	logger.Info("received interrupt signal")
+	select {
+	case <-intSig:
+		logger.Info("received interrupt signal")
+		cancel()
+	case <-ctx.Done():
+		logger.Info("freboard closed")
+	}
 
-	cancel()
 	wg.Wait()
 }
