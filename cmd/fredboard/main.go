@@ -116,7 +116,7 @@ func main() {
 
 	routineManager := syncext.NewRoutineManager()
 
-	routineManager.StartRoutine(gui.NewUIRoutine("ui", logger))
+	routineManager.StartRoutine(gui.NewUIRoutine(logger, "ui"))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
 	routineManager.WaitForAllRoutines()

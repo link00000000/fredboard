@@ -102,7 +102,7 @@ func (r *UIRoutine) Terminate(force bool, requestedBy syncext.Routine) {
 	r.term <- force
 }
 
-func NewUIRoutine(name string, logger *logging.Logger) syncext.Routine {
+func NewUIRoutine(logger *logging.Logger, name string) syncext.Routine {
 	return &UIRoutine{
 		name:    name,
 		logger:  logger,
