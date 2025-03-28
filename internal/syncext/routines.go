@@ -5,6 +5,8 @@ import (
 	"math"
 	"slices"
 	"sync"
+
+	"accidentallycoded.com/fredboard/v3/internal/events"
 )
 
 var ErrRequestTermAllRoutines = errors.New("termination of all routines requested")
@@ -32,14 +34,18 @@ type Routine interface {
 	// notify the routine that it should terminate.
 	// this should never block
 	Terminate(force bool, requestedBy Routine)
+
+	// blocks until the routine is complete
+	Wait()
 }
 
 type BasicRoutine struct {
-	id     RoutineId
-	name   string
-	status string
-	f      func(term <-chan bool) error
-	term   chan bool
+	id        RoutineId
+	name      string
+	status    string
+	f         func(term <-chan bool) error
+	term      chan bool
+	doneEvent *events.EventEmitter[struct{}]
 }
 
 func (r BasicRoutine) Id() RoutineId {
@@ -63,7 +69,15 @@ func (r *BasicRoutine) SetStatus(status string) {
 }
 
 func (r *BasicRoutine) Run() error {
+	defer r.doneEvent.Broadcast(struct{}{})
 	return r.f(r.term)
+}
+
+func (r *BasicRoutine) Wait() {
+	done := make(chan struct{})
+	handle := r.doneEvent.AddChan(done)
+	<-done
+	r.doneEvent.RemoveDelegate(handle)
 }
 
 func (r *BasicRoutine) Terminate(force bool, requestedBy Routine) {
@@ -72,11 +86,12 @@ func (r *BasicRoutine) Terminate(force bool, requestedBy Routine) {
 
 func NewBasicRoutine(name string, f func(term <-chan bool) error) *BasicRoutine {
 	return &BasicRoutine{
-		id:     RoutineId_Invalid,
-		name:   name,
-		status: "TODO",
-		f:      f,
-		term:   make(chan bool, 1),
+		id:        RoutineId_Invalid,
+		name:      name,
+		status:    "TODO",
+		f:         f,
+		term:      make(chan bool, 1),
+		doneEvent: events.NewEventEmitter[struct{}](),
 	}
 }
 
@@ -86,7 +101,7 @@ type RoutineManager struct {
 	routines *SyncData[[]Routine]
 }
 
-func (m *RoutineManager) StartRoutine(routine Routine) {
+func (m *RoutineManager) StartRoutine(routine Routine) RoutineId {
 	id := m.addRoutine(routine)
 
 	m.wg.Add(1)
@@ -106,6 +121,20 @@ func (m *RoutineManager) StartRoutine(routine Routine) {
 			// TODO
 		}
 	}()
+
+	return id
+}
+
+func (m *RoutineManager) TerminateRoutine(id RoutineId, force bool) {
+	if routine := m.findRoutine(id); routine != nil {
+		routine.Terminate(force, nil)
+	}
+}
+
+func (m *RoutineManager) WaitForRoutine(id RoutineId) {
+	if routine := m.findRoutine(id); routine != nil {
+		routine.Wait()
+	}
 }
 
 func (m *RoutineManager) WaitForAllRoutines() {
@@ -119,6 +148,8 @@ func (m *RoutineManager) TerminateAllRoutines(force bool, requestedBy Routine) {
 	for _, v := range m.routines.Data {
 		v.Terminate(force, requestedBy)
 	}
+
+	m.routines.Data = m.routines.Data[:0]
 }
 
 func (m *RoutineManager) generateRoutineId() RoutineId {
@@ -159,6 +190,19 @@ func (m *RoutineManager) removeRoutine(id RoutineId) {
 	defer m.routines.Unlock()
 
 	m.routines.Data = slices.DeleteFunc(m.routines.Data, func(r Routine) bool { return r.Id() == id })
+}
+
+func (m *RoutineManager) findRoutine(id RoutineId) Routine {
+	m.routines.Lock()
+	defer m.routines.Unlock()
+
+	idx := slices.IndexFunc(m.routines.Data, func(routine Routine) bool { return routine.Id() == id })
+
+	if idx == -1 {
+		return nil
+	}
+
+	return m.routines.Data[idx]
 }
 
 func NewRoutineManager() *RoutineManager {

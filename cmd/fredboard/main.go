@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"time"
 
 	"accidentallycoded.com/fredboard/v3/cmd/fredboard/gui"
 	"accidentallycoded.com/fredboard/v3/internal/config"
@@ -116,8 +117,15 @@ func main() {
 
 	routineManager := syncext.NewRoutineManager()
 
-	routineManager.StartRoutine(gui.NewUIRoutine(logger, "ui"))
+	uiRoutineId := routineManager.StartRoutine(gui.NewUIRoutine(logger, "ui"))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
+
+	go func() {
+		time.Sleep(10 * time.Second)
+		routineManager.TerminateRoutine(uiRoutineId, false)
+		routineManager.WaitForRoutine(uiRoutineId)
+	}()
+
 	routineManager.WaitForAllRoutines()
 }

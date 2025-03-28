@@ -6,6 +6,7 @@ import (
 	"errors"
 	"runtime"
 
+	"accidentallycoded.com/fredboard/v3/internal/events"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/AllenDang/cimgui-go/backend"
@@ -14,12 +15,13 @@ import (
 )
 
 type UIRoutine struct {
-	id      syncext.RoutineId
-	name    string
-	logger  *logging.Logger
-	term    chan bool
-	backend backend.Backend[glfwbackend.GLFWWindowFlags]
-	errs    *syncext.SyncData[[]error]
+	id        syncext.RoutineId
+	name      string
+	logger    *logging.Logger
+	term      chan bool
+	backend   backend.Backend[glfwbackend.GLFWWindowFlags]
+	errs      *syncext.SyncData[[]error]
+	doneEvent *events.EventEmitter[struct{}]
 }
 
 func (r UIRoutine) Id() syncext.RoutineId {
@@ -39,8 +41,11 @@ func (r UIRoutine) Status() string {
 }
 
 func (r *UIRoutine) Run() error {
+	defer r.doneEvent.Broadcast(struct{}{})
+
 	var err error
 	r.backend, err = backend.CreateBackend(glfwbackend.NewGLFWBackend())
+	r.logger.Debug("created GLFW backend", "backend", r.backend)
 
 	if err != nil {
 		return err
@@ -52,16 +57,25 @@ func (r *UIRoutine) Run() error {
 
 		r.backend.SetBgColor(imgui.NewVec4(0, 0, 0, 1.0))
 		r.backend.CreateWindow("FredBoard", 1200, 900)
-		r.backend.SetCloseCallback(func() { r.addError(syncext.ErrRequestTermAllRoutines) })
-		r.backend.SetBeforeDestroyContextHook(func() { close(uiWindowDestroyed) })
+		r.backend.SetCloseCallback(func() {
+			r.logger.Debug("UI closed, UIRoutine is requesting to terminate all routines")
+			r.addError(syncext.ErrRequestTermAllRoutines)
+		})
+		r.backend.SetBeforeDestroyContextHook(func() {
+			r.logger.Debug("UI destroyed")
+			close(uiWindowDestroyed)
+		})
 
+		r.logger.Debug("starting UI rendering loop")
 		r.backend.Run(r.renderLoop)
 	}()
 
 	for {
 		select {
 		case force := <-r.term:
+			r.logger.Debug("UIRoutine recieved term request", "force", force)
 			if force {
+				r.logger.Debug("UIRoutine forcefully terminating")
 				return errors.Join(r.getErrors()...)
 			}
 			r.destroyUI()
@@ -71,7 +85,15 @@ func (r *UIRoutine) Run() error {
 	}
 }
 
+func (r *UIRoutine) Wait() {
+	done := make(chan struct{})
+	handle := r.doneEvent.AddChan(done)
+	<-done
+	r.doneEvent.RemoveDelegate(handle)
+}
+
 func (r *UIRoutine) destroyUI() {
+	r.logger.Debug("destroying UI")
 	r.backend.SetShouldClose(true)
 }
 
@@ -104,11 +126,13 @@ func (r *UIRoutine) Terminate(force bool, requestedBy syncext.Routine) {
 
 func NewUIRoutine(logger *logging.Logger, name string) syncext.Routine {
 	return &UIRoutine{
-		name:    name,
-		logger:  logger,
-		term:    make(chan bool, 1),
-		backend: nil,
-		errs:    syncext.NewSyncData(make([]error, 0)),
+		id:        0,
+		name:      name,
+		logger:    logger,
+		term:      make(chan bool, 1),
+		backend:   nil,
+		errs:      syncext.NewSyncData(make([]error, 0)),
+		doneEvent: events.NewEventEmitter[struct{}](),
 	}
 }
 
