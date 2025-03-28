@@ -4,7 +4,6 @@ package gui
 
 import (
 	"context"
-	"errors"
 	"runtime"
 
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
@@ -13,8 +12,6 @@ import (
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/AllenDang/cimgui-go/imgui"
 )
-
-var ErrRequestExit = errors.New("exit requested")
 
 var currentBackend backend.Backend[glfwbackend.GLFWWindowFlags]
 var lastCursorPos *imgui.Vec2
@@ -30,10 +27,7 @@ func Run(ctx context.Context, logger *logging.Logger) error {
 		currentBackend, err = backend.CreateBackend(glfwbackend.NewGLFWBackend())
 
 		if err != nil {
-			errs.Do(func(errs *[]error) {
-				*errs = append(*errs, err)
-			})
-
+			errs.Do(func(errs *[]error) { *errs = append(*errs, err) })
 			close(done)
 		}
 
@@ -42,7 +36,6 @@ func Run(ctx context.Context, logger *logging.Logger) error {
 			currentBackend.SetShouldClose(true)
 		}()
 
-		//currentBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsDecorated, 0)
 		currentBackend.SetBgColor(imgui.NewVec4(0, 0, 0, 1.0))
 		currentBackend.CreateWindow("FredBoard", 1200, 900)
 		currentBackend.SetBeforeDestroyContextHook(func() { close(done) })
@@ -51,12 +44,7 @@ func Run(ctx context.Context, logger *logging.Logger) error {
 			err := mainWindow()
 
 			if err != nil {
-				if err != ErrRequestExit {
-					errs.Do(func(errs *[]error) {
-						*errs = append(*errs, err)
-					})
-				}
-
+				errs.Do(func(errs *[]error) { *errs = append(*errs, err) })
 				currentBackend.SetShouldClose(true)
 			}
 		})
@@ -69,9 +57,8 @@ func Run(ctx context.Context, logger *logging.Logger) error {
 func mainWindow() (err error) {
 	if imgui.BeginMainMenuBar() {
 		if imgui.BeginMenu("File") {
-
 			if imgui.MenuItemBoolPtr("Quit", "q", nil) {
-				err = ErrRequestExit
+				// TODO: Request exit
 			}
 
 			imgui.EndMenu()

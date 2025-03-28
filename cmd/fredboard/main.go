@@ -1,19 +1,17 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path"
-	"sync"
 
+	"accidentallycoded.com/fredboard/v3/cmd/fredboard/gui"
 	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/discord"
-	"accidentallycoded.com/fredboard/v3/internal/gui"
+	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
+
 	"accidentallycoded.com/fredboard/v3/internal/version"
 )
 
@@ -92,40 +90,11 @@ func init() {
 	}
 }
 
-func main() {
-	logger.Info("starting FredBoard", "version", version.String())
+func DiscordBotRoutine(term <-chan bool) error {
+	return nil
+}
 
-	var wg sync.WaitGroup
-
-	ctx, cancel := context.WithCancel(context.Background())
-	bot := discord.NewBot(config.Get().Discord.AppId, config.Get().Discord.Token, logger)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer logger.Debug("terminating discord bot thread")
-
-		logger.Debug("starting discord bot thread")
-		bot.Run(ctx)
-
-		cancel()
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer logger.Debug("terminating ui thread")
-
-		logger.Debug("starting ui thread")
-		err := gui.Run(ctx, logger)
-
-		if err != nil {
-			logger.Panic("error occurred while running ui", "error", err)
-		}
-
-		cancel()
-	}()
-
+func SigIntRoutine(term <-chan bool) error {
 	logger.Info("press ^c to exit")
 
 	intSig := make(chan os.Signal, 1)
@@ -134,10 +103,21 @@ func main() {
 	select {
 	case <-intSig:
 		logger.Info("received interrupt signal")
-		cancel()
-	case <-ctx.Done():
-		logger.Info("freboard closed")
+		logger.Debug("SigIntRoutine requesting term of all routines")
+		return syncext.ErrRequestTermAllRoutines
+	case <-term:
+		logger.Debug("SigIntRoutine received term request")
+		return nil
 	}
+}
 
-	wg.Wait()
+func main() {
+	logger.Info("starting FredBoard", "version", version.String())
+
+	routineManager := syncext.NewRoutineManager()
+
+	routineManager.StartRoutine(gui.NewUIRoutine("ui", logger))
+	routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
+	routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
+	routineManager.WaitForAllRoutines()
 }
