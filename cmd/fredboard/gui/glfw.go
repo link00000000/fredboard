@@ -14,11 +14,20 @@ import (
 )
 
 type UIRoutine struct {
+	id      syncext.RoutineId
 	name    string
 	logger  *logging.Logger
 	term    chan bool
 	backend backend.Backend[glfwbackend.GLFWWindowFlags]
 	errs    *syncext.SyncData[[]error]
+}
+
+func (r UIRoutine) Id() syncext.RoutineId {
+	return r.id
+}
+
+func (r *UIRoutine) SetId(id syncext.RoutineId) {
+	r.id = id
 }
 
 func (r UIRoutine) Name() string {
@@ -89,7 +98,7 @@ func (r *UIRoutine) getErrors() []error {
 	return r.errs.Data
 }
 
-func (r *UIRoutine) Terminate(force bool) {
+func (r *UIRoutine) Terminate(force bool, requestedBy syncext.Routine) {
 	r.term <- force
 }
 
