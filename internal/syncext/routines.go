@@ -8,14 +8,15 @@ import (
 )
 
 var ErrRequestTermAllRoutines = errors.New("termination of all routines requested")
+var ErrRequestForceTermAllRoutines = errors.New("force termination of all routines requested")
 
-type RoutineId int32
+type RoutineId uint32
 
 const (
-	RoutineId_Invalid RoutineId = -1
+	RoutineId_Invalid RoutineId = 0
 )
 
-var nextId RoutineId = 0
+var nextId RoutineId = 1
 
 type Routine interface {
 	Id() RoutineId
@@ -70,7 +71,13 @@ func (r *BasicRoutine) Terminate(force bool, requestedBy Routine) {
 }
 
 func NewBasicRoutine(name string, f func(term <-chan bool) error) *BasicRoutine {
-	return &BasicRoutine{name: name, status: "TODO", f: f, term: make(chan bool, 1)}
+	return &BasicRoutine{
+		id:     RoutineId_Invalid,
+		name:   name,
+		status: "TODO",
+		f:      f,
+		term:   make(chan bool, 1),
+	}
 }
 
 // runs multiple routines and blocks until all routines are complete.
@@ -114,17 +121,19 @@ func (m *RoutineManager) TerminateAllRoutines(force bool, requestedBy Routine) {
 	}
 }
 
-// caller must retain lock for m.routines
 func (m *RoutineManager) generateRoutineId() RoutineId {
-	if len(m.routines.Data) == math.MaxInt32 {
+	m.routines.Lock()
+	defer m.routines.Unlock()
+
+	if len(m.routines.Data) == math.MaxInt32-1 {
 		panic("out of routine ids")
 	}
 
 	for {
 		id := nextId
 
-		if nextId == math.MaxInt32 {
-			nextId = 0
+		if nextId == math.MaxUint32 {
+			nextId = 1
 		} else {
 			nextId++
 		}
@@ -136,10 +145,11 @@ func (m *RoutineManager) generateRoutineId() RoutineId {
 }
 
 func (m *RoutineManager) addRoutine(r Routine) RoutineId {
+	r.SetId(m.generateRoutineId())
+
 	m.routines.Lock()
 	defer m.routines.Unlock()
 
-	r.SetId(m.generateRoutineId())
 	m.routines.Data = append(m.routines.Data, r)
 	return r.Id()
 }
