@@ -6,9 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"time"
 
-	"accidentallycoded.com/fredboard/v3/cmd/fredboard/gui"
+	"accidentallycoded.com/fredboard/v3/cmd/fredboard/routines"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
@@ -96,6 +95,8 @@ func DiscordBotRoutine(term <-chan bool) error {
 }
 
 func SigIntRoutine(term <-chan bool) error {
+	defer logger.Info("stopping FredBoard")
+
 	logger.Info("press ^c to exit")
 
 	intSig := make(chan os.Signal, 1)
@@ -103,7 +104,7 @@ func SigIntRoutine(term <-chan bool) error {
 
 	select {
 	case <-intSig:
-		logger.Info("received interrupt signal")
+		logger.Debug("received interrupt signal")
 		logger.Debug("SigIntRoutine requesting term of all routines")
 		return syncext.ErrRequestTermAllRoutines
 	case <-term:
@@ -117,7 +118,7 @@ func main() {
 
 	routineManager := syncext.NewRoutineManager()
 
-	routineManager.StartRoutine(gui.NewUIRoutine(logger, "ui"))
+	routineManager.StartRoutine(routines.NewUIRoutine(logger, "ui"))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
 
