@@ -6,9 +6,10 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"time"
+	"path/filepath"
+	"syscall"
 
-	"accidentallycoded.com/fredboard/v3/cmd/fredboard/gui"
+	"accidentallycoded.com/fredboard/v3/cmd/fredboard/routines"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
@@ -99,17 +100,46 @@ func SigIntRoutine(term <-chan bool) error {
 	logger.Info("press ^c to exit")
 
 	intSig := make(chan os.Signal, 1)
-	signal.Notify(intSig, os.Interrupt)
+	for {
+		signal.Notify(intSig, os.Interrupt)
 
-	select {
-	case <-intSig:
-		logger.Info("received interrupt signal")
-		logger.Debug("SigIntRoutine requesting term of all routines")
-		return syncext.ErrRequestTermAllRoutines
-	case <-term:
-		logger.Debug("SigIntRoutine received term request")
-		return nil
+		select {
+		case <-intSig:
+			logger.Info("received interrupt signal")
+			//logger.Debug("SigIntRoutine requesting term of all routines")
+			//return syncext.ErrRequestTermAllRoutines
+		case <-term:
+			logger.Debug("SigIntRoutine received term request")
+			return nil
+		}
 	}
+}
+
+func CSharedLibRoutine(term <-chan bool) error {
+	path, err := filepath.Abs("./bin/libgui.dll")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(path)
+
+	lib, err := syscall.LoadLibrary(path)
+	if err != nil {
+		panic(err)
+	}
+	defer syscall.FreeLibrary(lib)
+
+	proc, err := syscall.GetProcAddress(lib, "Run")
+	if err != nil {
+		panic(err)
+	}
+
+	_, _, err = syscall.SyscallN(proc)
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
 }
 
 func main() {
@@ -117,15 +147,10 @@ func main() {
 
 	routineManager := syncext.NewRoutineManager()
 
-	uiRoutineId := routineManager.StartRoutine(gui.NewUIRoutine(logger, "ui"))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
 	routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
-
-	go func() {
-		time.Sleep(10 * time.Second)
-		routineManager.TerminateRoutine(uiRoutineId, false)
-		routineManager.WaitForRoutine(uiRoutineId)
-	}()
+	routineManager.StartRoutine(routines.NewUIRoutine(logger, "ui"))
+	//routineManager.StartRoutine(syncext.NewBasicRoutine("c-shared lib", CSharedLibRoutine))
 
 	routineManager.WaitForAllRoutines()
 }

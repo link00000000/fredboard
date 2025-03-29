@@ -1,9 +1,10 @@
 //go:build gui
 
-package gui
+package routines
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 
 	"accidentallycoded.com/fredboard/v3/internal/events"
@@ -48,7 +49,12 @@ func (r *UIRoutine) Run() error {
 	r.logger.Debug("created GLFW backend", "backend", r.backend)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create gui backend: %w", err)
+	}
+
+	err = initGui()
+	if err != nil {
+		return fmt.Errorf("failed to init gui: %w", err)
 	}
 
 	uiWindowDestroyed := make(chan struct{})
@@ -57,10 +63,12 @@ func (r *UIRoutine) Run() error {
 
 		r.backend.SetBgColor(imgui.NewVec4(0, 0, 0, 1.0))
 		r.backend.CreateWindow("FredBoard", 1200, 900)
+
 		r.backend.SetCloseCallback(func() {
 			r.logger.Debug("UI closed, UIRoutine is requesting to terminate all routines")
 			r.addError(syncext.ErrRequestTermAllRoutines)
 		})
+
 		r.backend.SetBeforeDestroyContextHook(func() {
 			r.logger.Debug("UI destroyed")
 			close(uiWindowDestroyed)
@@ -80,6 +88,10 @@ func (r *UIRoutine) Run() error {
 			}
 			r.destroyUI()
 		case <-uiWindowDestroyed:
+			err = deinitGui()
+			if err != nil {
+				r.addError(fmt.Errorf("failed to deinit gui: %w", err))
+			}
 			return errors.Join(r.getErrors()...)
 		}
 	}
@@ -98,7 +110,7 @@ func (r *UIRoutine) destroyUI() {
 }
 
 func (r *UIRoutine) renderLoop() {
-	err := mainWindow()
+	err := renderGui()
 
 	if err != nil {
 		r.addError(err)
