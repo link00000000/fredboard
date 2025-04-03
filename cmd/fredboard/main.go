@@ -7,10 +7,10 @@ import (
 	"os/signal"
 	"path"
 
-	"accidentallycoded.com/fredboard/v3/cmd/fredboard/routines"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	libgui "accidentallycoded.com/fredboard/v3/lib/gui/include"
 
 	"accidentallycoded.com/fredboard/v3/internal/version"
 )
@@ -116,11 +116,20 @@ func SigIntRoutine(term <-chan bool) error {
 func main() {
 	logger.Info("starting FredBoard", "version", version.String())
 
-	routineManager := syncext.NewRoutineManager()
+	if err := libgui.Load("bin/libgui.so"); err != nil {
+		panic(err)
+	}
 
-	routineManager.StartRoutine(routines.NewUIRoutine(logger, "ui"))
-	routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
-	routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
+	for {
+	}
 
-	routineManager.WaitForAllRoutines()
+	/*
+		routineManager := syncext.NewRoutineManager()
+
+		routineManager.StartRoutine(routines.NewUIRoutine(logger, "ui"))
+		routineManager.StartRoutine(syncext.NewBasicRoutine("discord bot", DiscordBotRoutine))
+		routineManager.StartRoutine(syncext.NewBasicRoutine("sig int", SigIntRoutine))
+
+		routineManager.WaitForAllRoutines()
+	*/
 }

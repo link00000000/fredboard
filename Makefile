@@ -4,7 +4,8 @@ BUILD_COMMIT := $(FREDBOARD_BUILD_COMMIT)
 # tags:
 # 	- gui_glfw	: enable gui with GLFW backend
 # 	- gui_sdl		: enable gui with SDL backend
-TAGS := -tags=gui_glfw
+# 	- debug     : build program for debugging. uses a shared lib for GUI
+TAGS := -tags=gui_glfw,debug
 
 export FREDBOARD_CONFIG := ./.env/config.json
 
@@ -42,3 +43,9 @@ run-fredboard :
 debug-fredboard :
 	dlv debug $(CMD_FREDBOARD)
 
+
+LIB_GUI = ./lib/gui/
+
+.PHONY: libgui
+libgui : $(wildcard **/*.go)
+	go build -buildmode=plugin $(TAGS) -o bin/libgui.so $(LIB_GUI)
