@@ -1,4 +1,4 @@
-//go build: gui_glfw || gui_sdl
+//go:build gui_glfw || gui_sdl
 
 package routines
 

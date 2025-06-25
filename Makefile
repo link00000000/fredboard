@@ -33,7 +33,7 @@ CMD_FREDBOARD = ./cmd/fredboard/
 
 .PHONY: fredboard
 fredboard : $(wildcard **/*.go)
-	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" $(TAGS) -o bin/fredboard $(CMD_FREDBOARD)
+	go build -v -gcflags "-N -l" -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" $(TAGS) -o bin/fredboard $(CMD_FREDBOARD)
 
 .PHONY: run-fredboard
 run-fredboard :
@@ -43,6 +43,9 @@ run-fredboard :
 debug-fredboard :
 	dlv debug $(CMD_FREDBOARD)
 
+#----------------------
+# GUI
+#----------------------
 
 LIB_GUI = ./lib/gui/
 

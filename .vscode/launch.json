@@ -5,7 +5,7 @@
       "name": "Debug fredboard",
       "type": "go",
       "request": "launch",
-      "program": "${workspaceFolder}/cmd/fredboard/main.go",
+      "program": "${workspaceFolder}/cmd/fredboard",
       "outputMode": "remote",
       "env": {
         "FREDBOARD_CONFIG": "./.env/config.json"
@@ -15,12 +15,12 @@
       "name": "Debug fredboard (with GUI)",
       "type": "go",
       "request": "launch",
-      "program": "${workspaceFolder}/cmd/fredboard/main.go",
+      "program": "${workspaceFolder}/cmd/fredboard",
       "outputMode": "remote",
       "env": {
         "FREDBOARD_CONFIG": "./.env/config.json"
       },
-      "buildFlags": "-tags=gui"
+      "buildFlags": "-tags=gui_glfw,debug"
     },
     {
       "name": "Test current file",
