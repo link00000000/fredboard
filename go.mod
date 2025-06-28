@@ -20,5 +20,5 @@ require (
 
 replace (
 	github.com/link00000000/gaps => ./pkg/gaps
-	github.com/link00000000/telemetry => ./pkg/telemetry
+	github.com/link00000000/go-telemetry => ./pkg/go-telemetry
 )
