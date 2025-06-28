@@ -3,7 +3,7 @@ package audiosession
 import (
 	"fmt"
 
-	"github.com/link00000000/fredboard/v3/pkg/gaps"
+	"github.com/link00000000/gaps"
 	"github.com/link00000000/fredboard/v3/internal/config"
 	"github.com/link00000000/fredboard/v3/internal/exec/ffmpeg"
 	"github.com/link00000000/fredboard/v3/internal/exec/ytdlp"

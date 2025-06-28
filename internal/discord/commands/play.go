@@ -6,7 +6,7 @@ import (
 	"github.com/link00000000/fredboard/v3/internal/audiosession"
 	"github.com/link00000000/fredboard/v3/internal/discord/interactions"
 	"github.com/link00000000/fredboard/v3/internal/exec/ytdlp"
-	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
 

@@ -3,7 +3,7 @@ package audio
 import (
 	"io"
 
-	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/telemetry/logging"
 )
 
 var _ Node = (*WriterNode)(nil)
