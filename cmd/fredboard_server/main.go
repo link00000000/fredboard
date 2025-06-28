@@ -9,11 +9,11 @@ import (
 	"path"
 	"sync"
 
-	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/discord"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
-	"accidentallycoded.com/fredboard/v3/internal/version"
+	"github.com/link00000000/fredboard/v3/internal/config"
+	"github.com/link00000000/fredboard/v3/internal/discord"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	_ "github.com/link00000000/fredboard/v3/internal/telemetry/pprof"
+	"github.com/link00000000/fredboard/v3/internal/version"
 )
 
 var logger *logging.Logger

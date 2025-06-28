@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	"accidentallycoded.com/fredboard/v3/pkg/gaps/codecs"
-	"accidentallycoded.com/fredboard/v3/pkg/gaps/codecs/testdata"
+	"github.com/link00000000/fredboard/v3/pkg/gaps/codecs"
+	"github.com/link00000000/fredboard/v3/pkg/gaps/codecs/testdata"
 )
 
 type opusBuffer struct {

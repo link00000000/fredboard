@@ -4,10 +4,10 @@ import (
 	"slices"
 	"sync"
 
-	"accidentallycoded.com/fredboard/v3/pkg/gaps"
-	"accidentallycoded.com/fredboard/v3/internal/events"
-	"accidentallycoded.com/fredboard/v3/internal/syncext"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/pkg/gaps"
+	"github.com/link00000000/fredboard/v3/internal/events"
+	"github.com/link00000000/fredboard/v3/internal/syncext"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
 )
 
 var allSessions = syncext.NewSyncData(make([]*Session, 0))

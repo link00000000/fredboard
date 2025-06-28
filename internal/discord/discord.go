@@ -3,8 +3,8 @@ package discord
 import (
 	"context"
 
-	"accidentallycoded.com/fredboard/v3/internal/discord/commands"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/internal/discord/commands"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
 

@@ -13,7 +13,7 @@ import (
 func getModulePath(functionPath string) string {
 	// Module paths contain parens for the struct and have an additional dot in the path
 	// ex.
-	//  Module: accidentallycoded.com/fredboard/v3/telemetry.(*Logger).Log
+	//  Module: github.com/link00000000/fredboard/v3/telemetry.(*Logger).Log
 	//  Function: ccidentallycoded.com/fredboard/v3/telemetry.NewLogger
 	isMethod := strings.Contains(functionPath, "(")
 

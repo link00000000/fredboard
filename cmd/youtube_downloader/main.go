@@ -7,12 +7,12 @@ import (
 	"os"
 	"path"
 
-	"accidentallycoded.com/fredboard/v3/pkg/gaps"
-	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
-	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
+	"github.com/link00000000/fredboard/v3/pkg/gaps"
+	"github.com/link00000000/fredboard/v3/internal/config"
+	"github.com/link00000000/fredboard/v3/internal/exec/ffmpeg"
+	"github.com/link00000000/fredboard/v3/internal/exec/ytdlp"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	_ "github.com/link00000000/fredboard/v3/internal/telemetry/pprof"
 )
 
 var logger *logging.Logger

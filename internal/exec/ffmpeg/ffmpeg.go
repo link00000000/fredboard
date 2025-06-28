@@ -7,9 +7,9 @@ import (
 	"io"
 	"os/exec"
 
-	"accidentallycoded.com/fredboard/v3/internal/optional"
-	"accidentallycoded.com/fredboard/v3/internal/syncext"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/internal/optional"
+	"github.com/link00000000/fredboard/v3/internal/syncext"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
 )
 
 const (

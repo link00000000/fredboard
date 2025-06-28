@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging/ansi"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging/ansi"
 	"golang.org/x/term"
 )
 

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"accidentallycoded.com/fredboard/v3/pkg/gaps"
-	"accidentallycoded.com/fredboard/v3/pkg/gaps/codecs"
-	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/ioext"
+	"github.com/link00000000/fredboard/v3/pkg/gaps"
+	"github.com/link00000000/fredboard/v3/pkg/gaps/codecs"
+	"github.com/link00000000/fredboard/v3/internal/config"
+	"github.com/link00000000/fredboard/v3/internal/ioext"
 	"github.com/bwmarrin/discordgo"
 )
 

@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"accidentallycoded.com/fredboard/v3/internal/optional"
+	"github.com/link00000000/fredboard/v3/internal/optional"
 )
 
 type unvalidatedAudioConfig struct {

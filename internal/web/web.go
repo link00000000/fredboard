@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	"accidentallycoded.com/fredboard/v3/internal/web/controllers"
-	"accidentallycoded.com/fredboard/v3/internal/web/server"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/internal/web/controllers"
+	"github.com/link00000000/fredboard/v3/internal/web/server"
 )
 
 func Run(ctx context.Context, address string, logger *logging.Logger) {

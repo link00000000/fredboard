@@ -5,11 +5,11 @@ package integration_test
 import (
 	"testing"
 
-	cfg "accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
-	"accidentallycoded.com/fredboard/v3/internal/optional"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	test_setup "accidentallycoded.com/fredboard/v3/test/integration/setup"
+	cfg "github.com/link00000000/fredboard/v3/internal/config"
+	"github.com/link00000000/fredboard/v3/internal/exec/ytdlp"
+	"github.com/link00000000/fredboard/v3/internal/optional"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	test_setup "github.com/link00000000/fredboard/v3/test/integration/setup"
 )
 
 var (

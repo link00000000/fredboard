@@ -5,8 +5,8 @@ import (
 	"io"
 	"math"
 
-	"accidentallycoded.com/fredboard/v3/pkg/gaps/codecs"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/pkg/gaps/codecs"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
 )
 
 var _ Node = (*GainNode)(nil)

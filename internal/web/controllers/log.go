@@ -4,9 +4,9 @@ import (
 	"html/template"
 	"net/http"
 
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
-	"accidentallycoded.com/fredboard/v3/internal/web/content"
-	"accidentallycoded.com/fredboard/v3/internal/web/server"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/internal/web/content"
+	"github.com/link00000000/fredboard/v3/internal/web/server"
 )
 
 type logsController struct {

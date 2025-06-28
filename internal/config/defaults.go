@@ -1,7 +1,7 @@
 package config
 
 import (
-	"accidentallycoded.com/fredboard/v3/internal/optional"
+	"github.com/link00000000/fredboard/v3/internal/optional"
 )
 
 func applyDefaults(cfg *unvalidatedConfig) {

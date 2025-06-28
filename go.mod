@@ -1,4 +1,4 @@
-module accidentallycoded.com/fredboard/v3
+module github.com/link00000000/fredboard/v3
 
 go 1.23.1
 

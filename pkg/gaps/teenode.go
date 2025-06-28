@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	"github.com/link00000000/fredboard/v3/internal/telemetry/logging"
 )
 
 var _ Node = (*TeeNode)(nil)

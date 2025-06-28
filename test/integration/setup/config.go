@@ -6,8 +6,8 @@ import (
 	"path"
 	"testing"
 
-	"accidentallycoded.com/fredboard/v3/internal/config"
-	"accidentallycoded.com/fredboard/v3/internal/optional"
+	"github.com/link00000000/fredboard/v3/internal/config"
+	"github.com/link00000000/fredboard/v3/internal/optional"
 )
 
 func SetupConfig(t *testing.T) config.Config {
