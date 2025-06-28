@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"accidentallycoded.com/fredboard/v3/internal/audio"
-	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
+	"accidentallycoded.com/fredboard/v3/pkg/gaps"
+	"accidentallycoded.com/fredboard/v3/pkg/gaps/codecs"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/ioext"
 	"github.com/bwmarrin/discordgo"

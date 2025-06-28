@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
+	"accidentallycoded.com/fredboard/v3/pkg/gaps/codecs"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 

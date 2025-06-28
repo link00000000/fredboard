@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 
-	"accidentallycoded.com/fredboard/v3/internal/audio"
+	"accidentallycoded.com/fredboard/v3/pkg/gaps"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"

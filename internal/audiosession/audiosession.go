@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sync"
 
-	"accidentallycoded.com/fredboard/v3/internal/audio"
+	"accidentallycoded.com/fredboard/v3/pkg/gaps"
 	"accidentallycoded.com/fredboard/v3/internal/events"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
