@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"github.com/link00000000/telemetry/logging"
+	"github.com/link00000000/go-telemetry/logging"
 )
 
 type Web struct {

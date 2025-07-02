@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/link00000000/fredboard/v3/internal/discord/commands"
-	"github.com/link00000000/telemetry/logging"
+	"github.com/link00000000/go-telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
 

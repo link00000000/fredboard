@@ -11,8 +11,8 @@ import (
 	"github.com/link00000000/fredboard/v3/internal/config"
 	"github.com/link00000000/fredboard/v3/internal/exec/ffmpeg"
 	"github.com/link00000000/fredboard/v3/internal/exec/ytdlp"
-	"github.com/link00000000/telemetry/logging"
-	_ "github.com/link00000000/telemetry/pprof"
+	"github.com/link00000000/go-telemetry/logging"
+	_ "github.com/link00000000/go-telemetry/pprof"
 )
 
 var logger *logging.Logger

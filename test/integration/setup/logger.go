@@ -3,7 +3,7 @@ package setup
 import (
 	"testing"
 
-	"github.com/link00000000/telemetry/logging"
+	"github.com/link00000000/go-telemetry/logging"
 )
 
 func SetupLogger(t *testing.T) *logging.Logger {

@@ -12,13 +12,7 @@ require (
 require (
 	github.com/AllenDang/cimgui-go v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/link00000000/gaps v0.0.0-00010101000000-000000000000 // indirect
-	github.com/link00000000/telemetry v0.0.0-00010101000000-000000000000 // indirect
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/sys v0.27.0 // indirect
 )
 
-replace (
-	github.com/link00000000/gaps => ./pkg/gaps
-	github.com/link00000000/go-telemetry => ./pkg/go-telemetry
-)

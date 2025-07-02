@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/link00000000/fredboard/v3/internal/audiosession"
 	"github.com/link00000000/fredboard/v3/internal/discord/interactions"
-	"github.com/link00000000/telemetry/logging"
+	"github.com/link00000000/go-telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
 

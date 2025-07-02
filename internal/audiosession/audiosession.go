@@ -7,7 +7,7 @@ import (
 	"github.com/link00000000/gaps"
 	"github.com/link00000000/fredboard/v3/internal/events"
 	"github.com/link00000000/fredboard/v3/internal/syncext"
-	"github.com/link00000000/telemetry/logging"
+	"github.com/link00000000/go-telemetry/logging"
 )
 
 var allSessions = syncext.NewSyncData(make([]*Session, 0))

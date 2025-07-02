@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/link00000000/telemetry/logging"
+	"github.com/link00000000/go-telemetry/logging"
 	"github.com/link00000000/fredboard/v3/internal/web/controllers"
 	"github.com/link00000000/fredboard/v3/internal/web/server"
 )
