@@ -69,10 +69,16 @@
           };
         in /* bash */ ''
           # vendor/ is not writable, so we need to make a copy of everything to a writable version of vendor/
-          mv vendor vendor.old
+          if [[ -d vendor ]]; then
+            mv vendor vendor.old
+          fi
+
           mkdir -p vendor/layeh.com/gopus/opus-1.1.2
           cp -r ${gopusRepo}/opus-1.1.2/* vendor/layeh.com/gopus/opus-1.1.2/
-          cp -r vendor.old/* vendor/
+
+          if [[ -d vendor.old ]]; then
+            cp -r vendor.old/* vendor/
+          fi
         '';
 
         meta = {
@@ -82,13 +88,21 @@
           maintainers = with pkgs.lib.maintainers; [ link00000000 ];
         };
       };
-
-      monitoring = pkgs.writeShellScriptBin "start-monitoring" ''
-        set -e
-        cd $(mktemp -d)
-        cp ${./docker-compose.yml} docker-compose.yml
-        exec ${pkgs.docker-compose}/bin/docker-compose up
-      '';
     };
-  });
+
+    apps = {
+      fredboard-monitoring = {
+        type = "app";
+        program = "${self.nixosConfigurations.fredboard-monitoring.config.system.build.vm}/bin/run-fredboard-monitoring-vm";
+      };
+    };
+  })
+  // {
+    nixosConfigurations = {
+      fredboard-monitoring = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [ ./nix/nixos-configurations/fredboard-monitoring.nix ];
+      };
+    };
+  };
 }
