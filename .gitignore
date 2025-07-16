@@ -30,3 +30,4 @@ result/
 .env/
 bin/
 .direnv/
+.qemu/
