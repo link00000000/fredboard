@@ -430,8 +430,8 @@ in
           endpoint = "http://localhost:4417";
           tls.insecure = true;
         };
-        "otlp/loki" = {
-          endpoint = "http://localhost:${builtins.toString lokiCfg.configuration.server.grpc_listen_port}";
+        "otlphttp/loki" = {
+          endpoint = "http://localhost:${builtins.toString lokiCfg.configuration.server.http_listen_port}/otlp";
           tls.insecure = true;
         };
       };
@@ -507,7 +507,7 @@ in
           logs = {
             receivers = [ "otlp" ];
             processors = [ "memory_limiter" ];
-            exporters = [ "otlp/loki" ];
+            exporters = [ "otlphttp/loki" ];
           };
         };
 
