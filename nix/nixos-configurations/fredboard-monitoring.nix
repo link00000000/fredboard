@@ -12,6 +12,12 @@ in
   networking.hostName = "fredboard-monitoring";
   time.timeZone = "UTC";
 
+  nixpkgs.config.allowUnfree = true;
+  nix.settings = {
+    trusted-users = [ "@wheel" ];
+    experimental-features = [ "nix-command" "flakes" ];
+  };
+
   virtualisation.vmVariant = {
     virtualisation.cores = 4;
     virtualisation.memorySize = 2 * 1024;
@@ -36,6 +42,38 @@ in
     "QEMU Help: Ctrl-b h"
   ];
   services.getty.autologinUser = "root";
+
+  /************************************************** Service overview ***************************************************
+   *
+   *                                    ┌────────────────┐  All Metrics    ┌──────────┐                 ┌────────────────┐
+   *                                    │                ├────────────────►│          │                 │                │
+   *                                    │                │                 │          │  All Metrics    │                │
+   *                                    │                │  Prometheus     │Prometheus├────────────────►│                │
+   *                                    │                │  Telemetry      │          │                 │                │
+   *                                    │                │◄────────────────┤          │                 │                │
+   *                                    │                │                 └──────────┘                 │                │
+   *                                    │                │                                              │                │
+   * ┌─────────────────┐                │                │  All Spans      ┌──────────┐                 │                │
+   * │                 │  Fredboard     │                ├────────────────►│          │                 │                │
+   * │                 │  Telemetry     │                │                 │          │  All Spans      │                │
+   * │    Fredboard    ├───────────────►│ OTel Collector │  Tempo          │  Tempo   ├────────────────►│    Grafana     │
+   * │                 │                │                │  Telemetry      │          │                 │                │
+   * │                 │                │                │◄────────────────┤          │                 │                │
+   * └─────────────────┘                │                │                 └──────────┘                 │                │
+   *                                    │                │                                              │                │
+   *                                    │                │  All Logs       ┌──────────┐                 │                │
+   *                                    │                ├────────────────►│          │                 │                │
+   *                                    │                │                 │          │  All Logs       │                │
+   *                                    │                │  Loki           │   Loki   ├────────────────►│                │
+   *                                    │                │  Telemetry      │          │                 │                │
+   *                                    │                │◄────────────────┤          │                 │                │
+   *                                    └───────────────┬┘                 └──────────┘                 └────────────────┘
+   *                                     ▲              │                                                                 
+   *                                     │              │                                                                 
+   *                                     └──────────────┘                                                                 
+   *                                      OTel Collector                                                                  
+   *                                      Telemetry                                                                       
+   */
 
   services.grafana = {
     enable = true;
@@ -89,37 +127,152 @@ in
         static_configs = [{ targets = [ "localhost:${builtins.toString grafanaCfg.settings.server.http_port}" ]; }];
       }
     ];
+    extraFlags = [ 
+      "--web.enable-remote-write-receiver" # Enables the remote-write receiver feature required for the OTel collector to push metrics to prometheus
+    ];
   };
 
   services.tempo = {
     enable = true;
+
+    # docs: https://grafana.com/docs/tempo/latest/configuration/#configure-tempo
     settings = {
+
+      # Tempo uses the server from `dskit/server`.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#server
       server = {
         http_listen_port = 3200;
         grpc_listen_port = 9096;
       };
 
+      # Distributors receive spans and forward them to the appropriate ingesters.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#distributor
       distributor = {
-        receivers.otlp.protocols = {
-          grpc = {};
-          http = {};
+        # Receiver entry is equivalent in format to the receiver node in the otel collector:
+        # https://github.com/open-telemetry/opentelemetry-collector/tree/main/receiver
+        receivers = {
+          otlp.protocols = {
+            grpc.endpoint = "0.0.0.0:4417";
+            http.endpoint = "0.0.0.0:4418";
+          };
         };
       };
 
+      # The ingester is responsible for batching up traces and pushing them to TempoDB.
+      # 
+      # A live, or active, trace is a trace that has received a new batch of spans in more than a configured amount of time
+      # (default 10 seconds, set by ingester.trace_idle_period). After 10 seconds (or the configured amount of time),
+      # the trace is flushed to disk and appended to the WAL. When Tempo receives a new batch, a new live trace is created in memory.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#ingester
       ingester = {
+        # Amount of time a trace must be idle before flushing it to the wal.
+        # (default: 10s)
         trace_idle_period = "10s";
+
+        # Maximum length of time before cutting a block
+        # (default: 30m)
         max_block_duration = "5m";
+
+        # Flush all traces to backend when ingester is stopped
+        # (default: false)
+        flush_all_on_shutdown = true;
       };
 
-      compactor = {
-        compaction.block_retention = "1h";
+      # The metrics-generator processes spans and write metrics using the Prometheus remote write protocol.
+      #
+      # Metrics-generator processors are disabled by default. To enable it for a specific tenant, set `metrics_generator.processors`
+      # in the overrides section.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#metrics-generator
+      metrics_generator = {};
+
+      # The Query Frontend is responsible for sharding incoming requests for faster processing in parallel (by the queriers).
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#query-frontend
+      query_frontend = {};
+
+      # The Querier is responsible for querying the backends/cache for the traceID.
+      #
+      # It also queries compacted blocks that fall within the (2 * BlocklistPoll) range where the value of Blocklist poll
+      # duration is defined in the storage section.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#querier
+      querier = {};
+
+      # Compactors stream blocks from the storage backend, combine them and write them back.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#compactor
+      compactor = {};
+
+      # Tempo supports Amazon S3, GCS, Azure, and local file system for storage. In addition, you can use Memcached or
+      # Redis for increased query performance.
+      #
+      # While you can use local storage, object storage is recommended for production workloads. A local backend won’t correctly retrieve traces
+      # with a distributed deployment unless all components have access to the same disk. Tempo is designed for object storage more than local storage.
+      # 
+      # You can estimate how much storage space you need by considering the ingested bytes and retention. For example, ingested bytes per day * retention days = stored bytes.
+      #
+      # You can not use both local and object storage in the same Tempo deployment.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#storage
+      storage = {
+        trace = {
+          # The storage backend to use
+          # Should be one of "gcs", "s3", "azure" or "local" (only supported in the monolithic mode)
+          # CLI flag -storage.trace.backend
+          backend = "local";
+
+          local.path = "/var/lib/tempo/data/tempo/blocks";
+          wal.path = "/var/lib/tempo/data/tempo/wal";
+        };
       };
 
-      storage.trace = {
-        backend = "local";
-        local.path = "/var/lib/tempo/data/tempo/blocks";
-        wal.path = "/var/lib/tempo/data/tempo/wal";
+      # Memberlist is the default mechanism for all of the Tempo pieces to coordinate with each other.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#memberlist
+      memberlist = {};
+
+      # Tempo provides an overrides module for users to set global or per-tenant override settings.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#overrides
+      overrides = {
+        defaults = {
+          # Enables metric generation from Tempo.
+          metrics_generator.processors = [ "service-graphs" "span-metrics" "local-blocks" ];
+        };
       };
+
+      # By default, Tempo reports anonymous usage data about the shape of a deployment to Grafana Labs. This data is used to determine how common the deployment of
+      # certain features are, if a feature flag has been enabled, and which replication factor or compression levels are used.
+      #
+      # By providing information on how people use Tempo, usage reporting helps the Tempo team decide where to focus their development and documentation
+      # efforts. No private information is collected, and all reports are completely anonymous.
+      #
+      # The following configuration values are used:
+      #
+      # * Receivers enabled
+      # * Frontend concurrency and version
+      # * Storage cache, backend, WAL and block encodings
+      # * Ring replication factor, and kvstore
+      # * Features toggles enabled
+      #
+      # No performance data is collected.
+      #
+      # You can view the report by visiting this address on your Tempo instance: http://localhost:3200/status/usage-stats
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#usage-report
+      usage_report = {
+        reporting_enabled = false;
+      };
+
+      # Use this block to configure caches available throughout the application. Multiple caches can be created and assigned roles which
+      # determine how they are used by Tempo.
+      #
+      # docs: https://grafana.com/docs/tempo/latest/configuration/#cache
+      cache = {};
     };
   };
 
@@ -269,9 +422,18 @@ in
       #
       # docs: https://opentelemetry.io/docs/collector/configuration/#exporters
       exporters = {
-        prometheusremotewrite.endpoint = "http://localhost:${builtins.toString prometheusCfg.port}/api/v1/write";
-        "otlp/tempo".endpoint = "localhost:${builtins.toString tempoCfg.settings.server.http_listen_port}";
-        "otlp/loki".endpoint = "http://localhost:${builtins.toString lokiCfg.configuration.server.http_listen_port}";
+        prometheusremotewrite = {
+          endpoint = "http://localhost:${builtins.toString prometheusCfg.port}/api/v1/write";
+          tls.insecure = true;
+        };
+        "otlp/tempo" = {
+          endpoint = "http://localhost:4417";
+          tls.insecure = true;
+        };
+        "otlp/loki" = {
+          endpoint = "http://localhost:${builtins.toString lokiCfg.configuration.server.grpc_listen_port}";
+          tls.insecure = true;
+        };
       };
 
       # Connectors join two pipelines, acting as both exporter and receiver. A connector consumes data as an exporter at the end of one
