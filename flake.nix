@@ -88,12 +88,17 @@
           maintainers = with pkgs.lib.maintainers; [ link00000000 ];
         };
       };
+
+      monitoring-vm = pkgs.writeShellScriptBin "start-monitoring-vm" ''
+        export QEMU_OPTS="-nographic -serial mon:stdio -echr 0x02"
+        ${self.nixosConfigurations.fredboard-monitoring.config.system.build.vm}/bin/run-fredboard-monitoring-vm
+      '';
     };
 
     apps = {
       fredboard-monitoring = {
         type = "app";
-        program = "${self.nixosConfigurations.fredboard-monitoring.config.system.build.vm}/bin/run-fredboard-monitoring-vm";
+        program = "${self.packages.${system}.monitoring-vm}/bin/start-monitoring-vm";
       };
     };
   })
