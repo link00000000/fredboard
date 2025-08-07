@@ -27,9 +27,6 @@ in
       forward = port: { host.port = port; guest.port = port; };
     in [
       (forward config.services.grafana.settings.server.http_port)
-      (forward lokiCfg.configuration.server.http_listen_port)
-      (forward tempoCfg.settings.server.http_listen_port)
-      (forward prometheusCfg.port)
       (forward 4317)
       (forward 4318)
     ];

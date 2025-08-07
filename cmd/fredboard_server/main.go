@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"path"
 	"sync"
+	"time"
 
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/discord"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	_ "accidentallycoded.com/fredboard/v3/internal/telemetry/pprof"
 	"accidentallycoded.com/fredboard/v3/internal/version"
@@ -80,11 +83,13 @@ func init() {
 			w = f
 		}
 
+		_ = w
+		_ = level
 		switch hCfg.Type {
 		case config.LoggingHandlerType_Pretty:
-			logger.AddHandler(logging.NewPrettyHandler(w, level))
+			//logger.AddHandler(logging.NewPrettyHandler(w, level))
 		case config.LoggingHandlerType_JSON:
-			logger.AddHandler(logging.NewJsonHandler(w, level))
+			//logger.AddHandler(logging.NewJsonHandler(w, level))
 		default:
 			panic("invalid config.LoggingHandlerLevel")
 		}
@@ -97,6 +102,42 @@ func main() {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
+	otelShutdown, err := telemetry.SetupOTelSDK("accidentallycoded.com/fredboard/v3/cmd/fredboard_server", ctx)
+	if err != nil {
+		// TODO: Properly handle
+		fmt.Printf("fatal error during otel setup: %s", err.Error())
+		os.Exit(1)
+	}
+
+	go func() {
+		testMetricCounter, err := telemetry.Meter.Int64Counter("test_metric")
+		if err != nil {
+			panic(err)
+		}
+
+		for {
+			ctx, span := telemetry.Tracer.Start(ctx, "test-loop")
+
+			testMetricCounter.Add(context.Background(), 1)
+			fmt.Println("Incremented meteric: counter.test_metric")
+
+			telemetry.Logger.InfoContext(ctx, "TESTING TESTING 123")
+
+			time.Sleep(time.Second)
+
+			span.End()
+		}
+	}()
+
+	defer func() {
+		err := errors.Join(err, otelShutdown(context.Background()))
+		if err != nil {
+			// TODO: Properly handle
+			fmt.Printf("fatal error during otel shutdown: %s", err.Error())
+			os.Exit(1)
+		}
+	}()
+
 	bot := discord.NewBot(config.Get().Discord.AppId, config.Get().Discord.Token, logger)
 
 	wg.Add(1)

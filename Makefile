@@ -1,6 +1,8 @@
 BUILD_VERSION := $(FREDBOARD_BUILD_VERSION)
 BUILD_COMMIT := $(FREDBOARD_BUILD_COMMIT)
 
+export OTEL_EXPORTER_OTLP_ENDPOINT := http://localhost:4318
+
 export FREDBOARD_CONFIG := ./.env/config.json
 
 .PHONY: default

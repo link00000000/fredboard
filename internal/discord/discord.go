@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"accidentallycoded.com/fredboard/v3/internal/discord/commands"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -58,11 +59,15 @@ func onApplicationCommandInteraction(session *discordgo.Session, interaction *di
 }
 
 func (bot *Bot) Run(ctx context.Context) {
+	ctx, span := telemetry.Tracer.Start(ctx, "bot-run")
+	defer span.End()
+
 	session, err := discordgo.New("Bot " + bot.token)
 	if err != nil {
 		bot.logger.Fatal("failed to create discord session", "error", err)
 	}
 
+	telemetry.Logger.DebugContext(ctx, "created discord session", session)
 	bot.logger.Debug("created discord session", "session", session)
 
 	bot.logger.Debug("registering handlers", "session", session)
