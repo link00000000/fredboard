@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -42,10 +41,6 @@ func SetupOTelSDK(name string, ctx context.Context) (shutdown func(context.Conte
 		shutdownCallbacks = nil
 		return err
 	}
-
-	// Set up propagator.
-	prop := newPropagator()
-	otel.SetTextMapPropagator(prop)
 
 	r := newResource(ctx)
 
@@ -88,14 +83,6 @@ func newResource(ctx context.Context) *resource.Resource {
 	}
 
 	return r
-}
-
-// TODO: What is this?
-func newPropagator() propagation.TextMapPropagator {
-	return propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	)
 }
 
 func newTraceExporter(ctx context.Context) *otlptrace.Exporter {
