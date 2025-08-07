@@ -1,8 +1,10 @@
 package audio
 
 import (
+	"context"
 	"io"
 
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -15,7 +17,10 @@ type WriterNode struct {
 	err error
 }
 
-func (node *WriterNode) Tick(ins []io.Reader, outs []io.Writer) {
+func (node *WriterNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
+	ctx, span := telemetry.Tracer.Start(ctx, "WriterNode.Tick")
+	defer span.End()
+
 	node.err = nil
 
 	if len(ins) != 1 {
@@ -30,7 +35,8 @@ func (node *WriterNode) Tick(ins []io.Reader, outs []io.Writer) {
 
 	var n int64
 	n, node.err = io.Copy(node.w, ins[0])
-	node.logger.Debug("WriterNode copied data from input to writer", "n", n, "error", node.err)
+
+	telemetry.Logger.DebugContext(ctx, "WriterNode copied data from input to writer", "n", n, "error", node.err)
 }
 
 func (node *WriterNode) Err() error {

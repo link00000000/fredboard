@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"path"
 	"sync"
-	"time"
 
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/discord"
@@ -108,26 +107,6 @@ func main() {
 		fmt.Printf("fatal error during otel setup: %s", err.Error())
 		os.Exit(1)
 	}
-
-	go func() {
-		testMetricCounter, err := telemetry.Meter.Int64Counter("test_metric")
-		if err != nil {
-			panic(err)
-		}
-
-		for {
-			ctx, span := telemetry.Tracer.Start(ctx, "test-loop")
-
-			testMetricCounter.Add(context.Background(), 1)
-			fmt.Println("Incremented meteric: counter.test_metric")
-
-			telemetry.Logger.InfoContext(ctx, "TESTING TESTING 123")
-
-			time.Sleep(time.Second)
-
-			span.End()
-		}
-	}()
 
 	defer func() {
 		err := errors.Join(err, otelShutdown(context.Background()))

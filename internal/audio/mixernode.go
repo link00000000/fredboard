@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"slices"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -18,7 +20,10 @@ type MixerNode struct {
 	err    error
 }
 
-func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
+func (node *MixerNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
+	ctx, span := telemetry.Tracer.Start(ctx, "MixerNode.Tick")
+	defer span.End()
+
 	node.err = nil
 
 	if len(ins) <= 0 {
@@ -36,7 +41,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 
 	for inIdx, in := range ins {
 		bytes, err := io.ReadAll(in)
-		node.logger.Debug("MixerNode copied data from input to internal buffer", "input", inIdx, "n", len(bytes), "error", err)
+		telemetry.Logger.DebugContext(ctx, "MixerNode copied data from input to internal buffer", "input", inIdx, "n", len(bytes), "error", err)
 
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to read from input %d: %w", inIdx, err))
@@ -46,7 +51,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 		stream := codecs.BytesToS16LE(bytes)
 
 		if len(stream) > len(mixedStream) {
-			node.logger.Debug("mixedStream buffer is too small. growing buffer", "oldcap", "newcap")
+			telemetry.Logger.DebugContext(ctx, "mixedStream buffer is too small. growing buffer", "oldcap", "newcap")
 
 			mixedStream = slices.Grow(mixedStream, len(stream)-len(mixedStream))
 			mixedStream = mixedStream[:cap(mixedStream)]
@@ -66,7 +71,7 @@ func (node *MixerNode) Tick(ins []io.Reader, outs []io.Writer) {
 	}
 
 	n, err := outs[0].Write(codecs.S16LEToBytes(mixedStream))
-	node.logger.Debug("MixerNode copied data from internal buffer to output", "n", n, "error", err)
+	telemetry.Logger.DebugContext(ctx, "MixerNode copied data from internal buffer to output", "n", n, "error", err)
 
 	if err != nil {
 		errs = append(errs, fmt.Errorf("failed to copy data from internal buffer to output: %w", err))

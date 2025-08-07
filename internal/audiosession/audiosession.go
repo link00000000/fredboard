@@ -1,12 +1,14 @@
 package audiosession
 
 import (
+	"context"
 	"slices"
 	"sync"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio"
 	"accidentallycoded.com/fredboard/v3/internal/events"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -232,6 +234,9 @@ func (s *Session) State() SessionState {
 }
 
 func (s *Session) StartTicking() {
+	ctx, span := telemetry.Tracer.Start(context.Background(), "audiosession")
+	defer span.End()
+
 	processTick := func() /*continue*/ bool {
 		s.Lock()
 		defer s.Unlock()
@@ -240,7 +245,7 @@ func (s *Session) StartTicking() {
 			return false
 		}
 
-		s.audioGraph.Tick()
+		s.audioGraph.Tick(ctx)
 		return true
 	}
 

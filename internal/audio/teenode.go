@@ -1,9 +1,11 @@
 package audio
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -14,7 +16,10 @@ type TeeNode struct {
 	err    error
 }
 
-func (node *TeeNode) Tick(ins []io.Reader, outs []io.Writer) {
+func (node *TeeNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
+	ctx, span := telemetry.Tracer.Start(ctx, "TeeNode.Tick")
+	defer span.End()
+
 	node.err = nil
 
 	if len(ins) != 1 {
@@ -28,7 +33,7 @@ func (node *TeeNode) Tick(ins []io.Reader, outs []io.Writer) {
 	}
 
 	bytes, err := io.ReadAll(ins[0])
-	node.logger.Debug("TeeNode copied data from input to internal buffer", "n", len(bytes), "error", err)
+	telemetry.Logger.DebugContext(ctx, "TeeNode copied data from input to internal buffer", "n", len(bytes), "error", err)
 
 	if err != nil {
 		node.err = fmt.Errorf("failed to read from input: %w", err)
@@ -39,7 +44,7 @@ func (node *TeeNode) Tick(ins []io.Reader, outs []io.Writer) {
 
 	for outIdx, out := range outs {
 		n, err := out.Write(bytes)
-		node.logger.Debug("TeeNode copied data from input to internal buffer", "n", n, "error", err)
+		telemetry.Logger.DebugContext(ctx, "TeeNode copied data from input to internal buffer", "n", n, "error", err)
 
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to write data to output %d: %w", outIdx, err))

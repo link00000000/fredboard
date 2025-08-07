@@ -1,11 +1,13 @@
 package audio
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -18,7 +20,10 @@ type GainNode struct {
 	factor float32
 }
 
-func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) {
+func (node *GainNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
+	ctx, span := telemetry.Tracer.Start(ctx, "GainNode.Tick")
+	defer span.End()
+
 	node.err = nil
 
 	if len(ins) != 1 {
@@ -32,7 +37,7 @@ func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) {
 	}
 
 	bytes, err := io.ReadAll(ins[0])
-	node.logger.Debug("GainNode copied data from input to internal buffer", "n", len(bytes), "error", err)
+	telemetry.Logger.DebugContext(ctx, "GainNode copied data from input to internal buffer", "n", len(bytes), "error", err)
 
 	if err != nil {
 		node.err = fmt.Errorf("failed to copy data from input to internal buffer: %w", err)
@@ -54,7 +59,7 @@ func (node *GainNode) Tick(ins []io.Reader, outs []io.Writer) {
 	}
 
 	n, err := outs[0].Write(codecs.S16LEToBytes(stream))
-	node.logger.Debug("GainNode copied data from internal buffer to output", "n", n, "error", err)
+	telemetry.Logger.DebugContext(ctx, "GainNode copied data from internal buffer to output", "n", n, "error", err)
 
 	if err != nil {
 		node.err = fmt.Errorf("failed to copy data from internal buffer to output: %w", err)

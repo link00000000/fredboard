@@ -1,10 +1,12 @@
 package audio
 
 import (
+	"context"
 	"io"
 	"iter"
 	"slices"
 
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
@@ -18,7 +20,10 @@ type CompositeNode struct {
 	input, output Node
 }
 
-func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
+func (node *CompositeNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
+	ctx, span := telemetry.Tracer.Start(ctx, "CompositeNode.Tick")
+	defer span.End()
+
 	queue := make([]Node, 0)
 
 	var enqueue func(n Node)
@@ -61,7 +66,7 @@ func (node *CompositeNode) Tick(ins []io.Reader, outs []io.Writer) {
 			}
 		}
 
-		n.Tick(nins, nouts)
+		n.Tick(ctx, nins, nouts)
 	}
 }
 
