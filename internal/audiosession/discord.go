@@ -29,7 +29,7 @@ func (s *Session) AddDiscordVoiceConnOutput(conn *discordgo.VoiceConnection) (*D
 		return nil, fmt.Errorf("failed to create opus encoder writer: %w", err)
 	}
 
-	opusSendNode := audio.NewWriterNode(s.logger, opusEncoderWriter)
+	opusSendNode := audio.NewWriterNode(opusEncoderWriter)
 	output := &DiscordVoiceConnOutput{BaseOutput: NewBaseOutput(s, opusSendNode), Conn: conn}
 	s.AddOutput(output)
 

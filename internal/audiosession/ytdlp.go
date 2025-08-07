@@ -1,12 +1,14 @@
 package audiosession
 
 import (
+	"context"
 	"fmt"
 
 	"accidentallycoded.com/fredboard/v3/internal/audio"
 	"accidentallycoded.com/fredboard/v3/internal/config"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ffmpeg"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 )
 
 type YtdlpInput struct {
@@ -28,15 +30,15 @@ func (i *YtdlpInput) Resume() {
 }
 
 // add a ytdlp input that will automatically be stopped when EOF is reached
-func (s *Session) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality) (Input, error) {
-	videoReader, err, videoReaderExitChan := ytdlp.NewVideoReader(s.logger, ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile}, url, quality)
+func (s *Session) AddYtdlpInput(ctx context.Context, url string, quality ytdlp.YtdlpAudioQuality) (Input, error) {
+	videoReader, err, videoReaderExitChan := ytdlp.NewVideoReader(ytdlp.Config{ExePath: config.Get().Ytdlp.ExePath, CookiesPath: config.Get().Ytdlp.CookiesFile}, url, quality)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create video reader: %w", err)
 	}
 
 	transcoder, err, transcoderExitChan := ffmpeg.NewTranscoder(
-		s.logger,
+		ctx,
 		ffmpeg.Config{ExePath: config.Get().Ffmpeg.ExePath},
 		videoReader,
 		ffmpeg.Format_PCMSigned16BitLittleEndian,
@@ -49,7 +51,7 @@ func (s *Session) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality) (In
 	}
 
 	// TODO: Put 0x8000 in config
-	videoReaderNode := audio.NewReaderNode(s.logger, transcoder, 0x8000)
+	videoReaderNode := audio.NewReaderNode(transcoder, 0x8000)
 
 	input := &YtdlpInput{BaseInput: NewBaseInput(s, videoReaderNode)}
 	s.AddInput(input)
@@ -57,16 +59,16 @@ func (s *Session) AddYtdlpInput(url string, quality ytdlp.YtdlpAudioQuality) (In
 	go func() {
 		err := <-videoReaderExitChan
 		if err != nil {
-			s.logger.Error("ytdlp videoReader exited with exit error", "err", err)
+			telemetry.Logger.ErrorContext(ctx, "ytdlp videoReader exited with exit error", "err", err)
 		} else {
-			s.logger.Debug("ytdlp videoReader exited successfully")
+			telemetry.Logger.InfoContext(ctx, "ytdlp videoReader exited successfully")
 		}
 
 		err = <-transcoderExitChan
 		if err != nil {
-			s.logger.Error("ytdlp transcoder exited with exit error", "err", err)
+			telemetry.Logger.ErrorContext(ctx, "ytdlp transcoder exited with exit error", "err", err)
 		} else {
-			s.logger.Debug("ytdlp transcoder exited successfully")
+			telemetry.Logger.InfoContext(ctx, "ytdlp transcoder exited successfully")
 		}
 
 		input.Stop()

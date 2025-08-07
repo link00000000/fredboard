@@ -5,44 +5,33 @@ import (
 	"io"
 
 	"accidentallycoded.com/fredboard/v3/internal/telemetry"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 var _ Node = (*WriterNode)(nil)
 
 type WriterNode struct {
-	logger *logging.Logger
-
-	w   io.Writer
-	err error
+	w io.Writer
 }
 
-func (node *WriterNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
-	ctx, span := telemetry.Tracer.Start(ctx, "WriterNode.Tick")
+func (node *WriterNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) (err error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "audio.WriterNode.Tick")
 	defer span.End()
 
-	node.err = nil
-
 	if len(ins) != 1 {
-		node.err = newInvalidConnectionConfigErr(node, connectionType_In, 1, 1, len(ins))
-		return
+		return newInvalidConnectionConfigErr(node, connectionType_In, 1, 1, len(ins))
 	}
 
 	if len(outs) != 0 {
-		node.err = newInvalidConnectionConfigErr(node, connectionType_Out, 0, 0, len(outs))
-		return
+		return newInvalidConnectionConfigErr(node, connectionType_Out, 0, 0, len(outs))
 	}
 
 	var n int64
-	n, node.err = io.Copy(node.w, ins[0])
+	n, err = io.Copy(node.w, ins[0])
+	telemetry.Logger.DebugContext(ctx, "WriterNode copied data from input to writer", "n", n, "error", err)
 
-	telemetry.Logger.DebugContext(ctx, "WriterNode copied data from input to writer", "n", n, "error", node.err)
+	return err
 }
 
-func (node *WriterNode) Err() error {
-	return node.err
-}
-
-func NewWriterNode(logger *logging.Logger, w io.Writer) *WriterNode {
-	return &WriterNode{logger: logger, w: w, err: nil}
+func NewWriterNode(w io.Writer) *WriterNode {
+	return &WriterNode{w: w}
 }

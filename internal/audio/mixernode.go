@@ -10,30 +10,23 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/internal/audio/codecs"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 var _ Node = (*MixerNode)(nil)
 
 type MixerNode struct {
-	logger *logging.Logger
-	err    error
 }
 
-func (node *MixerNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
-	ctx, span := telemetry.Tracer.Start(ctx, "MixerNode.Tick")
+func (node *MixerNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) (err error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "audio.MixerNode.Tick")
 	defer span.End()
 
-	node.err = nil
-
 	if len(ins) <= 0 {
-		node.err = newInvalidConnectionConfigErr(node, connectionType_In, 0, connection_Unbounded, len(ins))
-		return
+		return newInvalidConnectionConfigErr(node, connectionType_In, 0, connection_Unbounded, len(ins))
 	}
 
 	if len(outs) != 1 {
-		node.err = newInvalidConnectionConfigErr(node, connectionType_Out, 1, 1, len(outs))
-		return
+		return newInvalidConnectionConfigErr(node, connectionType_Out, 1, 1, len(outs))
 	}
 
 	errs := make([]error, 0)
@@ -77,13 +70,9 @@ func (node *MixerNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writ
 		errs = append(errs, fmt.Errorf("failed to copy data from internal buffer to output: %w", err))
 	}
 
-	node.err = errors.Join(errs...)
+	return errors.Join(errs...)
 }
 
-func (node *MixerNode) Err() error {
-	return node.err
-}
-
-func NewMixerNode(logger *logging.Logger) *MixerNode {
-	return &MixerNode{logger: logger, err: nil}
+func NewMixerNode() *MixerNode {
+	return &MixerNode{}
 }

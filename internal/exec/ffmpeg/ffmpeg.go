@@ -9,7 +9,7 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/internal/optional"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 )
 
 const (
@@ -59,7 +59,7 @@ func (t *transcoder) Close() (err error) {
 }
 
 func NewTranscoder(
-	logger *logging.Logger,
+	ctx context.Context,
 	config Config,
 	r io.Reader,
 	format string,
@@ -92,7 +92,7 @@ func NewTranscoder(
 
 	go func() {
 		n, err := io.Copy(stdin, r)
-		logger.Debug("copied bytes from reader to ffmpeg stdin", "n", n, "error", err)
+		telemetry.Logger.DebugContext(ctx, "copied bytes from reader to ffmpeg stdin", "n", n, "error", err)
 
 		if err != nil {
 			t.err.Lock()
@@ -109,28 +109,31 @@ func NewTranscoder(
 	}
 	t.stdout = stdout
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err), nil
-	}
-
-	stderrBytes := syncext.SyncData[[]byte]{Data: make([]byte, 0)}
-
-	stderr1, pw := io.Pipe()
-	stderr2 := io.TeeReader(stderr, pw)
-	go logger.LogReader(stderr1, logging.LevelDebug, "[ffmpeg stderr]: %s")
-	go func() {
-		var err error
-		stderrBytes.Lock()
-		stderrBytes.Data, err = io.ReadAll(stderr2)
-		stderrBytes.Unlock()
-
+	// TODO: Log stderr
+	/*
+		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			t.err.Lock()
-			t.err.Data = errors.Join(t.err.Data, fmt.Errorf("failed to buffer all of ffmpeg stderr: %w", err))
-			t.err.Unlock()
+			return nil, fmt.Errorf("failed to create stderr pipe: %w", err), nil
 		}
-	}()
+
+		stderrBytes := syncext.SyncData[[]byte]{Data: make([]byte, 0)}
+
+		stderr1, pw := io.Pipe()
+		stderr2 := io.TeeReader(stderr, pw)
+		go logger.LogReader(stderr1, logging.LevelDebug, "[ffmpeg stderr]: %s")
+		go func() {
+			var err error
+			stderrBytes.Lock()
+			stderrBytes.Data, err = io.ReadAll(stderr2)
+			stderrBytes.Unlock()
+
+			if err != nil {
+				t.err.Lock()
+				t.err.Data = errors.Join(t.err.Data, fmt.Errorf("failed to buffer all of ffmpeg stderr: %w", err))
+				t.err.Unlock()
+			}
+		}()
+	*/
 
 	err = cmd.Start()
 	if err != nil {
@@ -147,9 +150,13 @@ func NewTranscoder(
 		if err != nil {
 			switch err := err.(type) {
 			case *exec.ExitError:
-				stderrBytes.Lock()
-				exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
-				stderrBytes.Unlock()
+				// TODO: return stderr
+				/*
+					stderrBytes.Lock()
+					exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
+					stderrBytes.Unlock()
+				*/
+				exit <- &exec.ExitError{}
 			default:
 				panic(err)
 			}

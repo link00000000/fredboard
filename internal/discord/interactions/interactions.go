@@ -92,7 +92,7 @@ func FindOrCreateVoiceConn(session *discordgo.Session, interaction *discordgo.In
 	return conn, false, err
 }
 
-func FindOrCreateAudioSession(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction) (audioSession *audiosession.Session, output *audiosession.DiscordVoiceConnOutput, exists bool, err error) {
+func FindOrCreateAudioSession(session *discordgo.Session, interaction *discordgo.Interaction) (audioSession *audiosession.Session, output *audiosession.DiscordVoiceConnOutput, exists bool, err error) {
 	conn, exists, err := FindOrCreateVoiceConn(session, interaction)
 	if err != nil {
 		return nil, nil, false, err
@@ -107,7 +107,7 @@ func FindOrCreateAudioSession(logger *logging.Logger, session *discordgo.Session
 		return output.Session(), output, true, nil
 	}
 
-	audioSession = audiosession.New(logger)
+	audioSession = audiosession.New()
 	output, err = audioSession.AddDiscordVoiceConnOutput(conn)
 	if err != nil {
 		return nil, nil, false, err

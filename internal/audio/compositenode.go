@@ -2,26 +2,24 @@ package audio
 
 import (
 	"context"
+	"errors"
 	"io"
 	"iter"
 	"slices"
 
 	"accidentallycoded.com/fredboard/v3/internal/telemetry"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 var _ Node = (*CompositeNode)(nil)
 
 type CompositeNode struct {
-	logger *logging.Logger
-
 	childNodes    []Node
 	connections   []*Connection
 	input, output Node
 }
 
-func (node *CompositeNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) {
-	ctx, span := telemetry.Tracer.Start(ctx, "CompositeNode.Tick")
+func (node *CompositeNode) Tick(ctx context.Context, ins []io.Reader, outs []io.Writer) (err error) {
+	ctx, span := telemetry.Tracer.Start(ctx, "audio.CompositeNode.Tick")
 	defer span.End()
 
 	queue := make([]Node, 0)
@@ -43,6 +41,8 @@ func (node *CompositeNode) Tick(ctx context.Context, ins []io.Reader, outs []io.
 	for _, leaf := range leaves {
 		enqueue(leaf)
 	}
+
+	errs := make([]error, 0)
 
 	for _, n := range queue {
 		nins := make([]io.Reader, 0)
@@ -66,12 +66,10 @@ func (node *CompositeNode) Tick(ctx context.Context, ins []io.Reader, outs []io.
 			}
 		}
 
-		n.Tick(ctx, nins, nouts)
+		errs = append(errs, n.Tick(ctx, nins, nouts))
 	}
-}
 
-func (node *CompositeNode) Err() error {
-	return nil
+	return errors.Join(errs...)
 }
 
 func (node *CompositeNode) AddNode(n Node) {
@@ -159,9 +157,8 @@ func (node *CompositeNode) findParentsOf(child Node) []Node {
 	return parents
 }
 
-func NewCompositeNode(logger *logging.Logger) *CompositeNode {
+func NewCompositeNode() *CompositeNode {
 	return &CompositeNode{
-		logger:      logger,
 		childNodes:  make([]Node, 0),
 		connections: make([]*Connection, 0),
 	}

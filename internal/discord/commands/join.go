@@ -27,7 +27,7 @@ func Join(logger *logging.Logger, session *discordgo.Session, interaction *disco
 
 	// TODO: ensure that audio session does not already exist for conn (it shouldnt exist, but it should still be asserted)
 
-	audioSession := audiosession.New(logger)
+	audioSession := audiosession.New()
 	output, err := audioSession.AddDiscordVoiceConnOutput(conn)
 
 	if err != nil {

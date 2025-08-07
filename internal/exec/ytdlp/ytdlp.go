@@ -9,7 +9,6 @@ import (
 
 	"accidentallycoded.com/fredboard/v3/internal/optional"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 type YtdlpAudioQuality string
@@ -128,7 +127,7 @@ func (r *videoReader) Close() error {
 	return nil
 }
 
-func NewVideoReader(logger *logging.Logger, config Config, url string, quality YtdlpAudioQuality) (*videoReader, error, <-chan *exec.ExitError) {
+func NewVideoReader(config Config, url string, quality YtdlpAudioQuality) (*videoReader, error, <-chan *exec.ExitError) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &videoReader{cancel: cancel}
 
@@ -143,27 +142,30 @@ func NewVideoReader(logger *logging.Logger, config Config, url string, quality Y
 	}
 	r.stdout = stdout
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stderr pipe: %w", err), nil
-	}
-
-	stderrBytes := syncext.SyncData[[]byte]{Data: make([]byte, 0)}
-
-	stderr1, pw := io.Pipe()
-	stderr2 := io.TeeReader(stderr, pw)
-	go logger.LogReader(stderr1, logging.LevelDebug, "[ytdlp stderr]: %s")
-	go func() {
-		stderrBytes.Lock()
-		stderrBytes.Data, err = io.ReadAll(stderr2)
-		stderrBytes.Unlock()
-
+	// TODO: Log stderr
+	/*
+		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			r.err.Lock()
-			r.err.Data = errors.Join(r.err.Data, fmt.Errorf("failed to buffer all of ytdlp stderr: %w", err))
-			r.err.Unlock()
+			return nil, fmt.Errorf("failed to create stderr pipe: %w", err), nil
 		}
-	}()
+
+		stderrBytes := syncext.SyncData[[]byte]{Data: make([]byte, 0)}
+
+		stderr1, pw := io.Pipe()
+		stderr2 := io.TeeReader(stderr, pw)
+		go logger.LogReader(stderr1, logging.LevelDebug, "[ytdlp stderr]: %s")
+		go func() {
+			stderrBytes.Lock()
+			stderrBytes.Data, err = io.ReadAll(stderr2)
+			stderrBytes.Unlock()
+
+			if err != nil {
+				r.err.Lock()
+				r.err.Data = errors.Join(r.err.Data, fmt.Errorf("failed to buffer all of ytdlp stderr: %w", err))
+				r.err.Unlock()
+			}
+		}()
+	*/
 
 	err = cmd.Start()
 	if err != nil {
@@ -180,9 +182,13 @@ func NewVideoReader(logger *logging.Logger, config Config, url string, quality Y
 		if err != nil {
 			switch err := err.(type) {
 			case *exec.ExitError:
-				stderrBytes.Lock()
-				exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
-				stderrBytes.Unlock()
+				// TODO: return stderr
+				/*
+					stderrBytes.Lock()
+					exit <- &exec.ExitError{ProcessState: err.ProcessState, Stderr: stderrBytes.Data}
+					stderrBytes.Unlock()
+				*/
+				exit <- &exec.ExitError{}
 			default:
 				panic(err)
 			}

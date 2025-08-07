@@ -9,7 +9,6 @@ import (
 	"accidentallycoded.com/fredboard/v3/internal/events"
 	"accidentallycoded.com/fredboard/v3/internal/syncext"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry"
-	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 )
 
 var allSessions = syncext.NewSyncData(make([]*Session, 0))
@@ -156,7 +155,6 @@ const (
 type Session struct {
 	sync.Mutex
 
-	logger     *logging.Logger
 	inputs     []Input
 	outputs    []Output
 	rootMixer  *audio.MixerNode
@@ -233,8 +231,8 @@ func (s *Session) State() SessionState {
 	return s.state
 }
 
-func (s *Session) StartTicking() {
-	ctx, span := telemetry.Tracer.Start(context.Background(), "audiosession")
+func (s *Session) StartTicking(ctx context.Context) {
+	ctx, span := telemetry.Tracer.Start(ctx, "audiosession.Session.StartTicking")
 	defer span.End()
 
 	processTick := func() /*continue*/ bool {
@@ -242,10 +240,16 @@ func (s *Session) StartTicking() {
 		defer s.Unlock()
 
 		if len(s.inputs) == 0 {
+			telemetry.Logger.InfoContext(ctx, "No more inputs for audiosession, requesting stop.")
 			return false
 		}
 
-		s.audioGraph.Tick(ctx)
+		err := s.audioGraph.Tick(ctx)
+		if err != nil {
+			telemetry.Logger.ErrorContext(ctx, "Error while ticking audiosession graph, requesting stop.", "err", err)
+			return false
+		}
+
 		return true
 	}
 
@@ -269,18 +273,17 @@ func (s *Session) StartTicking() {
 	}
 }
 
-func New(logger *logging.Logger) *Session {
-	rootMixer := audio.NewMixerNode(logger)
+func New() *Session {
+	rootMixer := audio.NewMixerNode()
 
-	audioGraph := audio.NewGraph(logger)
+	audioGraph := audio.NewGraph()
 	audioGraph.AddNode(rootMixer)
 
 	audioSession := Session{
-		logger:     logger,
 		inputs:     make([]Input, 0),
 		outputs:    make([]Output, 0),
 		rootMixer:  rootMixer,
-		audioGraph: audio.NewGraph(logger),
+		audioGraph: audio.NewGraph(),
 		state:      SessionState_NotTicking,
 
 		OnInputRemoved:  events.NewEventEmitter[SessionEvent_OnInputRemoved](),

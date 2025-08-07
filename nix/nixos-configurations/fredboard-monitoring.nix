@@ -89,18 +89,21 @@ in
           type = "loki";
           access = "proxy";
           url = "http://localhost:${builtins.toString lokiCfg.configuration.server.http_listen_port}";
+          editable = true;
         }
         {
           name = "Tempo";
           type = "tempo";
           access = "proxy";
           url = "http://localhost:${builtins.toString tempoCfg.settings.server.http_listen_port}";
+          editable = true;
         }
         {
           name = "Prometheus";
           type = "prometheus";
           access = "proxy";
           url = "http://localhost:${builtins.toString prometheusCfg.port}";
+          editable = true;
         }
       ];
     };

@@ -1,11 +1,13 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 
 	"accidentallycoded.com/fredboard/v3/internal/audiosession"
 	"accidentallycoded.com/fredboard/v3/internal/discord/interactions"
 	"accidentallycoded.com/fredboard/v3/internal/exec/ytdlp"
+	"accidentallycoded.com/fredboard/v3/internal/telemetry"
 	"accidentallycoded.com/fredboard/v3/internal/telemetry/logging"
 	"github.com/bwmarrin/discordgo"
 )
@@ -24,6 +26,9 @@ func getPlayCommandOptions(interaction *discordgo.Interaction) (*playCommandOpti
 }
 
 func Play(logger *logging.Logger, session *discordgo.Session, interaction *discordgo.Interaction) {
+	ctx, span := telemetry.Tracer.Start(context.Background(), "commands.Play")
+	defer span.End()
+
 	if interactions.Acknowledge(logger, session, interaction) != nil {
 		return
 	}
@@ -35,14 +40,14 @@ func Play(logger *logging.Logger, session *discordgo.Session, interaction *disco
 		return
 	}
 
-	audioSession, output, exists, err := interactions.FindOrCreateAudioSession(logger, session, interaction)
+	audioSession, output, exists, err := interactions.FindOrCreateAudioSession(session, interaction)
 	if err != nil {
 		logger.Error("failed to execute /Play command due to failure while finding or creating audio session", "interaction", interaction, "error", err)
 		interactions.RespondWithError(logger, session, interaction, err)
 		return
 	}
 
-	input, err := audioSession.AddYtdlpInput(opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
+	input, err := audioSession.AddYtdlpInput(ctx, opts.url, ytdlp.YtdlpAudioQuality_BestAudio)
 	if err != nil {
 		logger.Error("failed to execute /Play command due error while adding ytdlp input to the audio session", "interaction", interaction, "audioSession", audioSession, "error", err)
 		interactions.RespondWithError(logger, session, interaction, err)
@@ -74,7 +79,7 @@ func Play(logger *logging.Logger, session *discordgo.Session, interaction *disco
 	})
 
 	if audioSession.State() == audiosession.SessionState_NotTicking {
-		go audioSession.StartTicking()
+		go audioSession.StartTicking(ctx)
 	}
 
 	interactions.RespondWithMessage(logger, session, interaction, "Playing...")
