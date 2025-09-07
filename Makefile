@@ -18,10 +18,10 @@ clean :
 	@rm -rf bin/
 
 #----------------------
-# Fredboard Server
+# Fredboard
 #----------------------
 
-CMD_FREDBOARD = ./cmd/fredboard_server/
+CMD_FREDBOARD = ./cmd/fredboard/
 
 .PHONY: run-fredboard
 run-fredboard :

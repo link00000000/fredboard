@@ -102,7 +102,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
-	otelShutdown, err := telemetry.SetupOTelSDK("accidentallycoded.com/fredboard/v3/cmd/fredboard_server", ctx)
+	otelShutdown, err := telemetry.SetupOTelSDK("accidentallycoded.com/fredboard/v3/cmd/fredboard", ctx)
 	if err != nil {
 		// TODO: Properly handle
 		fmt.Printf("fatal error during otel setup: %s", err.Error())

@@ -50,27 +50,8 @@
     };
 
     packages = {
-      default = self.packages.${system}.fredboard-server;
-
-      fredboard-server = pkgs.buildGoApplication {
-        pname = "fredboard";
-        version = "dev";
-        inherit buildInputs;
-        src = ./.;
-        modules = ./gomod2nix.toml;
-
-        subPackages = [
-          "cmd/fredboard_server"
-        ];
-
-        meta = {
-          description = "A music player bot for Discord";
-          homepage = "https://github.com/link00000000/fredboard";
-          license = pkgs.lib.licenses.mit;
-          maintainers = with pkgs.lib.maintainers; [ link00000000 ];
-        };
-      };
-
+      default = self.packages.${system}.fredboard;
+      fredboard = (import ./nix/packages/fredboard.nix) pkgs;
       monitoring-vm = pkgs.writeShellScriptBin "start-monitoring-vm" ''
         export QEMU_OPTS="-nographic -serial mon:stdio -echr 0x02"
         ${self.nixosConfigurations.fredboard-monitoring.config.system.build.vm}/bin/run-fredboard-monitoring-vm
