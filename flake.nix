@@ -11,66 +11,21 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, gomod2nix, ... }: flake-utils.lib.eachDefaultSystem (system: let
-    pkgs = import nixpkgs {
-      inherit system;
-      overlays = [ gomod2nix.overlays.default ];
+  outputs = { self, nixpkgs, flake-utils, gomod2nix, ... }@inputs: flake-utils.lib.eachDefaultSystem (system: {
+    devShells = {
+      default = self.devShells.${system}.full;
+      full = import ./nix/dev-shells/full.nix system inputs;
+      minimal = import ./nix/dev-shells/minimal.nix system inputs;
     };
-    
-    buildInputs = with pkgs; [
-      gnumake
-      go_1_23
-      golangci-lint
-      libGL
-      xorg.libX11
-    ];
-
-    runtimeDependencies = with pkgs; [
-      ffmpeg
-      yt-dlp
-    ];
-  in {
-    devShells.default = pkgs.mkShell {
-      packages = with pkgs; [
-        delve
-        dotenv-cli
-        go-tools
-        gomod2nix.packages.${system}.default
-        gopls
-        gotools
-        graphviz
-        hexyl
-        vlc
-      ]
-      ++ buildInputs
-      ++ runtimeDependencies;
-
-      # Required to prevent error when running `dlv test`
-      hardeningDisable = [ "fortify" ];
-    };
-
     packages = {
       default = self.packages.${system}.fredboard;
-      fredboard = (import ./nix/packages/fredboard.nix) pkgs;
-      monitoring-vm = pkgs.writeShellScriptBin "start-monitoring-vm" ''
-        export QEMU_OPTS="-nographic -serial mon:stdio -echr 0x02"
-        ${self.nixosConfigurations.fredboard-monitoring.config.system.build.vm}/bin/run-fredboard-monitoring-vm
-      '';
+      fredboard = import ./nix/packages/fredboard.nix system inputs;
     };
-
     apps = {
       fredboard-monitoring = {
         type = "app";
         program = "${self.packages.${system}.monitoring-vm}/bin/start-monitoring-vm";
       };
     };
-  })
-  // {
-    nixosConfigurations = {
-      fredboard-monitoring = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        modules = [ ./nix/nixos-configurations/fredboard-monitoring.nix ];
-      };
-    };
-  };
+  });
 }
