@@ -21,11 +21,5 @@
       default = self.packages.${system}.fredboard;
       fredboard = import ./nix/packages/fredboard.nix system inputs;
     };
-    apps = {
-      fredboard-monitoring = {
-        type = "app";
-        program = "${self.packages.${system}.monitoring-vm}/bin/start-monitoring-vm";
-      };
-    };
   });
 }
