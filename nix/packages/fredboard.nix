@@ -10,6 +10,10 @@ in pkgs.buildGoApplication {
 
   src = ../..;
   modules = ../../gomod2nix.toml;
+  propagatedBuildInputs = with pkgs; [
+    ffmpeg
+    yt-dlp
+  ];
 
   subPackages = [
     "cmd/fredboard"
