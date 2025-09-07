@@ -4,10 +4,18 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    gomod2nix = {
+      url = "github:nix-community/gomod2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system: let
-    pkgs = import nixpkgs { inherit system; };
+  outputs = { self, nixpkgs, flake-utils, gomod2nix, ... }: flake-utils.lib.eachDefaultSystem (system: let
+    pkgs = import nixpkgs {
+      inherit system;
+      overlays = [ gomod2nix.overlays.default ];
+    };
     
     buildInputs = with pkgs; [
       gnumake
@@ -27,6 +35,7 @@
         delve
         dotenv-cli
         go-tools
+        gomod2nix.packages.${system}.default
         gopls
         gotools
         graphviz
@@ -43,43 +52,16 @@
     packages = {
       default = self.packages.${system}.fredboard-server;
 
-      fredboard-server = pkgs.buildGo123Module {
+      fredboard-server = pkgs.buildGoApplication {
         pname = "fredboard";
-        version = builtins.readFile ./version;
+        version = "dev";
+        inherit buildInputs;
         src = ./.;
+        modules = ./gomod2nix.toml;
 
         subPackages = [
           "cmd/fredboard_server"
         ];
-
-        vendorHash = "sha256-urCKBLWE4Pjiy1q0hSxEzu8XK1OR2VMkNyHSnai3EkM=";
-
-        # gopus package has C files that are not properly vendored by 'go mod vendor',
-        # so we need to manually add them to the vendored directory.
-        preBuild = let
-          gopusRepo = let
-            goMod = builtins.readFile ./go.mod;
-            matches = builtins.match ".*layeh.com/gopus v[0-9.]+-[0-9]+-([a-f0-9]+).*" goMod;
-            rev = if matches != null && matches != [] then (builtins.head matches) else throw "gopus rev not found";
-          in pkgs.fetchFromGitHub {
-            inherit rev;
-            owner = "layeh";
-            repo = "gopus";
-            sha256 = "sha256-i1N5ETtqTfmLZ3yb4yhZXJsGBsykxFyifdSo94Th8RU=";
-          };
-        in /* bash */ ''
-          # vendor/ is not writable, so we need to make a copy of everything to a writable version of vendor/
-          if [[ -d vendor ]]; then
-            mv vendor vendor.old
-          fi
-
-          mkdir -p vendor/layeh.com/gopus/opus-1.1.2
-          cp -r ${gopusRepo}/opus-1.1.2/* vendor/layeh.com/gopus/opus-1.1.2/
-
-          if [[ -d vendor.old ]]; then
-            cp -r vendor.old/* vendor/
-          fi
-        '';
 
         meta = {
           description = "A music player bot for Discord";

@@ -1,8 +1,4 @@
-BUILD_VERSION := $(FREDBOARD_BUILD_VERSION)
-BUILD_COMMIT := $(FREDBOARD_BUILD_COMMIT)
-
 export OTEL_EXPORTER_OTLP_ENDPOINT := http://localhost:4318
-
 export FREDBOARD_CONFIG := ./.env/config.json
 
 .PHONY: default
@@ -27,15 +23,7 @@ clean :
 
 CMD_FREDBOARD = ./cmd/fredboard_server/
 
-.PHONY: fredboard
-fredboard : $(wildcard **/*.go)
-	go build -v -ldflags "-X main.buildVersion=$(BUILD_VERSION) -X main.buildCommit=$(BUILD_COMMIT)" -o bin/fredboard-server $(CMD_FREDBOARD)
-
 .PHONY: run-fredboard
 run-fredboard :
 	@go run $(CMD_FREDBOARD)
-
-.PHONY: debug-fredboard
-debug-fredboard :
-	dlv debug $(CMD_FREDBOARD)
 
