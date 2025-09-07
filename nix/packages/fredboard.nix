@@ -1,4 +1,10 @@
-{ pkgs, ... }: pkgs.buildGoApplication {
+system: { nixpkgs, gomod2nix, ... }:
+let
+  pkgs = import nixpkgs {
+    inherit system;
+    overlays = [ gomod2nix.overlays.default ];
+  };
+in pkgs.buildGoApplication {
   pname = "fredboard";
   version = "dev";
 
