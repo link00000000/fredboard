@@ -23,5 +23,10 @@
       full = import ./nix/dev-shells/full.nix system inputs;
       minimal = import ./nix/dev-shells/minimal.nix system inputs;
     };
+
+    nixosModules = {
+      default = self.nixosModules.fredboard;
+      fredboard = import ./nix/modules/nixos/services/fredboard inputs;
+    };
   };
 }
