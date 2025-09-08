@@ -3,23 +3,25 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
     gomod2nix = {
       url = "github:nix-community/gomod2nix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "flake-utils";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, gomod2nix, ... }@inputs: flake-utils.lib.eachDefaultSystem (system: {
-    devShells = {
+  outputs = { self, ... }@inputs:
+  let
+    system = "x86_64-linux";
+  in {
+    packages.${system} = {
+      default = self.packages.${system}.fredboard;
+      fredboard = import ./nix/packages/fredboard.nix system inputs;
+    };
+
+    devShells.${system} = {
       default = self.devShells.${system}.full;
       full = import ./nix/dev-shells/full.nix system inputs;
       minimal = import ./nix/dev-shells/minimal.nix system inputs;
     };
-    packages = {
-      default = self.packages.${system}.fredboard;
-      fredboard = import ./nix/packages/fredboard.nix system inputs;
-    };
-  });
+  };
 }
