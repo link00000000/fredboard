@@ -26,7 +26,12 @@
 
     nixosModules = {
       default = self.nixosModules.fredboard;
-      fredboard = import ./nix/modules/nixos/services/fredboard inputs;
+      fredboard = import ./nix/modules/nixos/fredboard.nix inputs;
+    };
+
+    overlays = {
+      default = self.overlays.fredboard;
+      fredboard = import ./nix/overlays/fredboard.nix inputs;
     };
   };
 }
