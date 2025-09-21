@@ -1,6 +1,3 @@
-# Created by https://www.toptal.com/developers/gitignore/api/direnv,git,vim,cmake,c++,linux,windows,macos
-# Edit at https://www.toptal.com/developers/gitignore?templates=direnv,git,vim,cmake,c++,linux,windows,macos
-
 ### C++ ###
 # Prerequisites
 *.d
@@ -166,4 +163,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.toptal.com/developers/gitignore/api/direnv,git,vim,cmake,c++,linux,windows,macos
+### Nix ###
+# Package build outputs
+result
