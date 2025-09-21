@@ -1,6 +1,8 @@
 { lib
 , stdenv
 , cmake
+, pkg-config
+, dpp
 }:
 
 stdenv.mkDerivation {
@@ -12,8 +14,8 @@ stdenv.mkDerivation {
     "CMakeLists.txt"
   ];
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [];
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ dpp ];
   checkInputs = [];
 
   cmakeFlags = [];
