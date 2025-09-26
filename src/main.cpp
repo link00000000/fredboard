@@ -1,10 +1,19 @@
+#include <dpp/dispatcher.h>
 #include <dpp/dpp.h>
+
+#include "logging.h"
 
 const std::string BOT_TOKEN = "";
 
+using namespace fretboard;
+
 int main() {
+
+    logging::logger logger;
+
     dpp::cluster bot(BOT_TOKEN);
 
+    //bot.on_log([&logger](const dpp::log_t& log){ logger.debug("%s", log.message.c_str()); });
     bot.on_log(dpp::utility::cout_logger());
 
     bot.on_slashcommand([](const dpp::slashcommand_t& event) {
