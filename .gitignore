@@ -165,3 +165,5 @@ $RECYCLE.BIN/
 ### Nix ###
 # Package build outputs
 result
+build
+.cache/clangd/index

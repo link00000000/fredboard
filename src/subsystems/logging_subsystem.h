@@ -1,21 +1,26 @@
 #pragma once
 
+#include "subsystem.h"
 #include <cstdio>
 #include <string>
 
-namespace fretboard::logging {
-    enum class log_level
-    {
-        debug,
-        info,
-        warning,
-        error,
-        fatal,
-    };
+namespace fretboard::subsystems
+{
 
-    class logger
+    class logging_subsystem : public fretboard::subsystems::subsystem
     {
     public:
+        enum class log_level
+        {
+            debug,
+            info,
+            warning,
+            error,
+            fatal,
+        };
+
+        static logging_subsystem& get();
+
         template <typename ...TArgs>
         void log(log_level level, const std::string& format, TArgs ...args);
 
@@ -38,32 +43,32 @@ namespace fretboard::logging {
 
 
 template <typename ...TArgs>
-void fretboard::logging::logger::log(log_level level, const std::string& format, TArgs ...args)
+void fretboard::subsystems::logging_subsystem::log(log_level level, const std::string& format, TArgs ...args)
 {
     printf(format.c_str(), args...);
 }
 
 template <typename ...TArgs>
-void fretboard::logging::logger::debug(const std::string& format, TArgs ...args) {
+void fretboard::subsystems::logging_subsystem::debug(const std::string& format, TArgs ...args) {
     log(log_level::debug, format, args...);
 }
 
 template <typename ...TArgs>
-void fretboard::logging::logger::info(const std::string& format, TArgs ...args) {
+void fretboard::subsystems::logging_subsystem::info(const std::string& format, TArgs ...args) {
     log(log_level::info, format, args...);
 }
 
 template <typename ...TArgs>
-void fretboard::logging::logger::warning(const std::string& format, TArgs ...args) {
+void fretboard::subsystems::logging_subsystem::warning(const std::string& format, TArgs ...args) {
     log(log_level::warning, format, args...);
 }
 
 template <typename ...TArgs>
-void fretboard::logging::logger::error(const std::string& format, TArgs ...args) {
+void fretboard::subsystems::logging_subsystem::error(const std::string& format, TArgs ...args) {
     log(log_level::error, format, args...);
 }
 
 template <typename ...TArgs>
-void fretboard::logging::logger::fatal(const std::string& format, TArgs ...args) {
+void fretboard::subsystems::logging_subsystem::fatal(const std::string& format, TArgs ...args) {
     log(log_level::fatal, format, args...);
 }
