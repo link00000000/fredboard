@@ -1,4 +1,5 @@
 # Library ---------------------------
+find_package(dpp CONFIG REQUIRED)
 
 add_library(fretboard_lib
     STATIC
@@ -10,6 +11,13 @@ target_include_directories(fretboard_lib
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
 )
+
+target_link_libraries(fretboard_lib
+    PRIVATE
+        dpp::dpp
+)
+
+# TODO: Warnings as errors
 
 # Executable ------------------------
 
@@ -27,6 +35,8 @@ target_link_libraries(fretboard
     PRIVATE
         fretboard_lib
 )
+
+# TODO: Warnings as errors
 
 # Tests -----------------------------
 
@@ -47,6 +57,8 @@ target_link_libraries(fretboard_tests
         fretboard_lib
         Catch2::Catch2WithMain
 )
+
+# TODO: Warnings as errors
 
 include(Catch)
 catch_discover_tests(fretboard_tests)
