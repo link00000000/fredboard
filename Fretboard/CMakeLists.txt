@@ -4,6 +4,14 @@ find_package(dpp CONFIG REQUIRED)
 add_library(fretboard_lib
     STATIC
         Fretboard.cpp
+        CommandControl/ControlServer.h
+        CommandControl/ControlServer_Generic.h
+        CommandControl/ControlServer_Macos.h
+        CommandControl/ControlServer_Unix.h
+        CommandControl/ControlServer_Windows.h
+        CommandControl/ControlServer.cpp
+        Error/Error.h
+        CommandControl/ControlServer_Windows.cpp
 )
 
 target_include_directories(fretboard_lib
@@ -16,6 +24,28 @@ target_link_libraries(fretboard_lib
     PRIVATE
         dpp::dpp
 )
+
+if(WIN32)
+    target_compile_definitions(fretboard_lib
+        PUBLIC
+            PLATFORM_WINDOWS=1
+    )
+elseif(APPLE)
+    target_compile_definitions(fretboard_lib
+        PUBLIC
+            PLATFORM_MACOS=1
+    )
+elseif(UNIX)
+    target_compile_definitions(fretboard_lib
+        PUBLIC
+            PLATFORM_UNIX=1
+    )
+else()
+    target_compile_definitions(fretboard_lib
+        PUBLIC
+            PLATFORM_GENERIC=1
+    )
+endif()
 
 # TODO: Warnings as errors
 

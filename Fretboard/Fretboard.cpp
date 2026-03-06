@@ -2,10 +2,13 @@
 
 #include <dpp/dpp.h>
 
+#include "CommandControl/ControlServer_Windows.h"
+
 namespace Fretboard
 {
     int Main()
     {
+#if 0
     	constexpr auto DiscordBotToken = "";
 	    dpp::cluster DiscordBot(DiscordBotToken);
 
@@ -22,7 +25,10 @@ namespace Fretboard
 	    });
 
 	    DiscordBot.start(dpp::st_wait);
+#endif
 
+        CommandControl::ControlServerWindows ControlServer;
+        ControlServer.Listen();
         return 0;
     }
 }
