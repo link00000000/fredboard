@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-#include "Error/Error.h"
+#include "Core/Error.h"
 
 namespace Fretboard::CommandControl
 {

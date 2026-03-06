@@ -1,22 +1,19 @@
 # Library ---------------------------
-find_package(dpp CONFIG REQUIRED)
-
-add_library(Fretboard
+add_library(CommandControl
     STATIC
-        Fretboard/Fretboard.cpp
+        CommandControl/ControlServer.cpp
+        CommandControl/ControlServer_Windows.cpp
 )
 
-target_include_directories(Fretboard
+target_include_directories(CommandControl
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(Fretboard
+target_link_libraries(CommandControl
     PUBLIC
-        dpp::dpp
         Core
-        CommandControl
 )
 
 # TODO: Warnings as errors
@@ -25,23 +22,23 @@ target_link_libraries(Fretboard
 
 find_package(Catch2 3 REQUIRED)
 
-add_executable(FretboardTests
-        Fretboard/Fretboard_Test.cpp
+add_executable(CommandControlTests
+        CommandControl/ControlServer_Test.cpp
 )
 
-target_include_directories(FretboardTests
+target_include_directories(CommandControlTests
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(FretboardTests
+target_link_libraries(CommandControlTests
     PRIVATE
-        Fretboard
+        CommandControl
         Catch2::Catch2WithMain
 )
 
 # TODO: Warnings as errors
 
 include(Catch)
-catch_discover_tests(FretboardTests)
+catch_discover_tests(CommandControlTests)

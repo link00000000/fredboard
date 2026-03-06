@@ -1,7 +1,6 @@
 #include "Fretboard.h"
 
 #include <dpp/dpp.h>
-
 #include "CommandControl/ControlServer_Windows.h"
 
 namespace Fretboard

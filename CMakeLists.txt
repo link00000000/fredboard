@@ -12,4 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS)
 
 enable_testing()
+
+add_subdirectory(CommandControl)
+add_subdirectory(Core)
 add_subdirectory(Fretboard)
+add_subdirectory(FretboardApp)

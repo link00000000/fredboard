@@ -1,4 +1,4 @@
-#include "Fretboard.h"
+#include "Fretboard/Fretboard.h"
 
 int main()
 {
