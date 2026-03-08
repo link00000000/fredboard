@@ -16,7 +16,7 @@ target_link_libraries(Fretboard
     PUBLIC
         dpp::dpp
         Core
-        CommandControl
+        DeveloperConsole
 )
 
 # TODO: Warnings as errors

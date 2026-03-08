@@ -3,7 +3,7 @@
 #if PLATFORM_MACOS
 #include "ControlServer.h"
 
-namespace Fretboard::CommandControl
+namespace Fretboard::DeveloperConsole
 {
     class ControlServerMacos : public ControlServer
     {

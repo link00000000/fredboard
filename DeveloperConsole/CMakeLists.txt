@@ -1,17 +1,17 @@
 # Library ---------------------------
-add_library(CommandControl
+add_library(DeveloperConsole
     STATIC
-        CommandControl/ControlServer.cpp
-        CommandControl/ControlServer_Windows.cpp
+        DeveloperConsole/ControlServer.cpp
+        DeveloperConsole/ControlServer_Windows.cpp
 )
 
-target_include_directories(CommandControl
+target_include_directories(DeveloperConsole
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(CommandControl
+target_link_libraries(DeveloperConsole
     PUBLIC
         Core
 )
@@ -22,23 +22,23 @@ target_link_libraries(CommandControl
 
 find_package(Catch2 3 REQUIRED)
 
-add_executable(CommandControlTests
-        CommandControl/ControlServer_Test.cpp
+add_executable(DeveloperConsoleTests
+        DeveloperConsole/ControlServer_Test.cpp
 )
 
-target_include_directories(CommandControlTests
+target_include_directories(DeveloperConsoleTests
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(CommandControlTests
+target_link_libraries(DeveloperConsoleTests
     PRIVATE
-        CommandControl
+        DeveloperConsole
         Catch2::Catch2WithMain
 )
 
 # TODO: Warnings as errors
 
 include(Catch)
-catch_discover_tests(CommandControlTests)
+catch_discover_tests(DeveloperConsoleTests)

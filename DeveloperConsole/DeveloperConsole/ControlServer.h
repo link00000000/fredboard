@@ -7,7 +7,7 @@
 
 #include "Core/Error.h"
 
-namespace Fretboard::CommandControl
+namespace Fretboard::DeveloperConsole
 {
     enum class ErrorCode
     {

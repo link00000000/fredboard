@@ -1,7 +1,7 @@
 #include "Fretboard.h"
 
 #include <dpp/dpp.h>
-#include "CommandControl/ControlServer_Windows.h"
+#include "DeveloperConsole/ControlServer_Windows.h"
 
 namespace Fretboard
 {
@@ -26,7 +26,7 @@ namespace Fretboard
 	    DiscordBot.start(dpp::st_wait);
 #endif
 
-        CommandControl::ControlServerWindows ControlServer;
+        DeveloperConsole::ControlServerWindows ControlServer;
         ControlServer.Listen();
         return 0;
     }

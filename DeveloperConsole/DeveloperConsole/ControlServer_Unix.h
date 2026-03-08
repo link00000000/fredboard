@@ -3,7 +3,7 @@
 #if PLATFORM_UNIX
 #include "ControlServer.h"
 
-namespace Fretboard::CommandControl
+namespace Fretboard::DeveloperConsole
 {
     class ControlServerUnix : public ControlServer
     {

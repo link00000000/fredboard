@@ -3,7 +3,7 @@
 #if PLATFORM_WINDOWS
 #include "ControlServer.h"
 
-namespace Fretboard::CommandControl
+namespace Fretboard::DeveloperConsole
 {
     class ControlServerWindows final : public ControlServer
     {

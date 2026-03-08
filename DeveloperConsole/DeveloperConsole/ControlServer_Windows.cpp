@@ -1,9 +1,9 @@
 #if PLATFORM_WINDOWS
-#include "CommandControl/ControlServer_Windows.h"
+#include "DeveloperConsole/ControlServer_Windows.h"
 
 #include <windows.h>
 
-namespace Fretboard::CommandControl
+namespace Fretboard::DeveloperConsole
 {
     void ControlServerWindows::Listen()
     {

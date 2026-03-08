@@ -1,8 +1,8 @@
-#include "CommandControl/ControlServer.h"
+#include "DeveloperConsole/ControlServer.h"
 
 #include <optional>
 
-namespace Fretboard::CommandControl
+namespace Fretboard::DeveloperConsole
 {
     std::optional<Error> ControlServer::RegisterCommand(Command&& InCommand)
     {
