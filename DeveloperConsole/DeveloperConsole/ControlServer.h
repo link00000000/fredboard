@@ -1,21 +1,17 @@
 #pragma once
 
 #include <functional>
-#include <iostream>
-#include <optional>
 #include <string>
 
 #include "Core/Error.h"
+#include "Transports/Transport.h"
 
-namespace Fretboard::DeveloperConsole
+namespace DeveloperConsole
 {
-    enum class ErrorCode
+    namespace Transports
     {
-        InvalidCommandName,
-        CommandAlreadyRegistered,
-    };
-
-    using Error = Error<ErrorCode>;
+        class NamedPipeTransport;
+    }
 
     struct Command
     {
@@ -23,27 +19,23 @@ namespace Fretboard::DeveloperConsole
         std::function<void(const std::vector<std::string>& Args, std::ostream& OutputDevice)> Handler; // TODO: Use array view?
     };
 
-    class ControlServer
+    class ControlServer final : public Transports::ITransportListener
     {
     public:
+        ControlServer();
         virtual ~ControlServer() = default;
 
-        virtual void Listen() = 0;
-        virtual void Stop() = 0;
+        void RegisterCommand(Command&& InCommand);
 
-        std::optional<Error> RegisterCommand(Command&& InCommand);
+        void Listen();
+        void Stop();
 
-    protected:
-        void HandleClientRequest(std::string ClientRequest)
-        {
-            std::cout << ClientRequest << std::endl;
-            // 1. Get the command from the string
-            // 2. Get the arguments from the string
-            // 3. Execute registered command if there is one
-            // 4. Output error message if there is no registered command
-        }
+        void OnConnectionOpened() override;
+        void OnConnectionClosed() override;
+        void OnMessageReceived(const std::string& Message) override;
 
     private:
         std::unordered_map<std::string, Command> Commands;
+        std::unique_ptr<Transports::NamedPipeTransport> Transport;
     };
 }

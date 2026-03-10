@@ -1,7 +1,7 @@
 # Library ---------------------------
 add_library(Core
     STATIC
-        Core/Core.cpp
+        Core/Delegate.cpp
 )
 
 target_include_directories(Core
@@ -31,6 +31,8 @@ else()
             PLATFORM_GENERIC=1
     )
 endif()
+
+target_compile_options(Core PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>)
 
 # TODO: Warnings as errors
 

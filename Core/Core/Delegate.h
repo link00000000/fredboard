@@ -1,0 +1,56 @@
+#pragma once
+
+#include <functional>
+
+namespace Core
+{
+    struct DelegateHandle
+    {
+        friend struct DelegateHandleGenerator;
+
+        static DelegateHandle Invalid;
+
+    private:
+        explicit DelegateHandle(int64_t InValue);
+
+        int64_t Value;
+    };
+
+    struct DelegateHandleGenerator
+    {
+        DelegateHandle GenerateNextHandle();
+
+    private:
+        int64_t NextValue = 1;
+    };
+
+    template <typename... TArgs>
+    struct Delegate
+    {
+        using TCallback = std::function<void(TArgs...)>;
+
+        DelegateHandle Add(TCallback InHandler)
+        {
+            DelegateHandle Handle = HandleGenerator.GenerateNextHandle();
+            Handlers[Handle] = InHandler;
+            return Handle;
+        }
+
+        void Remove(DelegateHandle InHandle)
+        {
+            Handlers.erase(InHandle);
+        }
+
+        void Broadcast(TArgs... Args)
+        {
+            for (auto [_, Callback] : Handlers)
+            {
+                Callback(Args...);
+            }
+        }
+
+    private:
+        std::unordered_map<DelegateHandle, TCallback> Handlers;
+        DelegateHandleGenerator HandleGenerator;
+    };
+}

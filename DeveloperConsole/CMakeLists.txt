@@ -2,7 +2,8 @@
 add_library(DeveloperConsole
     STATIC
         DeveloperConsole/ControlServer.cpp
-        DeveloperConsole/ControlServer_Windows.cpp
+        DeveloperConsole/Transports/NamedPipeTransport.cpp
+        DeveloperConsole/Transports/Transport.cpp
 )
 
 target_include_directories(DeveloperConsole

@@ -1,22 +1,63 @@
 #include "DeveloperConsole/ControlServer.h"
 
-#include <optional>
+#include <iostream>
 
-namespace Fretboard::DeveloperConsole
+#include "Transports/NamedPipeTransport.h"
+
+namespace DeveloperConsole
 {
-    std::optional<Error> ControlServer::RegisterCommand(Command&& InCommand)
+    ControlServer::ControlServer()
+    {
+        Transport = std::make_unique<Transports::NamedPipeTransport>(this);
+    }
+
+    void ControlServer::RegisterCommand(Command&& InCommand)
     {
         if (InCommand.Name.contains(' '))
         {
-            return Error(ErrorCode::InvalidCommandName, std::format("Command name \"{}\" invalid.", InCommand.Name));
+            // TODO: Handle error
+            //return Error(ErrorCode::InvalidCommandName, std::format("Command name \"{}\" invalid.", InCommand.Name));
+            return;
         }
 
         if (Commands.contains(InCommand.Name))
         {
-            return Error(ErrorCode::CommandAlreadyRegistered, std::format("Command \"{}\" is already registered.", InCommand.Name));
+            // TODO: Handle error
+            //return Error(ErrorCode::CommandAlreadyRegistered, std::format("Command \"{}\" is already registered.", InCommand.Name));
+            return;
         }
 
         Commands[InCommand.Name] = std::move(InCommand);
-        return std::nullopt;
+    }
+
+    void ControlServer::Listen()
+    {
+        Transport->Listen();
+    }
+
+    void ControlServer::Stop()
+    {
+        Transport->Stop();
+    }
+
+    void ControlServer::OnConnectionOpened()
+    {
+        std::cout << "Connection established" << std::endl;
+    }
+
+    void ControlServer::OnConnectionClosed()
+    {
+        std::cout << "Connection closed" << std::endl;
+    }
+
+    void ControlServer::OnMessageReceived(const std::string& Message)
+    {
+        std::cout << "Message received: " << Message << std::endl;
+
+        // TODO
+        // 1. Get the command from the string
+        // 2. Get the arguments from the string
+        // 3. Execute registered command if there is one
+        // 4. Output error message if there is no registered command
     }
 }
