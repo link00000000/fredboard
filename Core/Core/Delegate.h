@@ -45,7 +45,7 @@ namespace Core
             Handlers.erase(InHandle);
         }
 
-        void Broadcast(TArgs... Args)
+        void Broadcast(TArgs... Args) const
         {
             for (auto [_, Callback] : Handlers)
             {
@@ -79,14 +79,14 @@ namespace Core
             Super::Remove(Handle);
         }
 
-        void Broadcast(TArgs... Args)
+        void Broadcast(TArgs... Args) const
         {
             std::lock_guard Lock(Mutex);
             Super::Broadcast(Args...);
         }
 
     private:
-        std::mutex Mutex;
+        mutable std::mutex Mutex;
     };
 }
 

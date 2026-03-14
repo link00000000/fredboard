@@ -35,19 +35,19 @@ namespace DeveloperConsole
         Transport->Stop();
     }
 
-    void ControlServer::OnConnectionOpened()
+    void ControlServer::OnClientConnected()
     {
         std::cout << "Connection established" << std::endl;
     }
 
-    void ControlServer::OnConnectionClosed()
+    void ControlServer::OnClientDisconnected()
     {
         std::cout << "Connection closed" << std::endl;
     }
 
-    void ControlServer::OnMessageReceived(const std::string_view Message)
+    void ControlServer::OnDataReceived(std::span<std::byte> Data)
     {
-        std::cout << "Message received: " << Message << std::endl;
+        std::cout << "Message received" << std::endl;
 
         // TODO
         // 1. Get the command from the string

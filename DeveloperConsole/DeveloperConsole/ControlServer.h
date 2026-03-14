@@ -4,7 +4,7 @@
 #include <string>
 
 #include "Core/Error.h"
-#include "Transports/Transport.h"
+#include "Transports/ITransport.h"
 
 namespace DeveloperConsole
 {
@@ -19,13 +19,16 @@ namespace DeveloperConsole
         std::function<void(const std::vector<std::string>& Args, std::ostream& OutputDevice)> Handler; // TODO: Use array view?
     };
 
-    class ControlServer : public Transports::ITransportListener
+    class ControlServer
     {
     public:
         template<typename TTransport, typename... TTransportArgs>
         explicit ControlServer(std::in_place_type_t<TTransport>, TTransportArgs&&... args)
-            : Transport(std::make_unique<TTransport>(this, std::forward<TTransportArgs>(args)...))
+            : Transport(std::make_unique<TTransport>(std::forward<TTransportArgs>(args)...))
         {
+            Transport->OnClientConnectedEvent().Add([this] { OnClientConnected(); });
+            Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
+            Transport->OnDataReceivedEvent().Add([this] (const std::span<std::byte> Data){ OnDataReceived(Data); });
         }
 
         virtual ~ControlServer() = default;
@@ -36,12 +39,12 @@ namespace DeveloperConsole
         void Stop();
 
     protected:
-        void OnConnectionOpened() override;
-        void OnConnectionClosed() override;
-        void OnMessageReceived(std::string_view Message) override;
+        virtual void OnClientConnected();
+        virtual void OnClientDisconnected();
+        virtual void OnDataReceived(std::span<std::byte> Data);
 
     private:
         std::unordered_map<std::string, Command> Commands;
-        std::unique_ptr<Transports::Transport> Transport;
+        std::unique_ptr<Transports::ITransport> Transport;
     };
 }

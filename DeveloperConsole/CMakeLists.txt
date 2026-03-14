@@ -3,7 +3,6 @@ add_library(DeveloperConsole
     STATIC
         DeveloperConsole/ControlServer.cpp
         DeveloperConsole/Transports/NamedPipeTransport.cpp
-        DeveloperConsole/Transports/Transport.cpp
 )
 
 target_include_directories(DeveloperConsole
