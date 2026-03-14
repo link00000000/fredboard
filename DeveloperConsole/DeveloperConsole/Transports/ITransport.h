@@ -18,7 +18,7 @@ namespace DeveloperConsole::Transports
         virtual Core::Result<nullptr_t, TransportError> Listen() = 0;
         virtual Core::Result<nullptr_t, TransportError> Stop() = 0;
 
-        virtual void SendData(std::span<std::byte> Data) = 0;
+        virtual bool SendData(std::span<std::byte> Data) = 0;
 
         Core::TSDelegate<>& OnClientConnectedEvent() { return OnClientConnectedDelegate; }
         Core::TSDelegate<>& OnClientDisconnectedEvent() { return OnClientDisconnectedDelegate; }

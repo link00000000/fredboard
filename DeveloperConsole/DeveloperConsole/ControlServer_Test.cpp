@@ -23,7 +23,7 @@ public:
     Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Listen() override { return ListenHandler(); }
     Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Stop() override { return StopHandler(); }
 
-    void SendData(std::span<std::byte> Data) override { SendDataHandler(Data); }
+    bool SendData(std::span<std::byte> Data) override { SendDataHandler(Data); }
 
 private:
     std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> ListenHandler;

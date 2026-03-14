@@ -4,6 +4,9 @@
 
 #include "Core/Log.h"
 
+#include "DeveloperConsole/ControlServer.h"
+#include "DeveloperConsole/Transports/NamedPipeTransport.h"
+
 namespace Fretboard
 {
     int Main()
@@ -30,6 +33,9 @@ namespace Fretboard
 
             std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
         });
+
+        DeveloperConsole::ControlServer DeveloperConsole(std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
+        DeveloperConsole.Listen();
 
         return 0;
     }
