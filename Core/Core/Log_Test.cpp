@@ -4,8 +4,8 @@
 
 TEST_CASE("Log debug with static log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -24,8 +24,8 @@ TEST_CASE("Log debug with static log method", "[core][log]")
 
 TEST_CASE("Log info with static log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -44,8 +44,8 @@ TEST_CASE("Log info with static log method", "[core][log]")
 
 TEST_CASE("Log warning with static log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -64,8 +64,8 @@ TEST_CASE("Log warning with static log method", "[core][log]")
 
 TEST_CASE("Log error with static log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -84,8 +84,8 @@ TEST_CASE("Log error with static log method", "[core][log]")
 
 TEST_CASE("Log debug with format log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -104,8 +104,8 @@ TEST_CASE("Log debug with format log method", "[core][log]")
 
 TEST_CASE("Log info with format log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -124,8 +124,8 @@ TEST_CASE("Log info with format log method", "[core][log]")
 
 TEST_CASE("Log warning with format log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
@@ -144,8 +144,8 @@ TEST_CASE("Log warning with format log method", "[core][log]")
 
 TEST_CASE("Log error with format log method", "[core][log]")
 {
-    std::optional<std::string_view> LoggedCategory;
-    std::optional<std::string_view> LoggedMessage;
+    std::optional<std::string> LoggedCategory;
+    std::optional<std::string> LoggedMessage;
     std::optional<Core::Log::Level> LoggedLevel;
 
     Core::Log::RegisterOutputHandler([&](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
