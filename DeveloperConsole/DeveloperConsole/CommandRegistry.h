@@ -1,5 +1,6 @@
 #pragma once
 
+#include <complex.h>
 #include <functional>
 #include <span>
 #include <string>
@@ -12,13 +13,13 @@ namespace DeveloperConsole
 
     struct CommandRegistry
     {
-        static CommandRegistry& GetGlobalRegistry();
+        static std::shared_ptr<CommandRegistry> GetGlobalRegistry();
 
         bool RegisterCommand(std::string Command, CommandHandler Handler);
         void UnregisterCommand(std::string Command);
         void UnregisterAllCommands();
 
-        bool ExecuteOnHandler(std::string_view Command, std::span<const std::string> Args) const;
+        [[nodiscard]] bool ExecuteOnHandler(std::string_view Command, std::span<const std::string> Args) const;
 
     private:
         Core::Map<std::string, CommandHandler> CommandHandlerMap;

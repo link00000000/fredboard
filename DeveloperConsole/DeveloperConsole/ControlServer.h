@@ -1,30 +1,26 @@
 #pragma once
 
-#include <functional>
-#include <string>
+#include <utility>
 
 #include "Core/Error.h"
 #include "Transports/ITransport.h"
 
 namespace DeveloperConsole
 {
+    struct CommandRegistry;
+
     namespace Transports
     {
         class NamedPipeTransport;
     }
 
-    struct Command
-    {
-        std::string Name;
-        std::function<void(const std::vector<std::string>& Args, std::ostream& OutputDevice)> Handler; // TODO: Use array view?
-    };
-
     class ControlServer
     {
     public:
         template<typename TTransport, typename... TTransportArgs>
-        explicit ControlServer(std::in_place_type_t<TTransport>, TTransportArgs&&... args)
-            : Transport(std::make_unique<TTransport>(std::forward<TTransportArgs>(args)...))
+        explicit ControlServer(std::shared_ptr<CommandRegistry> CommandRegistry, std::in_place_type_t<TTransport>, TTransportArgs&&... args)
+            : CommandRegistry(std::move(CommandRegistry))
+            , Transport(std::make_unique<TTransport>(std::forward<TTransportArgs>(args)...))
         {
             Transport->OnClientConnectedEvent().Add([this] { OnClientConnected(); });
             Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
@@ -32,8 +28,6 @@ namespace DeveloperConsole
         }
 
         virtual ~ControlServer() = default;
-
-        void RegisterCommand(Command&& InCommand);
 
         void Listen();
         void Stop();
@@ -44,7 +38,7 @@ namespace DeveloperConsole
         virtual void OnDataReceived(std::span<std::byte> Data);
 
     private:
-        Core::Map<std::string, Command> Commands;
+        std::shared_ptr<CommandRegistry> CommandRegistry;
         std::unique_ptr<Transports::ITransport> Transport;
     };
 }

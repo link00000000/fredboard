@@ -1,8 +1,8 @@
 # Library ---------------------------
 add_library(DeveloperConsole
     STATIC
-        DeveloperConsole/CommandRegistry.cpp
         DeveloperConsole/ControlServer.cpp
+        DeveloperConsole/CommandRegistry.cpp
         DeveloperConsole/Transports/NamedPipeTransport.cpp
 )
 

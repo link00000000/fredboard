@@ -1,24 +1,32 @@
 #include "CommandRegistry.h"
 
+#include <utility>
+
 #include "Core/Log.h"
 
 namespace DeveloperConsole
 {
-    CommandRegistry& CommandRegistry::GetGlobalRegistry()
+    std::shared_ptr<CommandRegistry> CommandRegistry::GetGlobalRegistry()
     {
-        static CommandRegistry GlobalRegistry;
+        static auto GlobalRegistry = std::make_shared<CommandRegistry>();
         return GlobalRegistry;
     }
 
     bool CommandRegistry::RegisterCommand(std::string Command, CommandHandler Handler)
     {
+        if (Command.contains(' '))
+        {
+            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command name cannot contain spaces.", Command);
+            return false;
+        }
+
         if (CommandHandlerMap.contains(Command))
         {
             Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command already registered.", Command);
             return false;
         }
 
-        CommandHandlerMap[Command] = Handler;
+        CommandHandlerMap[Command] = std::move(Handler);
 
         return true;
     }

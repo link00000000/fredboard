@@ -6,25 +6,6 @@
 
 namespace DeveloperConsole
 {
-    void ControlServer::RegisterCommand(Command&& InCommand)
-    {
-        if (InCommand.Name.contains(' '))
-        {
-            // TODO: Handle error
-            //return Error(ErrorCode::InvalidCommandName, std::format("Command name \"{}\" invalid.", InCommand.Name));
-            return;
-        }
-
-        if (Commands.contains(InCommand.Name))
-        {
-            // TODO: Handle error
-            //return Error(ErrorCode::CommandAlreadyRegistered, std::format("Command \"{}\" is already registered.", InCommand.Name));
-            return;
-        }
-
-        Commands[InCommand.Name] = std::move(InCommand);
-    }
-
     void ControlServer::Listen()
     {
         Transport->Listen();
