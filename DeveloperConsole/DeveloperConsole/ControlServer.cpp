@@ -6,11 +6,6 @@
 
 namespace DeveloperConsole
 {
-    ControlServer::ControlServer()
-    {
-        Transport = std::make_unique<Transports::NamedPipeTransport>(this);
-    }
-
     void ControlServer::RegisterCommand(Command&& InCommand)
     {
         if (InCommand.Name.contains(' '))
@@ -50,7 +45,7 @@ namespace DeveloperConsole
         std::cout << "Connection closed" << std::endl;
     }
 
-    void ControlServer::OnMessageReceived(const std::string& Message)
+    void ControlServer::OnMessageReceived(const std::string_view Message)
     {
         std::cout << "Message received: " << Message << std::endl;
 

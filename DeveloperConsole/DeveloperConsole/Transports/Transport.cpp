@@ -29,7 +29,7 @@ namespace DeveloperConsole::Transports
         Listener->OnConnectionClosed();
     }
 
-    void Transport::NotifyMessageReceived(const std::string& Message)
+    void Transport::NotifyMessageReceived(const std::string_view Message)
     {
         if (!Listener)
         {

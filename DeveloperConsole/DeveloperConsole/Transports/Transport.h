@@ -10,12 +10,14 @@ namespace DeveloperConsole::Transports
 
     class ITransportListener
     {
-    public:
+        friend class Transport;
+
+    protected:
         virtual ~ITransportListener() = default;
 
         virtual void OnConnectionOpened() = 0;
         virtual void OnConnectionClosed() = 0;
-        virtual void OnMessageReceived(const std::string& Message) = 0;
+        virtual void OnMessageReceived(std::string_view Message) = 0;
     };
 
     class Transport
@@ -30,7 +32,7 @@ namespace DeveloperConsole::Transports
     protected:
         virtual void NotifyConnectionOpened();
         virtual void NotifyConnectionClosed();
-        virtual void NotifyMessageReceived(const std::string& Message);
+        virtual auto NotifyMessageReceived(std::string_view Message) -> void;
 
     private:
         ITransportListener* Listener;

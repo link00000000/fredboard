@@ -19,10 +19,15 @@ namespace DeveloperConsole
         std::function<void(const std::vector<std::string>& Args, std::ostream& OutputDevice)> Handler; // TODO: Use array view?
     };
 
-    class ControlServer final : public Transports::ITransportListener
+    class ControlServer : public Transports::ITransportListener
     {
     public:
-        ControlServer();
+        template<typename TTransport, typename... TTransportArgs>
+        explicit ControlServer(std::in_place_type_t<TTransport>, TTransportArgs&&... args)
+            : Transport(std::make_unique<TTransport>(this, std::forward<TTransportArgs>(args)...))
+        {
+        }
+
         virtual ~ControlServer() = default;
 
         void RegisterCommand(Command&& InCommand);
@@ -30,12 +35,13 @@ namespace DeveloperConsole
         void Listen();
         void Stop();
 
+    protected:
         void OnConnectionOpened() override;
         void OnConnectionClosed() override;
-        void OnMessageReceived(const std::string& Message) override;
+        void OnMessageReceived(std::string_view Message) override;
 
     private:
         std::unordered_map<std::string, Command> Commands;
-        std::unique_ptr<Transports::NamedPipeTransport> Transport;
+        std::unique_ptr<Transports::Transport> Transport;
     };
 }
