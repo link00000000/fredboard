@@ -37,13 +37,50 @@ namespace DeveloperConsole
         auto DataStr = std::string_view(reinterpret_cast<const char*>(Data.data()), Data.size());
         Core::Log::Debug("ControlServer", "Received {} bytes of data: \"{}\"", Data.size(), DataStr);
 
-        const auto Tokens = DataStr
-            | std::views::split(' ')
-            | std::views::transform([](auto Word)
+        std::vector<std::string> Tokens;
+        std::string CurrentToken;
+
+        bool bEscaped = false;
+        bool bInQuotes = false;
+
+        for (const char C : DataStr)
+        {
+            if (bEscaped)
             {
-                return std::string(Word.begin(), Word.end());
-            })
-            | std::ranges::to<std::vector<std::string>>();
+                CurrentToken += C;
+                bEscaped = false;
+            }
+            else if (C == '\\')
+            {
+                bEscaped = true;
+            }
+            else if (C == '"')
+            {
+                bInQuotes = !bInQuotes;
+            }
+            else if (C == ' ' && !bInQuotes)
+            {
+                Tokens.push_back(std::move(CurrentToken));
+                CurrentToken.clear();
+            }
+            else
+            {
+                CurrentToken += C;
+            }
+        }
+
+        if (!CurrentToken.empty())
+        {
+            if (!bInQuotes)
+            {
+                Tokens.push_back(std::move(CurrentToken));
+            }
+            else
+            {
+                Core::Log::Error("DeveloperConsole::ControlServer", "Received malformed command ({}). Missing matching terminating quote.", DataStr);
+                return;
+            }
+        }
 
         if (Tokens.empty())
         {
