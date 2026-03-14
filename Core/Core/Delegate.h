@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <mutex>
 
 namespace Core
 {
@@ -55,6 +56,37 @@ namespace Core
     private:
         std::unordered_map<DelegateHandle, TCallback> Handlers;
         DelegateHandleGenerator HandleGenerator;
+    };
+
+    /*
+     * Thread-safe version of Core::Delegate
+     */
+    template <typename... TArgs>
+    struct TSDelegate : private Delegate<TArgs...>
+    {
+        using Super = Delegate<TArgs...>;
+        using TCallback = Super::TCallback;
+
+        DelegateHandle Add(TCallback InHandler)
+        {
+            std::lock_guard Lock(Mutex);
+            return Super::Add(InHandler);
+        }
+
+        void Remove(DelegateHandle Handle)
+        {
+            std::lock_guard Lock(Mutex);
+            Super::Remove(Handle);
+        }
+
+        void Broadcast(TArgs... Args)
+        {
+            std::lock_guard Lock(Mutex);
+            Super::Broadcast(Args...);
+        }
+
+    private:
+        std::mutex Mutex;
     };
 }
 
