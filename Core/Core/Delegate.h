@@ -3,6 +3,8 @@
 #include <functional>
 #include <mutex>
 
+#include "Map.h"
+
 namespace Core
 {
     struct DelegateHandle
@@ -54,7 +56,7 @@ namespace Core
         }
 
     private:
-        std::unordered_map<DelegateHandle, TCallback> Handlers;
+        Core::Map<DelegateHandle, TCallback> Handlers;
         DelegateHandleGenerator HandleGenerator;
     };
 

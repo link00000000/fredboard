@@ -12,7 +12,7 @@ public:
     explicit MockTransport(
           std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> ListenHandler
         , std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> StopHandler
-        , std::function<void(std::span<std::byte>)> SendDataHandler
+        , std::function<bool(std::span<std::byte>)> SendDataHandler
     )
         : ListenHandler(std::move(ListenHandler))
         , StopHandler(std::move(StopHandler))
@@ -23,15 +23,15 @@ public:
     Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Listen() override { return ListenHandler(); }
     Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Stop() override { return StopHandler(); }
 
-    bool SendData(std::span<std::byte> Data) override { SendDataHandler(Data); }
+    bool SendData(std::span<std::byte> Data) override { return SendDataHandler(Data); }
 
 private:
     std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> ListenHandler;
     std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> StopHandler;
-    std::function<void(std::span<std::byte>)> SendDataHandler;
+    std::function<bool(std::span<std::byte>)> SendDataHandler;
 };
 
-TEST_CASE("Start and stop a server", "[developerconsole]")
+TEST_CASE("Start and stop a server", "[developerconsole][controlserver]")
 {
     std::binary_semaphore TransportListenSem(0);
 
@@ -47,8 +47,9 @@ TEST_CASE("Start and stop a server", "[developerconsole]")
         return nullptr;
     };
 
-    auto TransportDataReceivedHandler = [&](const std::span<std::byte> Data)
+    auto TransportDataReceivedHandler = [&](const std::span<std::byte> Data) -> bool
     {
+        return true;
     };
 
     DeveloperConsole::ControlServer Server(std::in_place_type<MockTransport>, TransportListenHandler, TransportStopHandler, TransportDataReceivedHandler);

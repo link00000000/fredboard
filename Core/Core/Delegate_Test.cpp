@@ -2,7 +2,7 @@
 
 #include <Catch2/catch_test_macros.hpp>
 
-TEST_CASE("Register and broadcast a delegate", "[delegate]")
+TEST_CASE("Register and broadcast a delegate", "[core][delegate]")
 {
     Core::Delegate<const std::string&> TestDelegate;
 
@@ -18,7 +18,7 @@ TEST_CASE("Register and broadcast a delegate", "[delegate]")
     REQUIRE((BroadcastedValue.has_value() && BroadcastedValue == "TestValue"));
 }
 
-TEST_CASE("Register and broadcast a delegate to multiple handlers", "[delegate]")
+TEST_CASE("Register and broadcast a delegate to multiple handlers", "[core][delegate]")
 {
     Core::Delegate<const std::string&> TestDelegate;
 

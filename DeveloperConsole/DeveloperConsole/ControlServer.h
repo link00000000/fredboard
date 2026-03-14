@@ -44,7 +44,7 @@ namespace DeveloperConsole
         virtual void OnDataReceived(std::span<std::byte> Data);
 
     private:
-        std::unordered_map<std::string, Command> Commands;
+        Core::Map<std::string, Command> Commands;
         std::unique_ptr<Transports::ITransport> Transport;
     };
 }
