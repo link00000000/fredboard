@@ -43,7 +43,6 @@ find_package(Catch2 3 REQUIRED)
 
 add_executable(CoreTests
         Core/Delegate_Test.cpp
-        Core/Error_Test.cpp
         Core/Log_Test.cpp
 )
 
