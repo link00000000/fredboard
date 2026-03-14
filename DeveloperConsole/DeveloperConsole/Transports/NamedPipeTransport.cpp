@@ -283,7 +283,7 @@ namespace DeveloperConsole::Transports
                 if (bytesRead > 0)
                 {
                     Core::Log::Debug("DeveloperConsole::NamedPipeTransport", "Received {} bytes of data \"{}\"", bytesRead, std::string(reinterpret_cast<const char*>(buffer.data()), bytesRead));
-                    OnDataReceivedEvent().Broadcast(buffer);
+                    OnDataReceivedEvent().Broadcast(std::span(buffer.begin(), bytesRead));
                 }
             }
             else

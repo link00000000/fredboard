@@ -35,7 +35,8 @@ namespace Fretboard
             std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
         });
 
-        DeveloperConsole::ControlServer DeveloperConsole(DeveloperConsole::CommandRegistry::GetGlobalRegistry(), std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
+        std::shared_ptr<DeveloperConsole::CommandRegistry> Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
+        DeveloperConsole::ControlServer DeveloperConsole(Registry, std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
         DeveloperConsole.Listen();
 
         return 0;
