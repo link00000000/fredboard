@@ -1,4 +1,5 @@
 #include "ControlServer.h"
+#include "CommandRegistry.h"
 
 #include <mutex>
 #include <semaphore>
@@ -31,7 +32,7 @@ private:
     std::function<bool(std::span<std::byte>)> SendDataHandler;
 };
 
-TEST_CASE("Start and stop a server", "[developerconsole][controlserver]")
+TEST_CASE("DeveloperConsole/ControlServer/Start and stop a server", "[developerconsole][controlserver]")
 {
     std::binary_semaphore TransportListenSem(0);
 
@@ -52,7 +53,8 @@ TEST_CASE("Start and stop a server", "[developerconsole][controlserver]")
         return true;
     };
 
-    DeveloperConsole::ControlServer Server(std::in_place_type<MockTransport>, TransportListenHandler, TransportStopHandler, TransportDataReceivedHandler);
+    auto Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
+    DeveloperConsole::ControlServer Server(Registry, std::in_place_type<MockTransport>, TransportListenHandler, TransportStopHandler, TransportDataReceivedHandler);
 
     std::thread ServerThread([&Server] { Server.Listen(); });
     Server.Stop();

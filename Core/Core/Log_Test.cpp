@@ -2,7 +2,7 @@
 
 #include "Log.h"
 
-TEST_CASE("Log debug with static log method", "[core][log]")
+TEST_CASE("Core/Log/Log debug with static log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -22,7 +22,7 @@ TEST_CASE("Log debug with static log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Debug));
 }
 
-TEST_CASE("Log info with static log method", "[core][log]")
+TEST_CASE("Core/Log/Log info with static log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -42,7 +42,7 @@ TEST_CASE("Log info with static log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Info));
 }
 
-TEST_CASE("Log warning with static log method", "[core][log]")
+TEST_CASE("Core/Log/Log warning with static log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -62,7 +62,7 @@ TEST_CASE("Log warning with static log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Warning));
 }
 
-TEST_CASE("Log error with static log method", "[core][log]")
+TEST_CASE("Core/Log/Log error with static log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -82,7 +82,7 @@ TEST_CASE("Log error with static log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Error));
 }
 
-TEST_CASE("Log debug with format log method", "[core][log]")
+TEST_CASE("Core/Log/Log debug with format log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -102,7 +102,7 @@ TEST_CASE("Log debug with format log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Debug));
 }
 
-TEST_CASE("Log info with format log method", "[core][log]")
+TEST_CASE("Core/Log/Log info with format log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -122,7 +122,7 @@ TEST_CASE("Log info with format log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Info));
 }
 
-TEST_CASE("Log warning with format log method", "[core][log]")
+TEST_CASE("Core/Log/Log warning with format log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
@@ -142,7 +142,7 @@ TEST_CASE("Log warning with format log method", "[core][log]")
     REQUIRE((LoggedLevel.has_value() && LoggedLevel == Core::Log::Level::Warning));
 }
 
-TEST_CASE("Log error with format log method", "[core][log]")
+TEST_CASE("Core/Log/Log error with format log method", "[core][log]")
 {
     std::optional<std::string> LoggedCategory;
     std::optional<std::string> LoggedMessage;
