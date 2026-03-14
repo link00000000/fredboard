@@ -7,6 +7,9 @@ namespace Core
     struct DelegateHandle
     {
         friend struct DelegateHandleGenerator;
+        friend struct std::hash<DelegateHandle>;
+
+        bool operator==(const DelegateHandle& Other) const;
 
         static DelegateHandle Invalid;
 
@@ -54,3 +57,12 @@ namespace Core
         DelegateHandleGenerator HandleGenerator;
     };
 }
+
+template <>
+struct std::hash<Core::DelegateHandle>
+{
+    std::size_t operator()(const Core::DelegateHandle& Handle) const noexcept
+    {
+        return std::hash<uint64_t>{}(Handle.Value);
+    }
+};

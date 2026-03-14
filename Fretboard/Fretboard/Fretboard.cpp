@@ -1,33 +1,36 @@
 #include "Fretboard.h"
 
-#include <dpp/dpp.h>
-#include "DeveloperConsole/ControlServer_Windows.h"
+#include <iostream>
+
+#include "Core/Log.h"
 
 namespace Fretboard
 {
     int Main()
     {
-#if 0
-    	constexpr auto DiscordBotToken = "";
-	    dpp::cluster DiscordBot(DiscordBotToken);
+        Core::Log::RegisterOutputHandler([](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
+        {
+            std::string LevelName;
 
-	    DiscordBot.on_log(dpp::utility::cout_logger());
+            switch (Level)
+            {
+            case Core::Log::Level::Debug:
+                LevelName = "DEBUG";
+                break;
+            case Core::Log::Level::Info:
+                LevelName = "INFO";
+                break;
+            case Core::Log::Level::Warning:
+                LevelName = "WARNING";
+                break;
+            case Core::Log::Level::Error:
+                LevelName = "ERROR";
+                break;
+            }
 
-	    DiscordBot.on_slashcommand([](const dpp::slashcommand_t& event) {
-	        if (event.command.get_command_name() == "ping") {
-	            event.reply("Pong!");
-	        }
-	    });
+            std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
+        });
 
-	    DiscordBot.on_ready([&DiscordBot](const dpp::ready_t& _event) {
-			DiscordBot.global_command_create(dpp::slashcommand("ping", "Ping pong!", DiscordBot.me.id));
-	    });
-
-	    DiscordBot.start(dpp::st_wait);
-#endif
-
-        DeveloperConsole::ControlServerWindows ControlServer;
-        ControlServer.Listen();
         return 0;
     }
 }

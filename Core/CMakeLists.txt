@@ -2,6 +2,7 @@
 add_library(Core
     STATIC
         Core/Delegate.cpp
+        Core/Log.cpp
 )
 
 target_include_directories(Core
@@ -41,7 +42,9 @@ target_compile_options(Core PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>)
 find_package(Catch2 3 REQUIRED)
 
 add_executable(CoreTests
+        Core/Delegate_Test.cpp
         Core/Error_Test.cpp
+        Core/Log_Test.cpp
 )
 
 target_include_directories(CoreTests
