@@ -9,9 +9,13 @@ TEST_CASE("DeveloperConsole/CommandRegistry/Add and execute command in registry"
     Registry->UnregisterAllCommands();
 
     std::vector<std::string> ExecutedArgs;
-    const bool bRegistered = Registry->RegisterCommand("TestCommand", [&ExecutedArgs](std::span<const std::string> Args)
-    {
-        std::ranges::copy(Args, std::back_inserter(ExecutedArgs));
+    const bool bRegistered = Registry->RegisterCommand({
+        .Name = "TestCommand",
+        .Description = "A test command",
+        .Handler = [&ExecutedArgs](std::span<const std::string> Args)
+        {
+            std::ranges::copy(Args, std::back_inserter(ExecutedArgs));
+        },
     });
     REQUIRE(bRegistered);
 
@@ -25,7 +29,13 @@ TEST_CASE("DeveloperConsole/CommandRegistry/Cannot register command with space i
     auto Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
     Registry->UnregisterAllCommands();
 
-    REQUIRE(!Registry->RegisterCommand("Test Command With Space", nullptr));
+    const bool bRegistered = Registry->RegisterCommand({
+        .Name = "Test Command with Spaces",
+        .Description = "a test command that contains spaces",
+        .Handler = nullptr,
+    });
+
+    REQUIRE(!bRegistered);
 }
 
 TEST_CASE("DeveloperConsole/CommandRegistry/Cannot register same command twice", "[developerconsole][commandregistry]")
@@ -33,9 +43,9 @@ TEST_CASE("DeveloperConsole/CommandRegistry/Cannot register same command twice",
     auto Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
     Registry->UnregisterAllCommands();
 
-    REQUIRE(Registry->RegisterCommand("TestCommand", nullptr));
-    REQUIRE(!Registry->RegisterCommand("TestCommand", nullptr));
+    REQUIRE(Registry->RegisterCommand({"TestCommand", "A test command", nullptr}));
+    REQUIRE(!Registry->RegisterCommand({"TestCommand", "A test command", nullptr}));
 
     Registry->UnregisterCommand("TestCommand");
-    REQUIRE(Registry->RegisterCommand("TestCommand", nullptr));
+    REQUIRE(Registry->RegisterCommand({"TestCommand", "A test command", nullptr}));
 }

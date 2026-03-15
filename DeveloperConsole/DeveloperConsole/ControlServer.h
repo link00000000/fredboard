@@ -28,14 +28,18 @@ namespace DeveloperConsole
             Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
             Transport->OnDataReceivedEvent().Add([this] (const std::span<std::byte> Data){ OnDataReceived(Data); });
 
-            CommandRegistry->RegisterCommand("SendData", [this](std::span<const std::string> Args)
-            {
-                auto Bytes = Args
-                    | std::views::join
-                    | std::views::transform([](char c) { return static_cast<std::byte>(c); })
-                    | std::ranges::to<std::vector<std::byte>>();
+            CommandRegistry->RegisterCommand({
+                .Name = "ControlServer.SendData",
+                .Description = "Sends a string as raw data via the control sever",
+                .Handler = [this](std::span<const std::string> Args)
+                {
+                    auto Bytes = Args
+                        | std::views::join
+                        | std::views::transform([](char c) { return static_cast<std::byte>(c); })
+                        | std::ranges::to<std::vector<std::byte>>();
 
-                SendData(Bytes);
+                    SendData(Bytes);
+                }
             });
         }
 

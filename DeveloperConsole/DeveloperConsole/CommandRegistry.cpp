@@ -1,30 +1,16 @@
 #include "CommandRegistry.h"
 
+#include <algorithm>
 #include <ranges>
 #include <utility>
 
 #include "Core/Log.h"
+#include "Core/String.h"
 
 namespace DeveloperConsole
 {
-    namespace
-    {
-        Core::Map<std::string, CommandHandler> CreateIntrinsicCommandHandlerMap(CommandRegistry* Registry)
-        {
-            Core::Map<std::string, CommandHandler> IntrinsicCommandHandlerMap;
-
-            IntrinsicCommandHandlerMap["help"] = [Registry](const std::span<const std::string> Args)
-            {
-                std::string CommandsList = Registry->GetAllCommands() | std::views::join_with('\n') | std::ranges::to< std::string>();
-                Core::Log::Info("DeveloperConsole::CommandRegistry", "Registered commands:\n{}", CommandsList);
-            };
-
-            return IntrinsicCommandHandlerMap;
-        }
-    }
-
     CommandRegistry::CommandRegistry()
-        : IntrinsicCommandHandlerMap(CreateIntrinsicCommandHandlerMap(this))
+        : IntrinsicCommands(CreateIntrinsicCommandContainer(this))
     {
     }
 
@@ -34,82 +20,143 @@ namespace DeveloperConsole
         return GlobalRegistry;
     }
 
-    bool CommandRegistry::RegisterCommand(std::string Command, CommandHandler Handler)
+    bool CommandRegistry::RegisterCommand(Command InCommand)
     {
-        if (Command.contains(' '))
+        if (InCommand.Name.contains(' '))
         {
-            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command name cannot contain spaces.", Command);
+            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command name cannot contain spaces.", InCommand.Name);
             return false;
         }
 
-        if (IntrinsicCommandHandlerMap.contains(Command))
+        if (IntrinsicCommands.Contains(InCommand.Name))
         {
-            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command is a reserved intrinsic command.", Command);
+            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command is a reserved intrinsic command.", InCommand.Name);
             return false;
         }
 
-        if (CommandHandlerMap.contains(Command))
+        if (!RegisteredCommands.Add(InCommand))
         {
-            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command already registered.", Command);
+            Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command already registered.", InCommand.Name);
             return false;
         }
-
-        CommandHandlerMap[Command] = std::move(Handler);
 
         return true;
     }
 
-    void CommandRegistry::UnregisterCommand(std::string Command)
+    bool CommandRegistry::UnregisterCommand(const std::string_view CommandName)
     {
-        if (IntrinsicCommandHandlerMap.contains(Command))
+        if (IntrinsicCommands.Contains(CommandName))
         {
-            Core::Log::Warning("DeveloperConsole::CommandRegistry", "Attempted to remove intrinsic command {} from the registry.", Command);
-            return;
+            Core::Log::Warning("DeveloperConsole::CommandRegistry", "Attempted to remove intrinsic command {} from the registry.", CommandName);
+            return false;
         }
 
-        if (CommandHandlerMap.erase(Command) == 0)
+        if (!RegisteredCommands.Remove(CommandName))
         {
-            Core::Log::Warning("DeveloperConsole::CommandRegistry", "Attempted to remove unregistered command {} from the registry.", Command);
+            Core::Log::Warning("DeveloperConsole::CommandRegistry", "Attempted to remove unregistered command {} from the registry.", CommandName);
+            return false;
         }
+
+        return true;
     }
 
     void CommandRegistry::UnregisterAllCommands()
     {
-        CommandHandlerMap.clear();
+        RegisteredCommands.Clear();
     }
 
-    std::vector<std::string_view> CommandRegistry::GetAllCommands() const
+    std::vector<std::reference_wrapper<const Command>> CommandRegistry::GetAllCommands() const
     {
-        std::vector<std::string_view> Commands;
+        std::vector<std::reference_wrapper<const Command>> Commands;
 
-        for (const std::string& Command : IntrinsicCommandHandlerMap | std::views::keys)
+        for (const auto& Command : IntrinsicCommands | std::views::values)
         {
-            Commands.push_back(Command);
+            Commands.push_back(std::cref(Command));
         }
 
-        for (const std::string& Command : CommandHandlerMap | std::views::keys)
+        for (const auto& Command : RegisteredCommands | std::views::values)
         {
-            Commands.push_back(Command);
+            Commands.push_back(std::cref(Command));
         }
 
         return Commands;
     }
 
-    bool CommandRegistry::ExecuteOnHandler(const std::string_view Command, const std::span<const std::string> Args) const
+    bool CommandRegistry::ExecuteOnHandler(const std::string_view CommandName, const std::span<const std::string> Args) const
     {
-        if (const auto Handler = IntrinsicCommandHandlerMap.find(Command); Handler != IntrinsicCommandHandlerMap.end())
+        if (const Command* Command = IntrinsicCommands.Find(CommandName))
         {
-            Handler->second(Args);
+            Command->Handler(Args);
             return true;
         }
 
-        if (const auto Handler = CommandHandlerMap.find(Command); Handler != CommandHandlerMap.end())
+        if (const Command* Command = RegisteredCommands.Find(CommandName))
         {
-            Handler->second(Args);
+            Command->Handler(Args);
             return true;
         }
 
         return false;
+    }
+
+    bool CommandRegistry::CommandContainer::Add(Command InCommand)
+    {
+        auto [_, bSuccess] = Map.emplace(Core::StringUtils::ToLower(InCommand.Name), std::move(InCommand));
+        return bSuccess;
+    }
+
+    bool CommandRegistry::CommandContainer::Remove(const std::string_view InCommandName)
+    {
+        return Map.erase(Core::StringUtils::ToLower(InCommandName)) == 1;
+    }
+
+    void CommandRegistry::CommandContainer::Clear()
+    {
+        Map.clear();
+    }
+
+    const Command* CommandRegistry::CommandContainer::Find(std::string_view InCommandName) const
+    {
+        auto Iter = std::ranges::find_if(Map, [InCommandName](const auto& Pair)
+        {
+            return Pair.first == Core::StringUtils::ToLower(InCommandName);
+        });
+
+        if (Iter != Map.end())
+        {
+            return &Iter->second;
+        }
+
+        return nullptr;
+    }
+
+    bool CommandRegistry::CommandContainer::Contains(const std::string_view InCommandName) const
+    {
+        return Map.contains(Core::StringUtils::ToLower(InCommandName));
+    }
+
+    CommandRegistry::CommandContainer CommandRegistry::CreateIntrinsicCommandContainer(CommandRegistry* Registry)
+    {
+        CommandContainer Container;
+
+        Container.Add(Command(
+            "Help",
+            "List available commands",
+            [Registry](const std::span<const std::string> Args)
+            {
+                std::string CommandsList = Registry->GetAllCommands()
+                    | std::views::transform([](const Command& InCommand)
+                    {
+                        return std::format("{}: {}", InCommand.Name, InCommand.Description);
+                    })
+                    | std::views::join_with('\n')
+                    | std::ranges::to<std::string>();
+
+                Core::Log::Info("DeveloperConsole::CommandRegistry", "Registered commands:\n{}", CommandsList);
+            }
+        ));
+
+        return Container;
     }
 }
 

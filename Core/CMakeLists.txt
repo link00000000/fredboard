@@ -3,6 +3,7 @@ add_library(Core
     STATIC
         Core/Delegate.cpp
         Core/Log.cpp
+        Core/String.cpp
 )
 
 target_include_directories(Core

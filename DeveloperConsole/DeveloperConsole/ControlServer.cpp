@@ -1,7 +1,5 @@
 #include "DeveloperConsole/ControlServer.h"
 
-#include <iostream>
-
 #include "Core/Log.h"
 #include "Transports/NamedPipeTransport.h"
 
