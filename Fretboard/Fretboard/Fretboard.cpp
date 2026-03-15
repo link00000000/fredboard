@@ -35,9 +35,32 @@ namespace Fretboard
             std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
         });
 
-        std::shared_ptr<DeveloperConsole::CommandRegistry> Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
-        DeveloperConsole::ControlServer DeveloperConsole(Registry, std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
-        DeveloperConsole.Listen();
+        std::stop_source StopSource;
+
+        std::thread DeveloperConsoleThread([StopSource]() mutable
+        {
+            std::shared_ptr<DeveloperConsole::CommandRegistry> Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
+            Registry->RegisterCommand({
+                .Name = "Shutdown",
+                .Description = "Request all subsystems to shutdown and terminate the application.",
+                .Handler = [StopSource](std::span<const std::string> Args) mutable
+                {
+                    Core::Log::Debug("Fretboard::Main", "Shutdown requested via command.");
+                    StopSource.request_stop();
+                },
+            });
+
+            DeveloperConsole::ControlServer DeveloperConsole(Registry, std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
+
+            std::stop_callback StopCallback(StopSource.get_token(), [&DeveloperConsole]
+            {
+                DeveloperConsole.Stop();
+            });
+
+            DeveloperConsole.Listen();
+        });
+
+        DeveloperConsoleThread.join();
 
         return 0;
     }
