@@ -5,11 +5,6 @@
 
 namespace DeveloperConsole
 {
-    ControlServer::~ControlServer()
-    {
-        CommandRegistry->UnregisterCommand("ControlServer.SendData");
-    }
-
     void ControlServer::Listen()
     {
         Transport->Listen();

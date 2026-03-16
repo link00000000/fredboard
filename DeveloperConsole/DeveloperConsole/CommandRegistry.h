@@ -13,7 +13,7 @@ namespace DeveloperConsole
 {
     using CommandHandler = std::function<void(std::span<const std::string>)>;
 
-    struct Command
+    struct CommandDefinition
     {
         std::string Name;
         std::string Description;
@@ -26,39 +26,49 @@ namespace DeveloperConsole
 
         static std::shared_ptr<CommandRegistry> GetGlobalRegistry();
 
-        bool RegisterCommand(Command InCommand);
+        bool RegisterCommand(CommandDefinition InCommandDefinition);
         bool UnregisterCommand(std::string_view CommandName);
         void UnregisterAllCommands();
 
-        [[nodiscard]] std::vector<Command> GetAllCommands() const;
+        [[nodiscard]] std::vector<CommandDefinition> GetAllCommands() const;
 
         [[nodiscard]] bool ExecuteOnHandler(std::string_view CommandName, std::span<const std::string> Args) const;
 
     private:
-        struct CommandContainer
+        struct CommandDefinitionContainer
         {
-            bool Add(Command InCommand);
+            bool Add(CommandDefinition InCommandDefinition);
             bool Remove(std::string_view InCommandName);
             void Clear();
 
-            [[nodiscard]] const Command* Find(std::string_view InCommandName) const;
+            [[nodiscard]] const CommandDefinition* Find(std::string_view InCommandName) const;
             [[nodiscard]] bool Contains(std::string_view InCommandName) const;
 
             [[nodiscard]] auto begin() const { return Map.begin(); }
             [[nodiscard]] auto end() const { return Map.end(); }
 
         private:
-            std::unordered_map<std::string, Command> Map;
+            std::unordered_map<std::string, CommandDefinition> Map;
         };
 
-        static CommandContainer CreateIntrinsicCommandContainer(CommandRegistry* Registry);
+        static CommandDefinitionContainer CreateIntrinsicCommandDefinitionContainer(CommandRegistry* Registry);
 
         // Commands that are built-in to the command registry
-        const CommandContainer IntrinsicCommands;
+        const CommandDefinitionContainer IntrinsicCommands;
 
         // Commands that are registered from elsewhere
-        CommandContainer RegisteredCommands;
+        CommandDefinitionContainer RegisteredCommands;
 
         mutable std::recursive_mutex Mutex;
+    };
+
+    struct ScopedCommand
+    {
+        ScopedCommand(std::shared_ptr<CommandRegistry> InRegistry, CommandDefinition InCommandDefinition);
+        ~ScopedCommand();
+
+    private:
+        std::shared_ptr<CommandRegistry> Registry;
+        CommandDefinition Command;
     };
 }

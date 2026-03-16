@@ -27,23 +27,9 @@ namespace DeveloperConsole
             Transport->OnClientConnectedEvent().Add([this] { OnClientConnected(); });
             Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
             Transport->OnDataReceivedEvent().Add([this] (const std::span<std::byte> Data){ OnDataReceived(Data); });
-
-            CommandRegistry->RegisterCommand({
-                .Name = "ControlServer.SendData",
-                .Description = "Sends a string as raw data via the control sever",
-                .Handler = [this](std::span<const std::string> Args)
-                {
-                    auto Bytes = Args
-                        | std::views::join
-                        | std::views::transform([](char c) { return static_cast<std::byte>(c); })
-                        | std::ranges::to<std::vector<std::byte>>();
-
-                    SendData(Bytes);
-                }
-            });
         }
 
-        virtual ~ControlServer();
+        virtual ~ControlServer() = default;
 
         void Listen();
         void Stop();
@@ -57,5 +43,19 @@ namespace DeveloperConsole
     private:
         std::shared_ptr<CommandRegistry> CommandRegistry;
         std::unique_ptr<Transports::ITransport> Transport;
+
+        ScopedCommand Cmd_ControlServer_SendData = ScopedCommand(CommandRegistry, {
+            .Name = "ControlServer.SendData",
+            .Description = "Sends a string as raw data via the control sever",
+            .Handler = [this](std::span<const std::string> Args)
+            {
+                auto Bytes = Args
+                    | std::views::join
+                    | std::views::transform([](char c) { return static_cast<std::byte>(c); })
+                    | std::ranges::to<std::vector<std::byte>>();
+
+                SendData(Bytes);
+            }
+        });
     };
 }
