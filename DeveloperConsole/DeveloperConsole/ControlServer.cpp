@@ -7,7 +7,7 @@ namespace DeveloperConsole
 {
     ControlServer::~ControlServer()
     {
-        CommandRegistry->UnregisterCommand("SendData");
+        CommandRegistry->UnregisterCommand("ControlServer.SendData");
     }
 
     void ControlServer::Listen()
