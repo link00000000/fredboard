@@ -2,6 +2,7 @@
 
 #include <complex>
 #include <functional>
+#include <mutex>
 #include <unordered_set>
 #include <span>
 #include <string>
@@ -29,7 +30,7 @@ namespace DeveloperConsole
         bool UnregisterCommand(std::string_view CommandName);
         void UnregisterAllCommands();
 
-        [[nodiscard]] std::vector<std::reference_wrapper<const Command>> GetAllCommands() const;
+        [[nodiscard]] std::vector<Command> GetAllCommands() const;
 
         [[nodiscard]] bool ExecuteOnHandler(std::string_view CommandName, std::span<const std::string> Args) const;
 
@@ -57,5 +58,7 @@ namespace DeveloperConsole
 
         // Commands that are registered from elsewhere
         CommandContainer RegisteredCommands;
+
+        mutable std::recursive_mutex Mutex;
     };
 }

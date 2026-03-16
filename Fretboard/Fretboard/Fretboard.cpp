@@ -35,29 +35,23 @@ namespace Fretboard
             std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
         });
 
-        std::stop_source StopSource;
+        std::shared_ptr<DeveloperConsole::CommandRegistry> Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
 
-        std::thread DeveloperConsoleThread([StopSource]() mutable
+        std::jthread DeveloperConsoleThread([Registry](const std::stop_token& StopToken)
         {
-            std::shared_ptr<DeveloperConsole::CommandRegistry> Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
-            Registry->RegisterCommand({
-                .Name = "Shutdown",
-                .Description = "Request all subsystems to shutdown and terminate the application.",
-                .Handler = [StopSource](std::span<const std::string> Args) mutable
-                {
-                    Core::Log::Debug("Fretboard::Main", "Shutdown requested via command.");
-                    StopSource.request_stop();
-                },
-            });
-
             DeveloperConsole::ControlServer DeveloperConsole(Registry, std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
-
-            std::stop_callback StopCallback(StopSource.get_token(), [&DeveloperConsole]
-            {
-                DeveloperConsole.Stop();
-            });
-
+            std::stop_callback StopCallback(StopToken, [&DeveloperConsole] { DeveloperConsole.Stop(); });
             DeveloperConsole.Listen();
+        });
+
+        Registry->RegisterCommand({
+            .Name = "Shutdown",
+            .Description = "Request all subsystems to shutdown and terminate the application.",
+            .Handler = [&DeveloperConsoleThread](std::span<const std::string> Args) mutable
+            {
+                Core::Log::Debug("Fretboard::Main", "Shutdown requested via command.");
+                DeveloperConsoleThread.request_stop();
+            },
         });
 
         DeveloperConsoleThread.join();

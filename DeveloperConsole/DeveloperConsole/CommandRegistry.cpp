@@ -22,6 +22,8 @@ namespace DeveloperConsole
 
     bool CommandRegistry::RegisterCommand(Command InCommand)
     {
+        std::lock_guard Lock(Mutex);
+
         if (InCommand.Name.contains(' '))
         {
             Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command name cannot contain spaces.", InCommand.Name);
@@ -45,6 +47,8 @@ namespace DeveloperConsole
 
     bool CommandRegistry::UnregisterCommand(const std::string_view CommandName)
     {
+        std::lock_guard Lock(Mutex);
+
         if (IntrinsicCommands.Contains(CommandName))
         {
             Core::Log::Warning("DeveloperConsole::CommandRegistry", "Attempted to remove intrinsic command {} from the registry.", CommandName);
@@ -62,12 +66,16 @@ namespace DeveloperConsole
 
     void CommandRegistry::UnregisterAllCommands()
     {
+        std::lock_guard Lock(Mutex);
+
         RegisteredCommands.Clear();
     }
 
-    std::vector<std::reference_wrapper<const Command>> CommandRegistry::GetAllCommands() const
+    std::vector<Command> CommandRegistry::GetAllCommands() const
     {
-        std::vector<std::reference_wrapper<const Command>> Commands;
+        std::lock_guard Lock(Mutex);
+
+        std::vector<Command> Commands;
 
         for (const auto& Command : IntrinsicCommands | std::views::values)
         {
@@ -84,6 +92,8 @@ namespace DeveloperConsole
 
     bool CommandRegistry::ExecuteOnHandler(const std::string_view CommandName, const std::span<const std::string> Args) const
     {
+        std::lock_guard Lock(Mutex);
+
         if (const Command* Command = IntrinsicCommands.Find(CommandName))
         {
             Command->Handler(Args);
