@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include "Core/Log.h"
-#include "DeveloperConsole/CommandRegistry.h"
+#include "DeveloperConsole/Command.h"
 
 #include "DeveloperConsole/ControlServer.h"
 #include "DeveloperConsole/Transports/NamedPipeTransport.h"
@@ -35,24 +35,22 @@ namespace Fretboard
             std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
         });
 
-        std::shared_ptr<DeveloperConsole::CommandRegistry> Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
+        std::stop_source StopSource;
 
-        std::jthread DeveloperConsoleThread([Registry](const std::stop_token& StopToken)
+        DeveloperConsole::RegisterCommand("Shutdown", "Request all subsystems to shutdown and terminate the application.", [StopSource](std::span<const std::string> Args) mutable
         {
-            DeveloperConsole::ControlServer DeveloperConsole(Registry, std::in_place_type<DeveloperConsole::Transports::NamedPipeTransport>, R"(\\.\pipe\MyDevConsole)");
-            std::stop_callback StopCallback(StopToken, [&DeveloperConsole] { DeveloperConsole.Stop(); });
-            DeveloperConsole.Listen();
+            StopSource.request_stop();
         });
 
-        Registry->RegisterCommand({
-            .Name = "Shutdown",
-            .Description = "Request all subsystems to shutdown and terminate the application.",
-            .Handler = [&DeveloperConsoleThread](std::span<const std::string> Args) mutable
-            {
-                Core::Log::Debug("Fretboard::Main", "Shutdown requested via command.");
-                DeveloperConsoleThread.request_stop();
-            },
-        });
+        std::thread DeveloperConsoleThread([](const std::stop_token& StopToken)
+        {
+            auto Transport = std::make_unique<DeveloperConsole::Transports::NamedPipeTransport>(R"(\\.\pipe\MyDevConsole)");
+            DeveloperConsole::ControlServer DeveloperConsole(std::move(Transport));
+
+            std::stop_callback StopCallback(StopToken, [&DeveloperConsole] { DeveloperConsole.Stop(); });
+
+            DeveloperConsole.Listen();
+        }, StopSource.get_token());
 
         DeveloperConsoleThread.join();
 

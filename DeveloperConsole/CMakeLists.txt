@@ -2,7 +2,7 @@
 add_library(DeveloperConsole
     STATIC
         DeveloperConsole/ControlServer.cpp
-        DeveloperConsole/CommandRegistry.cpp
+        DeveloperConsole/Command.cpp
         DeveloperConsole/Transports/NamedPipeTransport.cpp
 )
 
@@ -24,7 +24,7 @@ target_link_libraries(DeveloperConsole
 find_package(Catch2 3 REQUIRED)
 
 add_executable(DeveloperConsoleTests
-        DeveloperConsole/CommandRegistry_Test.cpp
+        DeveloperConsole/Command_Test.cpp
         DeveloperConsole/ControlServer_Test.cpp
 )
 

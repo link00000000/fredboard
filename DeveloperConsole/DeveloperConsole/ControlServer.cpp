@@ -1,10 +1,41 @@
 #include "DeveloperConsole/ControlServer.h"
 
+#include <ranges>
+
+#include "Command.h"
 #include "Core/Log.h"
 #include "Transports/NamedPipeTransport.h"
 
+namespace
+{
+    constexpr auto g_HelpCommandName = "Help";
+    constexpr auto g_SendDataCommandName = "ControlServer.SendData";
+}
+
 namespace DeveloperConsole
 {
+    ControlServer::ControlServer(std::unique_ptr<Transports::ITransport> InTransport)
+        : Transport(std::move(InTransport))
+    {
+        RegisterCommand(g_HelpCommandName, "List available commands", this, &ControlServer::Cmd_Help);
+        RegisterCommand(g_SendDataCommandName, "Sends a string as raw data", this, &ControlServer::Cmd_SendData);
+
+        // TODO: Add support for instanced method func binding: Add(this, &MyClass::OnMyEventHandler);
+        OnClientConnectedDelegateHandle = Transport->OnClientConnectedEvent().Add([this] { OnClientConnected(); });
+        OnClientDisconnectedDelegateHandle = Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
+        OnDataReceivedDelegateHandle = Transport->OnDataReceivedEvent().Add([this] (const std::span<std::byte> Data){ OnDataReceived(Data); });
+    }
+
+    ControlServer::~ControlServer()
+    {
+        UnregisterCommand(g_HelpCommandName);
+        UnregisterCommand(g_SendDataCommandName);
+
+        Transport->OnClientConnectedEvent().Remove(OnClientConnectedDelegateHandle);
+        Transport->OnClientDisconnectedEvent().Remove(OnClientDisconnectedDelegateHandle);
+        Transport->OnDataReceivedEvent().Remove(OnDataReceivedDelegateHandle);
+    }
+
     void ControlServer::Listen()
     {
         Transport->Listen();
@@ -81,19 +112,21 @@ namespace DeveloperConsole
             return;
         }
 
-        const std::string_view Command = Tokens.front();
+        const std::string_view CommandName = Tokens.front();
+
         std::vector<std::string> Args(
             std::make_move_iterator(Tokens.begin() + 1),
             std::make_move_iterator(Tokens.end())
         );
 
-        if (CommandRegistry->ExecuteOnHandler(Command, Args))
+        if (const auto Definition = FindRegisteredCommandDefinition(CommandName))
         {
-            Core::Log::Debug("ControlServer", "Successfully executed command {}", Command);
+            Definition->Handler(Args);
+            Core::Log::Debug("ControlServer", "Successfully executed command {}", CommandName);
         }
         else
         {
-            Core::Log::Error("ControlServer", "Failed to execute unknown command {}", Command);
+            Core::Log::Error("ControlServer", "Failed to execute unknown command {}", CommandName);
         }
     }
 
@@ -101,5 +134,28 @@ namespace DeveloperConsole
     {
         Core::Log::Debug("ControlServer", "Sending {} bytes of data.", Data.size());
         return Transport->SendData(Data);
+    }
+
+    void ControlServer::Cmd_Help(std::span<const std::string> Args)
+    {
+        std::string CommandsList = GetAllRegisteredCommandDefinitions()
+            | std::views::transform([](const CommandDefinition& InCommand)
+            {
+                return std::format("{}: {}", InCommand.Name, InCommand.Description);
+            })
+            | std::views::join_with('\n')
+            | std::ranges::to<std::string>();
+
+        Core::Log::Info("DeveloperConsole::CommandRegistry", "Registered commands:\n{}", CommandsList);
+    }
+
+    void ControlServer::Cmd_SendData(std::span<const std::string> Args)
+    {
+        auto Bytes = Args
+            | std::views::join
+            | std::views::transform([](char c) { return static_cast<std::byte>(c); })
+            | std::ranges::to<std::vector<std::byte>>();
+
+        SendData(Bytes);
     }
 }

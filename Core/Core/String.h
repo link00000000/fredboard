@@ -2,10 +2,9 @@
 
 #include <string_view>
 
-namespace Core::StringUtils
+namespace Core::String
 {
     // TODO: Write test
-    // TODO: Remove?
     std::string ToLower(std::string_view InStr);
 }
 

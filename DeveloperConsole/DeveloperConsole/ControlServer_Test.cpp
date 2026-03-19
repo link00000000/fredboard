@@ -1,5 +1,4 @@
 #include "ControlServer.h"
-#include "CommandRegistry.h"
 
 #include <mutex>
 #include <semaphore>
@@ -24,7 +23,7 @@ public:
     Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Listen() override { return ListenHandler(); }
     Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Stop() override { return StopHandler(); }
 
-    bool SendData(std::span<std::byte> Data) override { return SendDataHandler(Data); }
+    bool SendData(const std::span<std::byte> Data) override { return SendDataHandler(Data); }
 
 private:
     std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> ListenHandler;
@@ -53,8 +52,9 @@ TEST_CASE("DeveloperConsole/ControlServer/Start and stop a server", "[developerc
         return true;
     };
 
-    auto Registry = DeveloperConsole::CommandRegistry::GetGlobalRegistry();
-    DeveloperConsole::ControlServer Server(Registry, std::in_place_type<MockTransport>, TransportListenHandler, TransportStopHandler, TransportDataReceivedHandler);
+
+    auto Transport = std::make_unique<MockTransport>(TransportListenHandler, TransportStopHandler, TransportDataReceivedHandler);
+    DeveloperConsole::ControlServer Server(std::move(Transport));
 
     std::thread ServerThread([&Server] { Server.Listen(); });
     Server.Stop();

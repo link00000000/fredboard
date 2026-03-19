@@ -1,9 +1,5 @@
 #pragma once
 
-#include <ranges>
-#include <utility>
-
-#include "CommandRegistry.h"
 #include "Core/Error.h"
 #include "Transports/ITransport.h"
 
@@ -16,46 +12,28 @@ namespace DeveloperConsole
         class NamedPipeTransport;
     }
 
-    class ControlServer
+    class ControlServer final
     {
     public:
-        template<typename TTransport, typename... TTransportArgs>
-        explicit ControlServer(std::shared_ptr<CommandRegistry> InCommandRegistry, std::in_place_type_t<TTransport>, TTransportArgs&&... args)
-            : CommandRegistry(std::move(InCommandRegistry))
-            , Transport(std::make_unique<TTransport>(std::forward<TTransportArgs>(args)...))
-        {
-            Transport->OnClientConnectedEvent().Add([this] { OnClientConnected(); });
-            Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
-            Transport->OnDataReceivedEvent().Add([this] (const std::span<std::byte> Data){ OnDataReceived(Data); });
-        }
-
-        virtual ~ControlServer() = default;
+        explicit ControlServer(std::unique_ptr<Transports::ITransport> InTransport);
+        ~ControlServer();
 
         void Listen();
         void Stop();
 
-    protected:
-        virtual void OnClientConnected();
-        virtual void OnClientDisconnected();
-        virtual void OnDataReceived(std::span<std::byte> Data);
+    private:
+        void OnClientConnected();
+        void OnClientDisconnected();
+        void OnDataReceived(std::span<std::byte> Data);
         bool SendData(std::span<std::byte> Data);
 
-    private:
-        std::shared_ptr<CommandRegistry> CommandRegistry;
+        void Cmd_Help(std::span<const std::string> Args);
+        void Cmd_SendData(std::span<const std::string> Args);
+
         std::unique_ptr<Transports::ITransport> Transport;
 
-        ScopedCommand Cmd_ControlServer_SendData = ScopedCommand(CommandRegistry, {
-            .Name = "ControlServer.SendData",
-            .Description = "Sends a string as raw data via the control sever",
-            .Handler = [this](std::span<const std::string> Args)
-            {
-                auto Bytes = Args
-                    | std::views::join
-                    | std::views::transform([](char c) { return static_cast<std::byte>(c); })
-                    | std::ranges::to<std::vector<std::byte>>();
-
-                SendData(Bytes);
-            }
-        });
+        Core::DelegateHandle OnClientConnectedDelegateHandle;
+        Core::DelegateHandle OnClientDisconnectedDelegateHandle;
+        Core::DelegateHandle OnDataReceivedDelegateHandle;
     };
 }

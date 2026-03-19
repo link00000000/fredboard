@@ -3,7 +3,7 @@
 #include <ranges>
 #include <locale>
 
-namespace Core::StringUtils
+namespace Core::String
 {
     std::string ToLower(std::string_view InStr)
     {

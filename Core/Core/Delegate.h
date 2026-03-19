@@ -12,6 +12,8 @@ namespace Core
         friend struct DelegateHandleGenerator;
         friend struct std::hash<DelegateHandle>;
 
+        DelegateHandle();
+
         bool operator==(const DelegateHandle& Other) const;
 
         static DelegateHandle Invalid;
@@ -35,6 +37,7 @@ namespace Core
     {
         using TCallback = std::function<void(TArgs...)>;
 
+        // TODO: Support passing arbitrary additional args to be forwarded to the handler
         DelegateHandle Add(TCallback InHandler)
         {
             DelegateHandle Handle = HandleGenerator.GenerateNextHandle();
@@ -42,6 +45,8 @@ namespace Core
             return Handle;
         }
 
+        // TODO: Invalidate handle on removal
+        // TODO: Support unbinding from the delegate handle: MyDelegateHandle.Unbind();
         void Remove(DelegateHandle InHandle)
         {
             Handlers.erase(InHandle);
