@@ -5,7 +5,6 @@
 #include <mutex>
 
 #include "ITransport.h"
-#include "Core/Error.h"
 
 #include <windows.h>
 
@@ -23,8 +22,8 @@ namespace DeveloperConsole::Transports
 
         ~NamedPipeTransport();
 
-        Core::Result<nullptr_t, TransportError> Listen() override;
-        Core::Result<nullptr_t, TransportError> Stop() override;
+        void Listen() override;
+        void Stop() override;
 
         bool SendData(std::span<std::byte> Data) override;
 

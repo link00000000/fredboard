@@ -10,8 +10,8 @@ class MockTransport final : public DeveloperConsole::Transports::ITransport
 {
 public:
     explicit MockTransport(
-          std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> ListenHandler
-        , std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> StopHandler
+          std::function<void()> ListenHandler
+        , std::function<void()> StopHandler
         , std::function<bool(std::span<std::byte>)> SendDataHandler
     )
         : ListenHandler(std::move(ListenHandler))
@@ -20,14 +20,14 @@ public:
     {
     }
 
-    Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Listen() override { return ListenHandler(); }
-    Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError> Stop() override { return StopHandler(); }
+    void Listen() override { return ListenHandler(); }
+    void Stop() override { return StopHandler(); }
 
     bool SendData(const std::span<std::byte> Data) override { return SendDataHandler(Data); }
 
 private:
-    std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> ListenHandler;
-    std::function<Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>()> StopHandler;
+    std::function<void()> ListenHandler;
+    std::function<void()> StopHandler;
     std::function<bool(std::span<std::byte>)> SendDataHandler;
 };
 
@@ -35,23 +35,20 @@ TEST_CASE("DeveloperConsole/ControlServer/Start and stop a server", "[developerc
 {
     std::binary_semaphore TransportListenSem(0);
 
-    auto TransportListenHandler = [&]() -> Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>
+    auto TransportListenHandler = [&]
     {
         TransportListenSem.acquire();
-        return nullptr;
     };
 
-    auto TransportStopHandler = [&]() -> Core::Result<nullptr_t, DeveloperConsole::Transports::TransportError>
+    auto TransportStopHandler = [&]
     {
         TransportListenSem.release();
-        return nullptr;
     };
 
-    auto TransportDataReceivedHandler = [&](const std::span<std::byte> Data) -> bool
+    auto TransportDataReceivedHandler = [&](const std::span<std::byte> Data)
     {
         return true;
     };
-
 
     auto Transport = std::make_unique<MockTransport>(TransportListenHandler, TransportStopHandler, TransportDataReceivedHandler);
     DeveloperConsole::ControlServer Server(std::move(Transport));

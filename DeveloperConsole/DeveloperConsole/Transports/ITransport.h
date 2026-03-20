@@ -3,19 +3,16 @@
 #include <span>
 
 #include "Core/Delegate.h"
-#include "Core/Error.h"
 
 namespace DeveloperConsole::Transports
 {
-    DECLARE_ERROR(Transport, FailedToStart);
-
     class ITransport
     {
     public:
         virtual ~ITransport() = default;
 
-        virtual Core::Result<nullptr_t, TransportError> Listen() = 0;
-        virtual Core::Result<nullptr_t, TransportError> Stop() = 0;
+        virtual void Listen() = 0;
+        virtual void Stop() = 0;
 
         virtual bool SendData(std::span<std::byte> Data) = 0;
 

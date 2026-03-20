@@ -33,7 +33,7 @@ namespace DeveloperConsole::Transports
         }
     }
 
-    Core::Result<nullptr_t, TransportError> NamedPipeTransport::Listen()
+    void NamedPipeTransport::Listen()
     {
         // Allow Listen() to be re-entered after a previous Stop().
         m_running.store(true);
@@ -105,18 +105,14 @@ namespace DeveloperConsole::Transports
         }
 
         m_running.store(false);
-
-        return nullptr;
     }
 
-    Core::Result<nullptr_t, TransportError> NamedPipeTransport::Stop()
+    void NamedPipeTransport::Stop()
     {
         Core::Log::Debug("DeveloperConsole::NamedPipeTransport", "Stop requested");
 
         m_running.store(false);
         SetEvent(m_hStopEvent); // unblocks both WaitForClient() and ServiceClient()
-
-        return nullptr;
     }
 
     bool NamedPipeTransport::SendData(const std::span<std::byte> Data)

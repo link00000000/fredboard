@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Error.h"
 #include "Transports/ITransport.h"
 
 namespace DeveloperConsole
