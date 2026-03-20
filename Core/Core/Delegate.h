@@ -37,22 +37,30 @@ namespace Core
     {
         using TCallback = std::function<void(TArgs...)>;
 
+        virtual ~Delegate() = default;
+
         // TODO: Support passing arbitrary additional args to be forwarded to the handler
-        DelegateHandle Add(TCallback InHandler)
+        virtual DelegateHandle Add(TCallback InHandler)
         {
             DelegateHandle Handle = HandleGenerator.GenerateNextHandle();
             Handlers[Handle] = InHandler;
             return Handle;
         }
 
+        template <typename T>
+        DelegateHandle Add(T* Instance, void (T::*MemberFunc)(TArgs... Args))
+        {
+            return Add([Instance, MemberFunc](TArgs... Args){ (Instance->*MemberFunc)(std::forward<TArgs>(Args)...); });
+        }
+
         // TODO: Invalidate handle on removal
         // TODO: Support unbinding from the delegate handle: MyDelegateHandle.Unbind();
-        void Remove(DelegateHandle InHandle)
+        virtual void Remove(DelegateHandle InHandle)
         {
             Handlers.erase(InHandle);
         }
 
-        void Broadcast(TArgs... Args) const
+        virtual void Broadcast(TArgs... Args) const
         {
             for (auto [_, Callback] : Handlers)
             {
@@ -69,24 +77,26 @@ namespace Core
      * Thread-safe version of Core::Delegate
      */
     template <typename... TArgs>
-    struct TSDelegate : private Delegate<TArgs...>
+    struct TSDelegate : public Delegate<TArgs...>
     {
         using Super = Delegate<TArgs...>;
         using TCallback = Super::TCallback;
 
-        DelegateHandle Add(TCallback InHandler)
+        using Delegate<TArgs...>::Add;
+
+        virtual DelegateHandle Add(TCallback InHandler) override
         {
             std::lock_guard Lock(Mutex);
             return Super::Add(InHandler);
         }
 
-        void Remove(DelegateHandle Handle)
+        virtual void Remove(DelegateHandle Handle) override
         {
             std::lock_guard Lock(Mutex);
             Super::Remove(Handle);
         }
 
-        void Broadcast(TArgs... Args) const
+        virtual void Broadcast(TArgs... Args) const override
         {
             std::lock_guard Lock(Mutex);
             Super::Broadcast(Args...);

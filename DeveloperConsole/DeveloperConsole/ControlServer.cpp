@@ -20,7 +20,7 @@ namespace DeveloperConsole
         RegisterCommand(g_HelpCommandName, "List available commands", this, &ControlServer::Cmd_Help);
         RegisterCommand(g_SendDataCommandName, "Sends a string as raw data", this, &ControlServer::Cmd_SendData);
 
-        // TODO: Add support for instanced method func binding: Add(this, &MyClass::OnMyEventHandler);
+        OnClientConnectedDelegateHandle = Transport->OnClientConnectedEvent().Add(this, &ControlServer::OnClientConnected);
         OnClientConnectedDelegateHandle = Transport->OnClientConnectedEvent().Add([this] { OnClientConnected(); });
         OnClientDisconnectedDelegateHandle = Transport->OnClientDisconnectedEvent().Add([this] { OnClientDisconnected(); });
         OnDataReceivedDelegateHandle = Transport->OnDataReceivedEvent().Add([this] (const std::span<std::byte> Data){ OnDataReceived(Data); });
