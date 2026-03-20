@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "Transports/ITransport.h"
 
 namespace DeveloperConsole
