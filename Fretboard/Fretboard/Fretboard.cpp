@@ -1,6 +1,8 @@
 #include "Fretboard.h"
 
 #include <iostream>
+#include <stop_token>
+#include <thread>
 
 #include "Core/Log.h"
 #include "DeveloperConsole/Command.h"
