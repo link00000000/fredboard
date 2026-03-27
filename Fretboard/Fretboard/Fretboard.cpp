@@ -1,12 +1,15 @@
 #include "Fretboard.h"
 
 #include <iostream>
+#include <stop_token>
+#include <thread>
 
 #include "Core/Log.h"
 #include "DeveloperConsole/Command.h"
 
 #include "DeveloperConsole/ControlServer.h"
 #include "DeveloperConsole/Transports/NamedPipeTransport.h"
+#include <DeveloperConsole/Transports/NullTransport.h>
 
 namespace Fretboard
 {
@@ -44,7 +47,11 @@ namespace Fretboard
 
         std::thread DeveloperConsoleThread([](const std::stop_token& StopToken)
         {
+#if PLATFORM_WINDOWS
             auto Transport = std::make_unique<DeveloperConsole::Transports::NamedPipeTransport>(R"(\\.\pipe\MyDevConsole)");
+#else
+            auto Transport = std::make_unique<DeveloperConsole::Transports::NullTransport>();
+#endif
             DeveloperConsole::ControlServer DeveloperConsole(std::move(Transport));
 
             std::stop_callback StopCallback(StopToken, [&DeveloperConsole] { DeveloperConsole.Stop(); });
