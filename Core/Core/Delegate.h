@@ -24,6 +24,8 @@ namespace Core
         int64_t Value;
     };
 
+    // TODO: Make UniqueDelegateHandle that releases with RAII
+
     struct DelegateHandleGenerator
     {
         DelegateHandle GenerateNextHandle();
