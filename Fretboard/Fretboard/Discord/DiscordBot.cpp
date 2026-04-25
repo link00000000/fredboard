@@ -5,7 +5,6 @@
 #include <dpp/dpp.h>
 
 #include "Core/Log.h"
-#include "DeveloperConsole/Command.h"
 
 namespace Fretboard
 {
@@ -27,18 +26,24 @@ namespace Fretboard
 
     void DiscordBot::Stop()
     {
+        if (Bot)
+        {
+            Bot->shutdown();
+        }
     }
 
     void DiscordBot::OnReady(const dpp::ready_t& Event)
     {
-        assert(Bot.get());
+        assert(Bot);
 
         if (dpp::run_once<struct register_bot_commands>())
         {
             Bot->global_command_create(dpp::slashcommand("ping", "Ping pong!", Bot->me.id), [](const dpp::confirmation_callback_t& Confirmation)
             {
-                bool isError = Confirmation.is_error();
-                Core::Log::Error("Fretboard::DiscordBot", "ERROR");
+                if (Confirmation.is_error())
+                {
+                    Core::Log::Error("Fretboard::DiscordBot", "Failed to register global command \"Ping\": {}", Confirmation.get_error().message);
+                }
             });
         }
     }

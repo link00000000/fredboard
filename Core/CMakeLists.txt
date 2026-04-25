@@ -2,6 +2,7 @@
 add_library(Core
     STATIC
         Core/Delegate.cpp
+        Core/Environment.cpp
         Core/Log.cpp
         Core/String.cpp
 )
@@ -34,6 +35,8 @@ else()
     )
 endif()
 
+# Make preprocessor conform to C++11 standards
+# https://learn.microsoft.com/en-us/cpp/build/reference/zc-preprocessor?view=msvc-170
 target_compile_options(Core PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>)
 
 # TODO: Warnings as errors

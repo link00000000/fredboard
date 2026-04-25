@@ -6,82 +6,70 @@
 
 #include <dpp/dpp.h>
 
+#include "DeveloperConsoleThread.h"
+#include "DiscordBotThread.h"
 #include "Core/Log.h"
-#include "DeveloperConsole/Command.h"
 
-#include "DeveloperConsole/ControlServer.h"
 #include "DeveloperConsole/Transports/NamedPipeTransport.h"
-#include <DeveloperConsole/Transports/NullTransport.h>
-
-#include "DiscordToken.h"
-#include "Discord/DiscordBot.h"
 
 namespace Fretboard
 {
+    void HandleLog(const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
+    {
+        std::string LevelName;
+
+        switch (Level)
+        {
+        case Core::Log::Level::Debug:
+            LevelName = "DEBUG";
+            break;
+        case Core::Log::Level::Info:
+            LevelName = "INFO";
+            break;
+        case Core::Log::Level::Warning:
+            LevelName = "WARNING";
+            break;
+        case Core::Log::Level::Error:
+            LevelName = "ERROR";
+            break;
+        }
+
+        std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
+    }
+
     int Main()
     {
-        Core::Log::RegisterOutputHandler([](const std::string_view Category, const Core::Log::Level Level, const std::string_view Message)
-        {
-            std::string LevelName;
-
-            switch (Level)
-            {
-            case Core::Log::Level::Debug:
-                LevelName = "DEBUG";
-                break;
-            case Core::Log::Level::Info:
-                LevelName = "INFO";
-                break;
-            case Core::Log::Level::Warning:
-                LevelName = "WARNING";
-                break;
-            case Core::Log::Level::Error:
-                LevelName = "ERROR";
-                break;
-            }
-
-            std::println(std::cerr, "[{}] {}: {}", Category, LevelName, Message);
-        });
+        Core::Log::RegisterOutputHandler(HandleLog);
 
         std::stop_source StopSource;
+        std::vector<std::unique_ptr<std::thread>> Threads;
 
-        DeveloperConsole::RegisterCommand("Shutdown", "Request all subsystems to shutdown and terminate the application.", [StopSource](std::span<const std::string> Args) mutable
+        if (std::unique_ptr<std::thread> DeveloperConsoleThread = StartDeveloperConsoleThread(StopSource.get_token(), StopSource))
+        {
+            Threads.emplace_back(std::move(DeveloperConsoleThread));
+        }
+        else
         {
             StopSource.request_stop();
-        });
+        }
 
-        std::thread DeveloperConsoleThread([](const std::stop_token& StopToken)
+        if (std::unique_ptr<std::thread> DiscordBotThread = StartDiscordBotThread(StopSource.get_token()))
         {
-            Core::Log::Debug("Fretboard::Main", "Starting DeveloperConsole thread");
-
-#if PLATFORM_WINDOWS
-            auto Transport = std::make_unique<DeveloperConsole::Transports::NamedPipeTransport>(R"(\\.\pipe\MyDevConsole)");
-#else
-            auto Transport = std::make_unique<DeveloperConsole::Transports::NullTransport>();
-#endif
-            DeveloperConsole::ControlServer DeveloperConsole(std::move(Transport));
-
-            std::stop_callback StopCallback(StopToken, [&DeveloperConsole] { DeveloperConsole.Stop(); });
-
-            DeveloperConsole.Listen();
-
-            Core::Log::Debug("Fretboard::Main", "Shutting down DeveloperConsole thread");
-        }, StopSource.get_token());
-
-        std::thread DiscordThread([](const std::stop_token& StopToken)
+            if (!StopSource.stop_requested())
+            {
+                Threads.emplace_back(std::move(DiscordBotThread));
+            }
+        }
+        else
         {
-            Core::Log::Debug("Fretboard::Main", "Starting discord thread");
+            StopSource.request_stop();
+        }
 
-            DiscordBot Bot(BOT_TOKEN);
-
-            std::stop_callback StopCallback(StopToken, [&Bot] { Bot.Stop(); });
-            Bot.Run();
-
-            Core::Log::Debug("Fretboard::Main", "Shutting down discord thread");
-        }, StopSource.get_token());
-
-        DeveloperConsoleThread.join();
-        DiscordThread.join();
+        for (const std::unique_ptr<std::thread>& Thread : Threads)
+        {
+            assert(Thread);
+            Thread->join();
+        }
 
         return 0;
     }

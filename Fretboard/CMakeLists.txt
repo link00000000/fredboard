@@ -3,8 +3,10 @@ find_package(dpp CONFIG REQUIRED)
 
 add_library(Fretboard
     STATIC
-        Fretboard/Fretboard.cpp
+        Fretboard/DeveloperConsoleThread.cpp
         Fretboard/Discord/DiscordBot.cpp
+        Fretboard/DiscordBotThread.cpp
+        Fretboard/Fretboard.cpp
 )
 
 target_include_directories(Fretboard

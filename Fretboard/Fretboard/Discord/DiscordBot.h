@@ -3,10 +3,7 @@
 #include <memory>
 #include <string>
 
-namespace dpp
-{
-    class cluster;
-}
+#include <dpp/cluster.h>
 
 namespace dpp
 {

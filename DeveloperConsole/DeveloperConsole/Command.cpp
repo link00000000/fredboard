@@ -24,7 +24,7 @@ namespace DeveloperConsole
         }
 
         CommandDefinition Definition{std::move(NormalizedName), std::move(Description), std::move(Handler)};
-        auto [_, bSuccess] = g_CommandDefinitionMap.emplace(std::make_pair(Definition.Name, std::move(Definition)));
+        auto [_, bSuccess] = g_CommandDefinitionMap.emplace(std::make_pair(Definition.Name, Definition));
         if (!bSuccess)
         {
             Core::Log::Error("DeveloperConsole::CommandRegistry", "Failed to register command {}. Command already registered.", Definition.Name);
