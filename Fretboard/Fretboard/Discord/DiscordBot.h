@@ -24,7 +24,8 @@ namespace Fretboard
 
         void OnReady(const dpp::ready_t& Event);
         void OnSlashCommand(const dpp::slashcommand_t& Event);
-        void OnLog(const dpp::log_t& Log);
+
+        void HandleSlashCommand_Ping(const dpp::slashcommand_t& Event);
 
     private:
         std::string Token;
