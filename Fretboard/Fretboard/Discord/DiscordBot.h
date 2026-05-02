@@ -17,17 +17,22 @@ namespace Fretboard
     class DiscordBot
     {
     public:
-        explicit DiscordBot(std::string InToken);
+        explicit DiscordBot(std::string InToken) noexcept;
 
-        void Run();
-        void Stop();
+        void Run() noexcept;
+        void Stop() noexcept;
 
-        void OnReady(const dpp::ready_t& Event);
-        void OnSlashCommand(const dpp::slashcommand_t& Event);
+        void OnReady(const dpp::ready_t& InEvent) noexcept;
+        void OnSlashCommand(const dpp::slashcommand_t& InEvent) noexcept;
 
-        void HandleSlashCommand_Ping(const dpp::slashcommand_t& Event);
+        bool HandleSlashCommand_Ping(const dpp::slashcommand_t& InEvent) noexcept;
+        bool HandleSlashCommand_Join(const dpp::slashcommand_t& InEvent) noexcept;
+        bool HandleSlashCommand_Leave(const dpp::slashcommand_t& InEvent) noexcept;
+        bool HandleSlashCommand_Play(const dpp::slashcommand_t& InEvent) noexcept;
 
     private:
+        void NotifyUserOfError(const dpp::slashcommand_t& InEvent, const std::string& InErrorMessage) noexcept;
+
         std::string Token;
         std::unique_ptr<dpp::cluster> Bot;
     };
